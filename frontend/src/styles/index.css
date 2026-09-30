@@ -1,0 +1,96 @@
+@import 'tailwindcss';
+
+/*
+ * Brand tokens. Defaults below are overwritten at runtime from the admin theme settings
+ * (see core/theme/theme.js). Everything else is derived, so an admin only picks 3 colours.
+ */
+:root {
+  --tb-primary: #e8590c;
+  --tb-primary-fg: #ffffff;
+  --tb-secondary: #1b2a41;
+  --tb-secondary-fg: #ffffff;
+  --tb-accent: #0f9d58;
+  --tb-accent-fg: #ffffff;
+  --tb-radius: 8px;
+
+  color-scheme: light;
+}
+
+@theme inline {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  --color-primary: var(--tb-primary);
+  --color-primary-fg: var(--tb-primary-fg);
+  --color-primary-hover: color-mix(in oklab, var(--tb-primary) 86%, black);
+  --color-primary-soft: color-mix(in oklab, var(--tb-primary) 9%, white);
+  --color-primary-muted: color-mix(in oklab, var(--tb-primary) 18%, white);
+
+  --color-secondary: var(--tb-secondary);
+  --color-secondary-fg: var(--tb-secondary-fg);
+  --color-secondary-hover: color-mix(in oklab, var(--tb-secondary) 86%, white);
+  --color-secondary-soft: color-mix(in oklab, var(--tb-secondary) 7%, white);
+  --color-secondary-muted: color-mix(in oklab, var(--tb-secondary) 70%, white);
+
+  --color-accent: var(--tb-accent);
+  --color-accent-fg: var(--tb-accent-fg);
+  --color-accent-soft: color-mix(in oklab, var(--tb-accent) 10%, white);
+
+  /* Radius scale follows the admin-selected base radius. */
+  --radius-sm: calc(var(--tb-radius) * 0.5);
+  --radius-md: var(--tb-radius);
+  --radius-lg: calc(var(--tb-radius) * 1.5);
+  --radius-xl: calc(var(--tb-radius) * 2);
+  --radius-2xl: calc(var(--tb-radius) * 3);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-slate-50 font-sans text-slate-900 antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--tb-primary);
+    outline-offset: 2px;
+  }
+
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']) {
+    cursor: pointer;
+  }
+
+  input[type='number']::-webkit-inner-spin-button,
+  input[type='number']::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type='number'] {
+    -moz-appearance: textfield;
+  }
+}
+
+@layer utilities {
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
