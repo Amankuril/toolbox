@@ -1,4 +1,6 @@
-export const CARD_FIELDS = 'name slug type brand condition images pricing inventory isFeatured vendor';
+import { bulkSummary, quoteThreshold } from './pricing.js';
+
+export const CARD_FIELDS = 'name slug type brand modelNumber condition images pricing inventory isFeatured vendor bulkPricing specifications shipping';
 
 const discount = (mrp, price) => (mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 0);
 
@@ -17,8 +19,15 @@ export function serializeProductCard(p) {
     mrp: p.pricing.mrp,
     discountPercent: discount(p.pricing.mrp, p.pricing.price),
     inStock: (p.inventory?.stock ?? 0) > 0,
+    stock: p.inventory?.stock ?? 0,
     moq: p.inventory?.moq ?? 1,
+    maxOrderQty: p.inventory?.maxOrderQty ?? null,
     unit: p.inventory?.unit ?? 'piece',
+    modelNumber: p.modelNumber ?? null,
+    // First specs double as the "key facts" line on cards.
+    highlights: (p.specifications ?? []).slice(0, 3).map(({ label, value }) => ({ label, value })),
+    dispatchDays: p.shipping?.dispatchDays ?? null,
+    bulk: bulkSummary(p),
     isFeatured: Boolean(p.isFeatured),
   };
 }
@@ -43,6 +52,8 @@ export function serializeProduct(p) {
     pricing: { ...p.pricing, discountPercent: discount(p.pricing.mrp, p.pricing.price) },
     hsnCode: p.hsnCode ?? null,
     inventory: p.inventory,
+    bulkPricing: { tiers: p.bulkPricing?.tiers ?? [], businessOnly: Boolean(p.bulkPricing?.businessOnly) },
+    quotes: { enabled: p.quotes?.enabled ?? true, minQty: p.quotes?.minQty ?? null, threshold: quoteThreshold(p) },
     specifications: p.specifications ?? [],
     condition: p.condition,
     warranty: p.warranty ?? null,

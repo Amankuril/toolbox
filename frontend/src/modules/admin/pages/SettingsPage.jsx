@@ -41,7 +41,7 @@ export default function SettingsPage() {
         <Tabs
           tabs={[
             { value: 'appearance', label: 'Appearance', icon: Palette, content: <AppearanceSettings theme={data.theme} /> },
-            { value: 'branding', label: 'Branding', icon: Store, content: <BrandingSettings branding={data.branding} /> },
+            { value: 'branding', label: 'Branding', icon: Store, content: <BrandingSettings branding={data.branding} theme={data.theme} /> },
             { value: 'storage', label: 'Storage', icon: HardDrive, content: <StorageSettings storage={data.storage} integrations={data.integrations} /> },
             { value: 'payments', label: 'Payments', icon: CreditCard, content: <PaymentSettings payments={data.payments} integrations={data.integrations} /> },
             { value: 'shipping', label: 'Shipping', icon: Truck, content: <ShippingSettings shipping={data.shipping} /> },
@@ -205,7 +205,7 @@ function ThemePreview({ theme, module }) {
                 <p className="text-sm font-semibold text-slate-900">Bosch GSB 550 Impact Drill</p>
                 <p className="mt-1 text-lg font-bold text-slate-900">
                   ₹3,499 <span className="text-sm font-normal text-slate-400 line-through">₹4,500</span>{' '}
-                  <span className="text-sm font-semibold text-accent">22% off</span>
+                  <span className="text-sm font-semibold text-accent-ink">22% off</span>
                 </p>
               </div>
               <span className="rounded-full bg-primary-soft px-2 py-0.5 text-xs font-medium text-primary">New</span>
@@ -232,57 +232,138 @@ function ThemePreview({ theme, module }) {
 
 /* ───────────────────────── Branding ───────────────────────── */
 
-function BrandingSettings({ branding }) {
-  const [v, setV] = useState({ ...branding, logo: branding.logo ? [branding.logo] : [], favicon: branding.favicon ? [branding.favicon] : [] })
+const BRAND_MODULES = [
+  { value: 'user', label: 'Storefront', hint: 'Header and footer of the shop' },
+  { value: 'vendor', label: 'Seller panel', hint: 'Sidebar and sign-in pages for vendors' },
+  { value: 'admin', label: 'Admin panel', hint: 'Sidebar and sign-in page for your team' },
+]
+
+const asList = (img) => (img ? [img] : [])
+const asRef = (list) => (list[0] ? { media: list[0].media } : null)
+
+function BrandingSettings({ branding, theme }) {
+  const [v, setV] = useState(() => ({
+    siteName: branding.siteName,
+    tagline: branding.tagline,
+    supportEmail: branding.supportEmail,
+    supportPhone: branding.supportPhone,
+    modules: Object.fromEntries(
+      BRAND_MODULES.map((m) => [m.value, { logo: asList(branding.modules?.[m.value]?.logo), favicon: asList(branding.modules?.[m.value]?.favicon) }]),
+    ),
+  }))
   const save = useSaveSettings('branding', 'Branding saved')
+  const setModule = (module, patch) => setV((cur) => ({ ...cur, modules: { ...cur.modules, [module]: { ...cur.modules[module], ...patch } } }))
+
   return (
-    <Card className="max-w-3xl">
-      <CardHeader title="Branding" description="Name, logo and support contacts shown across all modules." />
-      <CardBody className="grid gap-5 sm:grid-cols-2">
-        <Field label="Marketplace name" required>
-          {(p) => <Input {...p} value={v.siteName} maxLength={60} onChange={(e) => setV({ ...v, siteName: e.target.value })} />}
-        </Field>
-        <Field label="Tagline">{(p) => <Input {...p} value={v.tagline} maxLength={160} onChange={(e) => setV({ ...v, tagline: e.target.value })} />}</Field>
-        <Field label="Support email">
-          {(p) => <Input {...p} type="email" value={v.supportEmail} onChange={(e) => setV({ ...v, supportEmail: e.target.value })} />}
-        </Field>
-        <Field label="Support phone">
-          {(p) => <Input {...p} value={v.supportPhone} maxLength={20} onChange={(e) => setV({ ...v, supportPhone: e.target.value })} />}
-        </Field>
-        <div>
-          <p className="mb-1.5 text-sm font-medium text-slate-800">Logo</p>
-          <ImageUploader
-            audience="admin"
-            folder="branding"
-            max={1}
-            aspect="aspect-[3/1]"
-            value={v.logo}
-            onChange={(logo) => setV({ ...v, logo })}
-            compact
-            label="Upload logo"
-          />
-          <p className="mt-1.5 text-xs text-slate-500">Wide logo, transparent background works best. Replaces the text mark.</p>
+    <div className="flex max-w-5xl flex-col gap-6">
+      <Card>
+        <CardHeader title="Marketplace" description="Name and contacts shared by every module." />
+        <CardBody className="grid gap-5 sm:grid-cols-2">
+          <Field label="Marketplace name" required>
+            {(p) => <Input {...p} value={v.siteName} maxLength={60} onChange={(e) => setV({ ...v, siteName: e.target.value })} />}
+          </Field>
+          <Field label="Tagline">{(p) => <Input {...p} value={v.tagline} maxLength={160} onChange={(e) => setV({ ...v, tagline: e.target.value })} />}</Field>
+          <Field label="Support email">
+            {(p) => <Input {...p} type="email" value={v.supportEmail} onChange={(e) => setV({ ...v, supportEmail: e.target.value })} />}
+          </Field>
+          <Field label="Support phone">
+            {(p) => <Input {...p} value={v.supportPhone} maxLength={20} onChange={(e) => setV({ ...v, supportPhone: e.target.value })} />}
+          </Field>
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader
+          title="Logos & browser icons"
+          description="Each module can have its own logo and tab icon. Design each logo for the background in its preview. Empty slots use the name with the default mark."
+        />
+        <div className="grid divide-y divide-slate-100 lg:grid-cols-3 lg:divide-x lg:divide-y-0">
+          {BRAND_MODULES.map((m) => {
+            const brand = v.modules[m.value]
+            const colors = theme?.[m.value]
+            return (
+              <div key={m.value} className="flex flex-col gap-4 p-5">
+                <div>
+                  <p className="font-semibold text-slate-900">{m.label}</p>
+                  <p className="text-xs text-slate-500">{m.hint}</p>
+                </div>
+                <div>
+                  <p className="mb-1.5 text-sm font-medium text-slate-800">Logo</p>
+                  <ImageUploader
+                    audience="admin"
+                    folder="branding"
+                    max={1}
+                    aspect="aspect-[3/1]"
+                    gridClassName="grid-cols-1"
+                    value={brand.logo}
+                    onChange={(logo) => setModule(m.value, { logo })}
+                    compact
+                    label="Upload logo"
+                  />
+                </div>
+                <div>
+                  <p className="mb-1.5 text-sm font-medium text-slate-800">Browser tab icon</p>
+                  <div className="w-24">
+                    <ImageUploader
+                      audience="admin"
+                      folder="favicons"
+                      max={1}
+                      gridClassName="grid-cols-1"
+                      value={brand.favicon}
+                      onChange={(favicon) => setModule(m.value, { favicon })}
+                      compact
+                      label="Upload"
+                    />
+                  </div>
+                  <p className="mt-1.5 text-xs text-slate-500">Square image; it's fitted to 256×256.</p>
+                </div>
+
+                {/* Preview: how the logo sits on this module's header colour, and the tab icon. */}
+                <div className="mt-auto overflow-hidden rounded-lg border border-slate-200">
+                  <div className="flex items-center gap-2 border-b border-slate-200 bg-slate-100 px-2 py-1.5">
+                    <span className="flex max-w-full items-center gap-1.5 rounded-t-md bg-white px-2 py-1 text-[11px] text-slate-700 shadow-xs">
+                      {brand.favicon[0] ? (
+                        <img src={brand.favicon[0].url} alt="" className="size-3.5" />
+                      ) : (
+                        <img src="/favicon.svg" alt="" className="size-3.5" />
+                      )}
+                      <span className="truncate">{v.siteName || 'Toolbox'}</span>
+                    </span>
+                  </div>
+                  <div className="flex h-14 items-center px-4" style={{ background: m.value === 'user' ? '#ffffff' : (colors?.secondary ?? '#111827') }}>
+                    {brand.logo[0] ? (
+                      <img src={brand.logo[0].url} alt="" className="h-8 w-auto max-w-40 object-contain" />
+                    ) : (
+                      <span className="text-sm font-bold" style={{ color: m.value === 'user' ? '#0f172a' : '#ffffff' }}>
+                        {v.siteName || 'Toolbox'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
         </div>
-        <div className="sm:col-span-2 flex justify-end border-t border-slate-100 pt-5">
-          <Button
-            loading={save.isPending}
-            disabled={!v.siteName.trim()}
-            onClick={() =>
-              save.mutate({
-                siteName: v.siteName.trim(),
-                tagline: v.tagline,
-                supportEmail: v.supportEmail.trim(),
-                supportPhone: v.supportPhone.trim(),
-                logo: v.logo[0] ? { media: v.logo[0].media } : null,
-                favicon: v.favicon[0] ? { media: v.favicon[0].media } : null,
-              })
-            }
-          >
-            Save branding
-          </Button>
-        </div>
-      </CardBody>
-    </Card>
+      </Card>
+
+      <div className="flex justify-end">
+        <Button
+          loading={save.isPending}
+          disabled={!v.siteName.trim()}
+          onClick={() =>
+            save.mutate({
+              siteName: v.siteName.trim(),
+              tagline: v.tagline,
+              supportEmail: v.supportEmail.trim(),
+              supportPhone: v.supportPhone.trim(),
+              modules: Object.fromEntries(Object.entries(v.modules).map(([module, b]) => [module, { logo: asRef(b.logo), favicon: asRef(b.favicon) }])),
+            })
+          }
+        >
+          Save branding
+        </Button>
+      </div>
+    </div>
   )
 }
 

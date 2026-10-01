@@ -1,6 +1,9 @@
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { Star, X } from 'lucide-react'
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Check, ExternalLink, Eye, EyeOff, Layers, MessageSquareWarning, Star, X } from 'lucide-react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router'
+import { toast } from 'sonner'
+import { errorMessage } from '@/core/api/errors'
 import { useSearchParamsState } from '@/core/hooks/useSearchParamsState'
 import { PRODUCT_TYPE_LABEL, PRODUCT_TYPES } from '@/core/lib/constants'
 import { formatINR, formatNumber } from '@/core/lib/format'
@@ -12,6 +15,7 @@ import { FilterTabs } from '@/ui/Controls'
 import { DataTable, Pagination } from '@/ui/DataTable'
 import { Select } from '@/ui/Field'
 import { PageHeader } from '@/ui/PageHeader'
+import { ActionDialog, RowActions } from '@/ui/RowActions'
 import { SearchField } from '@/ui/SearchField'
 import { adminApi, adminKeys } from '../api'
 
@@ -27,7 +31,9 @@ const TABS = [
 
 export default function ProductsPage() {
   const navigate = useNavigate()
+  const qc = useQueryClient()
   const [filters, setFilters] = useSearchParamsState()
+  const [action, setAction] = useState(null)
   const params = {
     page: Number(filters.page ?? 1),
     limit: 20,
@@ -39,6 +45,20 @@ export default function ProductsPage() {
   }
   const { data, isLoading } = useQuery({ queryKey: adminKeys.products(params), queryFn: () => adminApi.products(params), placeholderData: keepPreviousData })
   const vendorName = filters.vendor && data?.items?.[0]?.vendor?.store?.name
+
+  const run = (fn, message) => async (row, note) => {
+    try {
+      await fn(row, note)
+      qc.invalidateQueries({ queryKey: ['admin', 'products'] })
+      qc.invalidateQueries({ queryKey: adminKeys.product(row._id) })
+      qc.invalidateQueries({ queryKey: adminKeys.dashboard })
+      toast.success(message)
+    } catch (err) {
+      toast.error(errorMessage(err))
+      throw err
+    }
+  }
+  const quick = (row, body, message) => run(() => adminApi.updateProduct(row._id, body), message)(row).catch(() => {})
 
   return (
     <>
@@ -70,7 +90,6 @@ export default function ProductsPage() {
         <DataTable
           loading={isLoading}
           rows={data?.items}
-          onRowClick={(p) => navigate(`/admin/products/${p._id}`)}
           empty={{ title: 'No products found', description: 'Try a different filter.' }}
           columns={[
             {
@@ -84,7 +103,14 @@ export default function ProductsPage() {
                       {p.name}
                       {p.isFeatured && <Star className="size-3.5 shrink-0 fill-amber-400 text-amber-400" aria-label="Featured" />}
                     </p>
-                    <p className="truncate text-xs text-slate-500">{[p.brand, p.sku].filter(Boolean).join(' · ') || '—'}</p>
+                    <p className="flex items-center gap-1.5 truncate text-xs text-slate-500">
+                      {[p.brand, p.sku].filter(Boolean).join(' · ') || '—'}
+                      {p.bulkPricing?.tiers?.length > 0 && (
+                        <span className="inline-flex items-center gap-0.5 rounded bg-slate-100 px-1 text-[10px] font-semibold text-slate-600" title="Has bulk pricing">
+                          <Layers className="size-3" /> Bulk
+                        </span>
+                      )}
+                    </p>
                   </div>
                 </div>
               ),
@@ -100,10 +126,65 @@ export default function ProductsPage() {
               cell: (p) => <span className={`tabular ${p.inventory.stock === 0 ? 'text-red-600' : ''}`}>{formatNumber(p.inventory.stock)}</span>,
             },
             { key: 'status', header: 'Status', cell: (p) => <StatusBadge status={p.status} /> },
+            {
+              key: 'actions',
+              header: '',
+              className: 'w-px',
+              cell: (p) => (
+                <RowActions
+                  label={`Actions for ${p.name}`}
+                  items={[
+                    { label: 'View details', icon: Eye, onSelect: () => navigate(`/admin/products/${p._id}`) },
+                    p.status === 'active' && p.vendorApproved && { label: 'View on store', icon: ExternalLink, onSelect: () => window.open(`/p/${p.slug}`, '_blank', 'noopener') },
+                    ['pending', 'rejected'].includes(p.status) && 'separator',
+                    ['pending', 'rejected'].includes(p.status) && { label: 'Approve', icon: Check, onSelect: () => setAction({ type: 'approve', row: p }) },
+                    p.status === 'pending' && { label: 'Reject', icon: MessageSquareWarning, onSelect: () => setAction({ type: 'reject', row: p }) },
+                    'separator',
+                    !['archived', 'rejected'].includes(p.status) && {
+                      label: p.isFeatured ? 'Remove from featured' : 'Feature on home',
+                      icon: Star,
+                      onSelect: () => quick(p, { isFeatured: !p.isFeatured }, p.isFeatured ? 'Removed from featured' : 'Featured on home'),
+                    },
+                    p.status === 'active' && { label: 'Hide from store', icon: EyeOff, danger: true, onSelect: () => setAction({ type: 'hide', row: p }) },
+                    p.status === 'inactive' && { label: 'Show on store', icon: Eye, onSelect: () => quick(p, { status: 'active' }, 'Product is live') },
+                  ]}
+                />
+              ),
+            },
           ]}
         />
         <Pagination meta={data?.meta} onPageChange={(page) => setFilters({ page })} />
       </Card>
+
+      <ActionDialog
+        action={action}
+        onClose={() => setAction(null)}
+        configs={{
+          approve: {
+            kind: 'confirm',
+            title: (p) => `Approve “${p.name}”?`,
+            description: (p) => (p.vendorApproved ? 'It goes live on the storefront immediately.' : 'It goes live once the vendor is approved.'),
+            confirmLabel: 'Approve',
+            tone: 'primary',
+            run: run((p) => adminApi.reviewProduct(p._id, { action: 'approve' }), 'Product approved'),
+          },
+          reject: {
+            kind: 'reason',
+            title: (p) => `Reject “${p.name}”`,
+            description: 'The vendor sees this note on the product and can fix and resubmit.',
+            label: 'What should the vendor change?',
+            confirmLabel: 'Reject',
+            run: run((p, note) => adminApi.reviewProduct(p._id, { action: 'reject', note }), 'Sent back to vendor'),
+          },
+          hide: {
+            kind: 'confirm',
+            title: (p) => `Hide “${p.name}”?`,
+            description: 'Buyers can no longer find or order it. You can show it again any time.',
+            confirmLabel: 'Hide product',
+            run: run((p) => adminApi.updateProduct(p._id, { status: 'inactive' }), 'Product hidden'),
+          },
+        }}
+      />
     </>
   )
 }

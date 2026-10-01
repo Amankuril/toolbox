@@ -13,6 +13,8 @@ export const vendorKeys = {
   products: (p) => ['vendor', 'products', p],
   product: (id) => ['vendor', 'product', id],
   orders: (p) => ['vendor', 'orders', p],
+  quotes: (p) => ['vendor', 'quotes', p],
+  quote: (id) => ['vendor', 'quote', id],
   order: (id) => ['vendor', 'order', id],
 }
 
@@ -40,6 +42,11 @@ export const vendorApi = {
   setVisibility: (id, visible) => one(v.patch(`/products/${id}/visibility`, { visible })),
   archiveProduct: (id) => v.delete(`/products/${id}`),
   compatibilitySearch: (q) => one(v.get('/products/compatibility-search', { params: { q } })),
+
+  quotes: (params) => list(v.get('/quotes', { params })),
+  quote: (id) => one(v.get(`/quotes/${id}`)),
+  sendOffer: (id, body) => one(v.post(`/quotes/${id}/offer`, body)),
+  declineQuote: (id, body) => one(v.post(`/quotes/${id}/decline`, body)),
 
   orders: (params) => list(v.get('/orders', { params })),
   order: (id) => one(v.get(`/orders/${id}`)),

@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, MoreHorizontal, Pencil, Plus, Star, Trash2, X } from 'lucide-react'
+import { Check, ExternalLink, Pencil, Plus, Star, Trash2, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
@@ -12,13 +12,14 @@ import { Badge, StatusBadge } from '@/ui/Badge'
 import { Thumb } from '@/ui/Brand'
 import { Button } from '@/ui/Button'
 import { Card } from '@/ui/Card'
-import { FilterTabs, Menu, Switch } from '@/ui/Controls'
+import { FilterTabs, Switch } from '@/ui/Controls'
 import { DataTable, Pagination } from '@/ui/DataTable'
 import { ConfirmDialog, Dialog } from '@/ui/Dialog'
 import { Field, Input, Select, Textarea } from '@/ui/Field'
 import { ImageUploader } from '@/ui/ImageUploader'
 import { PageHeader } from '@/ui/PageHeader'
 import { ReasonDialog } from '@/ui/ReasonDialog'
+import { RowActions } from '@/ui/RowActions'
 import { SearchField } from '@/ui/SearchField'
 import { adminApi, adminKeys } from '../api'
 
@@ -35,6 +36,7 @@ export default function CategoriesPage() {
   const [filters, setFilters] = useSearchParamsState()
   const [editing, setEditing] = useState(null) // null | 'new' | category
   const [deleting, setDeleting] = useState(null)
+  const [rejecting, setRejecting] = useState(null)
   const params = {
     page: Number(filters.page ?? 1),
     limit: 50,
@@ -114,46 +116,21 @@ export default function CategoriesPage() {
             {
               key: 'actions',
               header: '',
-              className: 'w-px whitespace-nowrap text-right',
+              className: 'w-px',
               cell: (c) => (
-                <div className="flex items-center justify-end gap-1">
-                  {c.status === 'pending' && (
-                    <>
-                      <Button
-                        size="xs"
-                        variant="soft"
-                        loading={review.isPending && review.variables?.id === c._id}
-                        onClick={() => review.mutate({ id: c._id, action: 'approve' })}
-                      >
-                        <Check /> Approve
-                      </Button>
-                      <ReasonDialog
-                        title={`Reject "${c.name}"`}
-                        description="The vendor will see this reason."
-                        confirmLabel="Reject"
-                        onSubmit={(note) => review.mutateAsync({ id: c._id, action: 'reject', note })}
-                        trigger={
-                          <Button size="xs" variant="ghost" aria-label="Reject">
-                            <X />
-                          </Button>
-                        }
-                      />
-                    </>
-                  )}
-                  <Menu
-                    trigger={
-                      <Button size="icon-sm" variant="ghost" aria-label="More actions">
-                        <MoreHorizontal />
-                      </Button>
-                    }
-                    items={[
-                      { label: 'Edit', icon: Pencil, onSelect: () => setEditing(c) },
-                      { label: c.isFeatured ? 'Unfeature' : 'Feature on home', icon: Star, onSelect: () => toggleFeatured.mutate(c) },
-                      'separator',
-                      { label: 'Delete', icon: Trash2, danger: true, onSelect: () => setTimeout(() => setDeleting(c)) },
-                    ]}
-                  />
-                </div>
+                <RowActions
+                  label={`Actions for ${c.name}`}
+                  items={[
+                    c.status === 'active' && { label: 'View on store', icon: ExternalLink, onSelect: () => window.open(`/c/${c.slug}`, '_blank', 'noopener') },
+                    { label: 'Edit', icon: Pencil, onSelect: () => setEditing(c) },
+                    c.status === 'pending' && 'separator',
+                    c.status === 'pending' && { label: 'Approve', icon: Check, onSelect: () => review.mutate({ id: c._id, action: 'approve' }) },
+                    c.status === 'pending' && { label: 'Reject', icon: X, onSelect: () => setRejecting(c) },
+                    'separator',
+                    c.status === 'active' && { label: c.isFeatured ? 'Remove from home' : 'Feature on home', icon: Star, onSelect: () => toggleFeatured.mutate(c) },
+                    { label: 'Delete', icon: Trash2, danger: true, onSelect: () => setDeleting(c) },
+                  ]}
+                />
               ),
             },
           ]}
@@ -162,6 +139,15 @@ export default function CategoriesPage() {
       </Card>
 
       <CategoryDialog category={editing} onClose={() => setEditing(null)} onSaved={refresh} />
+      <ReasonDialog
+        key={rejecting?._id}
+        open={Boolean(rejecting)}
+        onOpenChange={(v) => !v && setRejecting(null)}
+        title={`Reject “${rejecting?.name}”`}
+        description="The vendor who proposed it sees this reason."
+        confirmLabel="Reject"
+        onSubmit={(note) => review.mutateAsync({ id: rejecting._id, action: 'reject', note })}
+      />
       {/* Lives outside the row menu: Radix menus close on select, which would unmount a nested dialog. */}
       <ConfirmDialog
         open={Boolean(deleting)}

@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight, LayoutGrid } from 'lucide-react'
+import { ChevronDown, ChevronRight, Layers, Menu as MenuIcon, Wrench } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router'
 import { cn } from '@/core/lib/cn'
@@ -6,7 +6,8 @@ import { Thumb } from '@/ui/Brand'
 import { useCategoryTree } from '../hooks'
 
 /**
- * Desktop category bar: "All categories" mega menu (root → sub → leaf) plus quick links to roots.
+ * Department bar under the header: a mega menu for the whole tree (root → sub → leaf),
+ * quick links to departments, and the two buying modes trade customers look for.
  */
 export function CategoryBar() {
   const { data: tree = [] } = useCategoryTree()
@@ -17,9 +18,9 @@ export function CategoryBar() {
   const current = tree.find((c) => c._id === active) ?? tree[0]
 
   // Close on navigation.
-  const [lastPath, setLastPath] = useState(location.pathname)
-  if (location.pathname !== lastPath) {
-    setLastPath(location.pathname)
+  const [lastPath, setLastPath] = useState(location.pathname + location.search)
+  if (location.pathname + location.search !== lastPath) {
+    setLastPath(location.pathname + location.search)
     setOpen(false)
   }
 
@@ -30,39 +31,58 @@ export function CategoryBar() {
   }
   const closeSoon = () => {
     clearTimeout(timer.current)
-    timer.current = setTimeout(() => setOpen(false), 150)
+    timer.current = setTimeout(() => setOpen(false), 160)
   }
 
-  if (!tree.length) return null
-
   return (
-    <nav aria-label="Categories" className="relative hidden border-t border-slate-100 bg-white lg:block" onMouseLeave={closeSoon}>
-      <div className="mx-auto flex max-w-7xl items-center gap-1 px-4 sm:px-6">
+    <nav aria-label="Departments" className="relative hidden bg-secondary text-secondary-fg lg:block" onMouseLeave={closeSoon}>
+      <div className="mx-auto flex h-11 max-w-7xl items-stretch px-4 sm:px-6">
         <button
           type="button"
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
           onMouseEnter={openSoon}
           className={cn(
-            'flex h-11 items-center gap-2 border-b-2 px-3 text-sm font-semibold',
-            open ? 'border-primary text-primary' : 'border-transparent text-slate-800 hover:text-primary',
+            '-ml-3 flex items-center gap-2 px-3 font-display text-[15px] font-semibold tracking-wide uppercase',
+            open ? 'bg-white text-slate-900' : 'hover:bg-white/10',
           )}
         >
-          <LayoutGrid className="size-4" /> All categories <ChevronDown className={cn('size-4 transition-transform', open && 'rotate-180')} />
+          <MenuIcon className="size-4" /> All departments <ChevronDown className={cn('size-4 transition-transform', open && 'rotate-180')} />
         </button>
         <div className="scrollbar-none flex min-w-0 flex-1 overflow-x-auto">
           {tree.slice(0, 7).map((c) => (
-            <Link key={c._id} to={`/c/${c.slug}`} className="flex h-11 shrink-0 items-center px-3 text-sm whitespace-nowrap text-slate-600 hover:text-primary">
+            <Link
+              key={c._id}
+              to={`/c/${c.slug}`}
+              className="flex shrink-0 items-center px-3 font-display text-[15px] font-medium tracking-wide whitespace-nowrap text-secondary-fg/85 uppercase hover:bg-white/10 hover:text-secondary-fg"
+            >
               {c.name}
             </Link>
           ))}
         </div>
+        <div className="flex shrink-0 items-stretch border-l border-white/15 pl-2">
+          <Link
+            to="/search?bulk=true"
+            className="flex items-center gap-1.5 px-3 font-display text-[15px] font-semibold tracking-wide text-secondary-fg uppercase hover:bg-white/10"
+          >
+            <Layers className="size-4" /> Bulk deals
+          </Link>
+          <Link
+            to="/#parts-finder"
+            className="flex items-center gap-1.5 px-3 font-display text-[15px] font-semibold tracking-wide text-secondary-fg uppercase hover:bg-white/10"
+          >
+            <Wrench className="size-4" /> Parts finder
+          </Link>
+        </div>
       </div>
 
-      {open && (
-        <div className="absolute inset-x-0 top-full z-40 border-t border-slate-200 bg-white shadow-2xl" onMouseEnter={() => clearTimeout(timer.current)}>
-          <div className="mx-auto grid max-w-7xl grid-cols-[260px_1fr] px-4 sm:px-6">
-            <ul className="max-h-[70vh] overflow-y-auto border-r border-slate-100 py-3">
+      {open && tree.length > 0 && (
+        <div
+          className="absolute inset-x-0 top-full z-40 border-b border-slate-200 bg-white text-slate-900 shadow-2xl"
+          onMouseEnter={() => clearTimeout(timer.current)}
+        >
+          <div className="mx-auto grid max-w-7xl grid-cols-[280px_1fr] px-4 sm:px-6">
+            <ul className="max-h-[70vh] overflow-y-auto border-r border-slate-200 py-3">
               {tree.map((c) => (
                 <li key={c._id}>
                   <Link
@@ -70,36 +90,36 @@ export function CategoryBar() {
                     onMouseEnter={() => setActive(c._id)}
                     onFocus={() => setActive(c._id)}
                     className={cn(
-                      'flex items-center justify-between gap-2 rounded-l-md px-3 py-2.5 text-sm',
-                      current?._id === c._id ? 'bg-primary-soft font-semibold text-primary' : 'text-slate-700 hover:bg-slate-50',
+                      'flex items-center justify-between gap-2 py-2.5 pr-3 pl-3 text-[15px]',
+                      current?._id === c._id ? 'bg-slate-100 font-semibold text-slate-900' : 'text-slate-700 hover:bg-slate-50',
                     )}
                   >
                     {c.name}
-                    {c.children?.length > 0 && <ChevronRight className="size-4 opacity-60" />}
+                    {c.children?.length > 0 && <ChevronRight className="size-4 text-slate-400" />}
                   </Link>
                 </li>
               ))}
             </ul>
             {current && (
-              <div className="max-h-[70vh] overflow-y-auto p-6">
-                <div className="mb-5 flex items-center justify-between">
-                  <h3 className="text-lg font-bold text-slate-900">{current.name}</h3>
-                  <Link to={`/c/${current.slug}`} className="text-sm font-medium text-primary hover:underline">
-                    View all
+              <div className="max-h-[70vh] overflow-y-auto px-8 py-6">
+                <div className="mb-6 flex items-baseline justify-between gap-4 border-b border-slate-200 pb-3">
+                  <h3 className="font-display text-2xl font-bold">{current.name}</h3>
+                  <Link to={`/c/${current.slug}`} className="text-sm font-semibold underline decoration-slate-300 underline-offset-4 hover:decoration-slate-900">
+                    Shop all {current.name}
                   </Link>
                 </div>
                 {current.children?.length ? (
-                  <div className="grid grid-cols-3 gap-x-8 gap-y-6 xl:grid-cols-4">
+                  <div className="grid grid-cols-3 gap-x-10 gap-y-7 xl:grid-cols-4">
                     {current.children.map((sub) => (
                       <div key={sub._id}>
-                        <Link to={`/c/${sub.slug}`} className="text-sm font-semibold text-slate-900 hover:text-primary">
+                        <Link to={`/c/${sub.slug}`} className="text-[15px] font-semibold text-slate-900 hover:underline">
                           {sub.name}
                         </Link>
                         {sub.children?.length > 0 && (
                           <ul className="mt-2 flex flex-col gap-1.5">
                             {sub.children.map((leaf) => (
                               <li key={leaf._id}>
-                                <Link to={`/c/${leaf.slug}`} className="text-sm text-slate-600 hover:text-primary">
+                                <Link to={`/c/${leaf.slug}`} className="text-sm text-slate-600 hover:text-slate-900 hover:underline">
                                   {leaf.name}
                                 </Link>
                               </li>
@@ -110,7 +130,7 @@ export function CategoryBar() {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-slate-500">Browse all products in {current.name}.</p>
+                  <p className="text-sm text-slate-500">Browse everything in {current.name}.</p>
                 )}
               </div>
             )}
@@ -142,9 +162,9 @@ function AccordionNode({ node, depth = 0, onNavigate }) {
         <Link
           to={`/c/${node.slug}`}
           onClick={onNavigate}
-          className={cn('flex flex-1 items-center gap-3 px-4 py-3 text-sm', depth === 0 ? 'font-semibold text-slate-900' : 'text-slate-700')}
+          className={cn('flex flex-1 items-center gap-3 px-4 py-3', depth === 0 ? 'text-[15px] font-semibold text-slate-900' : 'text-sm text-slate-700')}
         >
-          {depth === 0 && <Thumb src={node.image?.url} className="size-8 rounded" />}
+          {depth === 0 && <Thumb src={node.image?.url} className="size-8 rounded" fit="cover" />}
           {node.name}
         </Link>
         {hasChildren && (

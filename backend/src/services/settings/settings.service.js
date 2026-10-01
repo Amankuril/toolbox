@@ -18,9 +18,17 @@ function mergeDefaults(defaults, stored) {
   return out;
 }
 
+/** Older documents had one logo/favicon for everything; carry it over to every module. */
+function upgradeBranding(branding) {
+  if (!branding || branding.modules || !(branding.logo || branding.favicon)) return branding;
+  const shared = { logo: branding.logo ?? null, favicon: branding.favicon ?? null };
+  return { ...branding, modules: { user: shared, vendor: shared, admin: shared } };
+}
+
 const store = cached('settings', async () => {
   const docs = await Setting.find({ key: { $in: SETTING_KEYS } }).lean();
   const stored = Object.fromEntries(docs.map((d) => [d.key, d.value]));
+  stored.branding = upgradeBranding(stored.branding);
   return Object.fromEntries(SETTING_KEYS.map((key) => [key, mergeDefaults(SETTINGS[key].defaults, stored[key])]));
 });
 

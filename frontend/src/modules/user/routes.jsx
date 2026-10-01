@@ -28,6 +28,8 @@ export const userRoutes = {
                 { index: true, ...page(() => import('./pages/account/OrdersPage')) },
                 { path: 'orders', ...page(() => import('./pages/account/OrdersPage')) },
                 { path: 'orders/:id', ...page(() => import('./pages/account/OrderDetailPage')) },
+                { path: 'quotes', ...page(() => import('./pages/account/QuotesPage')) },
+                { path: 'quotes/:id', ...page(() => import('./pages/account/QuoteDetailPage')) },
                 { path: 'addresses', ...page(() => import('./pages/account/AddressesPage')) },
                 { path: 'profile', ...page(() => import('./pages/account/ProfilePage')) },
               ],

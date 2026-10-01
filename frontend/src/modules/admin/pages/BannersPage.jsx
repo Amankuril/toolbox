@@ -212,7 +212,16 @@ function BannerDialog({ banner, onClose }) {
             name="image"
             control={control}
             render={({ field }) => (
-              <ImageUploader audience="admin" folder="banners" max={1} aspect="aspect-[16/5]" value={field.value ?? []} onChange={field.onChange} compact />
+              <ImageUploader
+                audience="admin"
+                folder="banners"
+                max={1}
+                aspect="aspect-[16/5]"
+                gridClassName="grid-cols-1"
+                value={field.value ?? []}
+                onChange={field.onChange}
+                compact
+              />
             )}
           />
           {e.image && <p className="mt-1 text-xs font-medium text-red-600">{e.image.message}</p>}
@@ -223,7 +232,16 @@ function BannerDialog({ banner, onClose }) {
             name="mobileImage"
             control={control}
             render={({ field }) => (
-              <ImageUploader audience="admin" folder="banners" max={1} aspect="aspect-[4/3]" value={field.value ?? []} onChange={field.onChange} compact />
+              <ImageUploader
+                audience="admin"
+                folder="banners"
+                max={1}
+                aspect="aspect-[4/3]"
+                gridClassName="grid-cols-2 sm:grid-cols-3"
+                value={field.value ?? []}
+                onChange={field.onChange}
+                compact
+              />
             )}
           />
         </div>

@@ -5,7 +5,7 @@ import { Media } from './media.model.js';
 
 /** Upload folders each audience may write to. */
 export const FOLDER_ACCESS = {
-  admin: ['products', 'categories', 'vendors', 'documents', 'banners', 'branding', 'users'],
+  admin: ['products', 'categories', 'vendors', 'documents', 'banners', 'branding', 'favicons', 'users'],
   vendor: ['products', 'categories', 'vendors', 'documents'],
   user: ['users'],
 };

@@ -8,6 +8,7 @@ import { escapeRegex } from '#core/utils/strings.js';
 import { cartService } from '#modules/cart/cart.service.js';
 import { Product } from '#modules/products/product.model.js';
 import { VISIBLE } from '#modules/products/product.service.js';
+import { quoteLifecycle } from '#modules/quotes/quote.lifecycle.js';
 import { userService } from '#modules/users/user.service.js';
 import { paymentService } from '#services/payment/payment.service.js';
 import { settingsService } from '#services/settings/settings.service.js';
@@ -112,6 +113,7 @@ async function handleLatePayment(order, paymentId) {
     order.payment.providerPaymentId = paymentId;
     order.payment.paidAt = new Date();
     await order.save();
+    await quoteLifecycle.markOrdered(order);
     return order;
   } catch (err) {
     if (!(err instanceof ApiError) || err.code !== 'OUT_OF_STOCK') throw err;
@@ -173,7 +175,7 @@ export const orderService = {
       provider = await paymentService.requireOnlineProvider();
     }
 
-    const lines = cart.items.map(({ _product: p, quantity, lineTotal, unitPrice, unitMrp, gstRate }) => ({
+    const lines = cart.items.map(({ _product: p, _quote: q, quantity, lineTotal, unitPrice, baseUnitPrice, unitMrp, gstRate, pricing }) => ({
       product: p._id,
       vendor: p.vendor,
       name: p.name,
@@ -183,7 +185,9 @@ export const orderService = {
       type: p.type,
       hsnCode: p.hsnCode,
       unitPrice,
+      basePrice: baseUnitPrice,
       unitMrp,
+      pricing: { source: pricing.source, tierMinQty: pricing.tier?.minQty, quote: q?._id },
       gstRate,
       quantity,
       lineTotal,
@@ -226,6 +230,8 @@ export const orderService = {
       await releaseStock(lines);
       throw err;
     }
+    // A quote is consumed by the order that uses it; it's released again if that order never completes.
+    await quoteLifecycle.markOrdered(order);
 
     if (paymentMethod === 'cod') {
       await cartService.removeProducts(
@@ -250,6 +256,7 @@ export const orderService = {
         { status: 'cancelled', cancelledAt: new Date(), cancelReason: 'Payment could not be started', 'items.$[].status': 'cancelled' },
       );
       await releaseStock(lines);
+      await quoteLifecycle.releaseForOrder(order);
       throw err;
     }
 
@@ -345,6 +352,7 @@ export const orderService = {
       ).lean();
       if (claimed) {
         await releaseStock(claimed.items.map((i) => ({ product: i.product, quantity: i.quantity })));
+        await quoteLifecycle.releaseForOrder(claimed);
         expired += 1;
       }
     }

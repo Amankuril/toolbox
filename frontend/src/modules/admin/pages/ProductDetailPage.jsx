@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router'
 import { toast } from 'sonner'
 import { errorMessage } from '@/core/api/errors'
 import { PRODUCT_TYPE_LABEL } from '@/core/lib/constants'
+import { rangeLabel, tierRows } from '@/core/lib/pricing'
 import { formatDateTime, formatINR, formatNumber, formatPhone, titleCase } from '@/core/lib/format'
 import { StatusBadge } from '@/ui/Badge'
 import { Price, Thumb } from '@/ui/Brand'
@@ -198,6 +199,28 @@ export default function ProductDetailPage() {
                   ['Max per order', p.inventory.maxOrderQty ?? 'No limit'],
                 ]}
               />
+            </CardBody>
+          </Card>
+          <Card>
+            <CardHeader
+              title="Bulk pricing"
+              description={p.bulkPricing.tiers.length ? (p.bulkPricing.businessOnly ? 'Business accounts only' : 'All buyers') : 'No quantity tiers'}
+            />
+            {p.bulkPricing.tiers.length > 0 && (
+              <table className="w-full text-sm">
+                <tbody className="divide-y divide-slate-100">
+                  {tierRows(p.pricing.price, p.inventory.moq, p.bulkPricing.tiers).map((row) => (
+                    <tr key={row.minQty}>
+                      <td className="px-5 py-2 text-slate-600">{rangeLabel(row, p.inventory.unit)}</td>
+                      <td className="tabular px-5 py-2 text-right font-medium text-slate-900">{formatINR(row.price)}</td>
+                      <td className="tabular w-16 px-5 py-2 text-right text-xs text-accent-ink">{row.savePercent ? `−${row.savePercent}%` : ''}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            <CardBody className="border-t border-slate-100 text-sm text-slate-600">
+              Quote requests: {p.quotes.enabled ? `on, from ${formatNumber(p.quotes.threshold)} ${p.inventory.unit}s` : 'off'}
             </CardBody>
           </Card>
           <Card>

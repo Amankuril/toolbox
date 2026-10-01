@@ -15,11 +15,22 @@ export const PRODUCT_UNITS = ['piece', 'set', 'pair', 'box', 'pack', 'kg', 'litr
  */
 export const PRODUCT_STATUSES = ['draft', 'pending', 'active', 'rejected', 'inactive', 'archived'];
 export const MAX_PRODUCT_IMAGES = 10;
+/** Quantity price breaks on top of the base selling price (Amazon Business allows 5 as well). */
+export const MAX_BULK_TIERS = 5;
 
 const specSchema = new Schema(
   {
     label: { type: String, required: true, trim: true, maxlength: 80 },
     value: { type: String, required: true, trim: true, maxlength: 300 },
+  },
+  { _id: false },
+);
+
+/** "Buy minQty or more at price per unit" (paise). */
+const bulkTierSchema = new Schema(
+  {
+    minQty: { type: Number, required: true, min: 2 },
+    price: { type: Number, required: true, min: 1 },
   },
   { _id: false },
 );
@@ -61,6 +72,22 @@ const productSchema = new Schema(
       moq: { type: Number, default: 1, min: 1 },
       maxOrderQty: { type: Number, min: 1 },
       unit: { type: String, enum: PRODUCT_UNITS, default: 'piece' },
+    },
+
+    // Quantity discounts: the deepest tier the cart quantity reaches sets the unit price.
+    bulkPricing: {
+      tiers: {
+        type: [bulkTierSchema],
+        default: [],
+        validate: [(v) => v.length <= MAX_BULK_TIERS, `At most ${MAX_BULK_TIERS} bulk tiers`],
+      },
+      // Like Amazon Business: tiers only for buyers with a business account.
+      businessOnly: { type: Boolean, default: false },
+    },
+    // Request-for-quote for quantities beyond the published tiers.
+    quotes: {
+      enabled: { type: Boolean, default: true },
+      minQty: { type: Number, min: 1 },
     },
 
     specifications: { type: [specSchema], default: [] },
@@ -107,8 +134,13 @@ productSchema.index({ vendor: 1, status: 1, updatedAt: -1 });
 productSchema.index({ vendor: 1, sku: 1 }, { unique: true, partialFilterExpression: { sku: { $type: 'string' } } });
 productSchema.index({ compatibleWith: 1 });
 productSchema.index(
-  { name: 'text', brand: 'text', modelNumber: 'text', tags: 'text', shortDescription: 'text' },
-  { name: 'product_text', weights: { name: 10, brand: 6, modelNumber: 6, tags: 4, shortDescription: 1 }, default_language: 'english' },
+  { name: 'text', brand: 'text', modelNumber: 'text', compatibleModels: 'text', tags: 'text', shortDescription: 'text' },
+  {
+    name: 'product_text',
+    // compatibleModels lets the parts finder match "GSB 550" to spares that fit it.
+    weights: { name: 10, brand: 6, modelNumber: 6, compatibleModels: 6, tags: 4, shortDescription: 1 },
+    default_language: 'english',
+  },
 );
 
 export const Product = mongoose.models.Product ?? mongoose.model('Product', productSchema);

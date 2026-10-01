@@ -1,119 +1,234 @@
-import { ChevronLeft, ChevronRight, ShoppingCart } from 'lucide-react'
-import { useRef } from 'react'
+import { ChevronLeft, ChevronRight, Layers, Plus } from 'lucide-react'
+import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { cn } from '@/core/lib/cn'
-import { Price, Thumb } from '@/ui/Brand'
+import { formatINR } from '@/core/lib/format'
+import { Thumb } from '@/ui/Brand'
 import { Button } from '@/ui/Button'
 import { Skeleton } from '@/ui/Card'
 import { useCart } from '../cart/useCart'
+import { unitShort } from '@/core/lib/units'
 
-export function ProductCard({ product: p, className }) {
+/** "550 W · 13 mm" — the two specs that matter most, straight from the listing. */
+const keyFacts = (p) =>
+  (p.highlights ?? [])
+    .slice(0, 2)
+    .map((h) => h.value)
+    .join(' · ')
+
+export function Availability({ product: p, className }) {
+  if (!p.inStock) return <p className={cn('text-xs font-medium text-red-600', className)}>Out of stock</p>
+  return (
+    <p className={cn('flex items-center gap-1.5 text-xs text-slate-600', className)}>
+      <span className="size-1.5 rounded-full bg-accent" aria-hidden />
+      {p.stock > 0 && p.stock <= 5 ? `Only ${p.stock} left` : 'In stock'}
+      {p.dispatchDays != null && <span className="text-slate-400">· ships in {p.dispatchDays === 0 ? '24 h' : `${p.dispatchDays} d`}</span>}
+    </p>
+  )
+}
+
+export function BulkHint({ bulk, unit, className }) {
+  if (!bulk) return null
+  return (
+    <p className={cn('flex items-center gap-1 text-xs font-medium text-accent-ink', className)}>
+      <Layers className="size-3.5 shrink-0" />
+      {formatINR(bulk.fromPrice)}/{unitShort(unit)} at {bulk.tiers.at(-1).minQty}+{bulk.businessOnly && <span className="font-normal text-slate-500"> · business</span>}
+    </p>
+  )
+}
+
+function useAddToCart(p) {
   const cart = useCart()
   const navigate = useNavigate()
+  const [busy, setBusy] = useState(false)
   const inCart = cart.quantityOf(p._id)
-
   const add = async () => {
+    setBusy(true)
     try {
       await cart.setQty(p._id, Math.max(p.moq, inCart + 1))
       toast.success('Added to cart', { description: p.name, action: { label: 'View cart', onClick: () => navigate('/cart') } })
     } catch {
       /* toast already shown */
+    } finally {
+      setBusy(false)
     }
   }
+  return { add, busy, inCart }
+}
 
-  // The link and the button are siblings: interactive elements can't nest inside an <a>.
+/** Catalogue tile. The link and the button are siblings: interactive elements can't nest inside an <a>. */
+export function ProductCard({ product: p, className }) {
+  const { add, busy, inCart } = useAddToCart(p)
+  const facts = keyFacts(p)
   return (
-    <div
-      className={cn('group relative flex flex-col overflow-hidden rounded-lg border border-slate-200 bg-white transition-shadow hover:shadow-lg', className)}
-    >
-      <Link to={`/p/${p.slug}`} className="flex flex-1 flex-col focus-visible:outline-offset-[-2px]">
-        <div className="relative aspect-square bg-white p-3">
-          <Thumb src={p.image?.url} alt={p.image?.alt ?? p.name} className="size-full transition-transform duration-300 group-hover:scale-[1.03]" />
-          <div className="absolute top-2 left-2 flex flex-col items-start gap-1">
-            {p.discountPercent >= 5 && <span className="rounded bg-accent px-1.5 py-0.5 text-[11px] font-bold text-accent-fg">{p.discountPercent}% OFF</span>}
-            {p.type === 'part' && <span className="rounded bg-slate-900/80 px-1.5 py-0.5 text-[11px] font-semibold text-white">Spare part</span>}
-            {p.condition !== 'new' && (
-              <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold text-amber-800 capitalize">{p.condition}</span>
-            )}
-          </div>
-          {!p.inStock && (
-            <span className="absolute inset-x-0 bottom-2 mx-auto w-fit rounded bg-white/95 px-2 py-0.5 text-xs font-semibold text-red-600 shadow">
-              Out of stock
+    <article className={cn('group relative flex flex-col bg-white', className)}>
+      <Link to={`/p/${p.slug}`} className="flex flex-1 flex-col focus-visible:outline-offset-2">
+        <div className="relative aspect-square overflow-hidden rounded-md bg-[#f4f4f2] p-4">
+          <Thumb
+            src={p.image?.url}
+            alt={p.image?.alt ?? p.name}
+            className="size-full bg-transparent mix-blend-multiply transition-transform duration-300 group-hover:scale-[1.04]"
+          />
+          {p.discountPercent >= 5 && (
+            <span className="absolute top-2 left-2 rounded-sm bg-white px-1.5 py-0.5 text-[11px] font-bold tracking-wide text-accent-ink shadow-xs">
+              −{p.discountPercent}%
+            </span>
+          )}
+          {p.type === 'part' && (
+            <span className="absolute top-2 right-2 rounded-sm bg-secondary px-1.5 py-0.5 text-[10px] font-semibold tracking-wider text-secondary-fg uppercase">
+              Part
             </span>
           )}
         </div>
-        <div className="flex flex-1 flex-col gap-1.5 border-t border-slate-100 px-3 pt-3">
-          {p.brand && <p className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">{p.brand}</p>}
-          <h3 className="line-clamp-2 min-h-10 text-sm leading-5 font-medium text-slate-800 group-hover:text-primary">{p.name}</h3>
-          <Price price={p.price} mrp={p.mrp} size="sm" className="mt-auto pt-1" />
-          {p.moq > 1 && (
-            <p className="text-xs text-slate-500">
-              Min. order {p.moq} {p.unit}s
+        <div className="flex flex-1 flex-col pt-3">
+          {p.brand && <p className="text-[11px] font-semibold tracking-[0.08em] text-slate-500 uppercase">{p.brand}</p>}
+          <h3 className="mt-0.5 line-clamp-2 text-[15px] leading-snug font-medium text-slate-900 group-hover:underline group-hover:decoration-slate-300 group-hover:underline-offset-2">
+            {p.name}
+          </h3>
+          {facts && <p className="mt-1 truncate text-xs text-slate-500">{facts}</p>}
+          <div className="mt-auto pt-2">
+            <p className="flex items-baseline gap-2">
+              <span className="font-display text-[1.375rem] leading-none font-bold text-slate-900">{formatINR(p.price)}</span>
+              {p.mrp > p.price && <span className="text-xs text-slate-400 line-through">{formatINR(p.mrp)}</span>}
             </p>
-          )}
+            <BulkHint bulk={p.bulk} unit={p.unit} className="mt-1" />
+            <Availability product={p} className="mt-1.5" />
+          </div>
         </div>
       </Link>
-      <div className="px-3 pt-1.5 pb-3">
-        <Button size="sm" variant={inCart ? 'soft' : 'outline'} className="w-full" disabled={!p.inStock} onClick={add} aria-label={`Add ${p.name} to cart`}>
-          <ShoppingCart /> {inCart ? `In cart (${inCart})` : 'Add to cart'}
+      <Button
+        size="sm"
+        variant={inCart ? 'soft' : 'outline'}
+        className="mt-3 w-full border-slate-300 font-semibold"
+        disabled={!p.inStock}
+        loading={busy}
+        onClick={add}
+        aria-label={`Add ${p.name} to cart`}
+      >
+        {inCart ? `In cart · ${inCart}` : p.moq > 1 ? `Add ${p.moq} ${unitShort(p.unit)}` : 'Add to cart'}
+      </Button>
+    </article>
+  )
+}
+
+/** Dense row for list view: specs up front, like a trade catalogue. */
+export function ProductRow({ product: p }) {
+  const { add, busy, inCart } = useAddToCart(p)
+  return (
+    <article className="group grid grid-cols-[96px_1fr] gap-4 border-b border-slate-200 py-4 sm:grid-cols-[120px_1fr_200px]">
+      <Link to={`/p/${p.slug}`} className="aspect-square overflow-hidden rounded-md bg-[#f4f4f2] p-2">
+        <Thumb src={p.image?.url} alt={p.name} className="size-full bg-transparent mix-blend-multiply" />
+      </Link>
+      <div className="min-w-0">
+        {p.brand && <p className="text-[11px] font-semibold tracking-[0.08em] text-slate-500 uppercase">{p.brand}</p>}
+        <Link to={`/p/${p.slug}`} className="mt-0.5 block font-medium text-slate-900 hover:underline">
+          {p.name}
+        </Link>
+        {p.modelNumber && <p className="text-xs text-slate-500">Model {p.modelNumber}</p>}
+        {p.highlights?.length > 0 && (
+          <dl className="mt-2 grid max-w-md grid-cols-[auto_1fr] gap-x-4 gap-y-0.5 text-xs">
+            {p.highlights.map((h) => (
+              <div key={h.label} className="contents">
+                <dt className="text-slate-500">{h.label}</dt>
+                <dd className="text-slate-800">{h.value}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+        <Availability product={p} className="mt-2" />
+      </div>
+      <div className="col-span-2 flex items-end justify-between gap-3 sm:col-span-1 sm:flex-col sm:items-end sm:justify-start sm:text-right">
+        <div>
+          <p className="font-display text-2xl leading-none font-bold text-slate-900">{formatINR(p.price)}</p>
+          {p.mrp > p.price && (
+            <p className="mt-1 text-xs text-slate-500">
+              <span className="line-through">{formatINR(p.mrp)}</span> <span className="font-semibold text-accent-ink">−{p.discountPercent}%</span>
+            </p>
+          )}
+          <BulkHint bulk={p.bulk} unit={p.unit} className="mt-1 sm:justify-end" />
+        </div>
+        <Button size="sm" variant={inCart ? 'soft' : 'primary'} disabled={!p.inStock} loading={busy} onClick={add} className="sm:w-full">
+          <Plus /> {inCart ? `In cart · ${inCart}` : p.moq > 1 ? `Add ${p.moq}` : 'Add'}
         </Button>
       </div>
-    </div>
+    </article>
   )
 }
 
 export function ProductCardSkeleton() {
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-      <Skeleton className="aspect-square rounded-none" />
-      <div className="flex flex-col gap-2 p-3">
+    <div>
+      <Skeleton className="aspect-square rounded-md" />
+      <div className="flex flex-col gap-2 pt-3">
         <Skeleton className="h-3 w-16" />
         <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-24" />
+        <Skeleton className="h-5 w-24" />
         <Skeleton className="h-8 w-full" />
       </div>
     </div>
   )
 }
 
-export function ProductGrid({ products, loading, count = 8 }) {
+export function ProductGrid({ products, loading, count = 10, view = 'grid' }) {
+  if (view === 'list' && !loading) {
+    return (
+      <div className="border-t border-slate-200">
+        {products.map((p) => (
+          <ProductRow key={p._id} product={p} />
+        ))}
+      </div>
+    )
+  }
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5">
+    <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
       {loading ? Array.from({ length: count }, (_, i) => <ProductCardSkeleton key={i} />) : products.map((p) => <ProductCard key={p._id} product={p} />)}
     </div>
   )
 }
 
-/** Horizontal scroller of product cards with arrow controls. */
-export function ProductRail({ title, subtitle, products, loading, viewAll }) {
+/** Section heading used across the storefront: condensed title, optional subtitle, link on the right. */
+export function SectionHeading({ title, subtitle, action, className }) {
+  return (
+    <div className={cn('mb-5 flex items-end justify-between gap-4 border-b border-slate-200 pb-3', className)}>
+      <div className="min-w-0">
+        <h2 className="font-display text-[1.65rem] leading-tight font-bold text-slate-900">{title}</h2>
+        {subtitle && <p className="mt-0.5 text-sm text-slate-500">{subtitle}</p>}
+      </div>
+      {action}
+    </div>
+  )
+}
+
+/** Horizontal scroller of product tiles with arrow controls. */
+export function ProductRail({ title, subtitle, products, loading, viewAll, className }) {
   const ref = useRef(null)
   if (!loading && !products?.length) return null
   const scroll = (dir) => ref.current?.scrollBy({ left: dir * ref.current.clientWidth * 0.85, behavior: 'smooth' })
   return (
-    <section className="mx-auto mt-10 max-w-7xl px-4 sm:px-6">
-      <div className="mb-4 flex items-end justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900">{title}</h2>
-          {subtitle && <p className="mt-0.5 text-sm text-slate-500">{subtitle}</p>}
-        </div>
-        <div className="flex items-center gap-2">
-          {viewAll && (
-            <Link to={viewAll} className="text-sm font-semibold text-primary hover:underline">
-              View all
-            </Link>
-          )}
-          <Button variant="outline" size="icon-sm" className="hidden sm:inline-flex" aria-label="Scroll left" onClick={() => scroll(-1)}>
-            <ChevronLeft />
-          </Button>
-          <Button variant="outline" size="icon-sm" className="hidden sm:inline-flex" aria-label="Scroll right" onClick={() => scroll(1)}>
-            <ChevronRight />
-          </Button>
-        </div>
-      </div>
-      <div ref={ref} className="scrollbar-none -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:gap-4 sm:px-0">
+    <section className={cn('mx-auto max-w-7xl px-4 sm:px-6', className)}>
+      <SectionHeading
+        title={title}
+        subtitle={subtitle}
+        action={
+          <div className="flex shrink-0 items-center gap-1">
+            {viewAll && (
+              <Link to={viewAll} className="mr-2 text-sm font-semibold text-slate-900 underline decoration-slate-300 underline-offset-4 hover:decoration-slate-900">
+                View all
+              </Link>
+            )}
+            <Button variant="ghost" size="icon-sm" className="hidden sm:inline-flex" aria-label="Scroll left" onClick={() => scroll(-1)}>
+              <ChevronLeft />
+            </Button>
+            <Button variant="ghost" size="icon-sm" className="hidden sm:inline-flex" aria-label="Scroll right" onClick={() => scroll(1)}>
+              <ChevronRight />
+            </Button>
+          </div>
+        }
+      />
+      <div ref={ref} className="scrollbar-none -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
         {(loading ? Array.from({ length: 6 }, (_, i) => ({ _id: i })) : products).map((p) => (
-          <div key={p._id} className="w-[46%] shrink-0 snap-start sm:w-[30%] lg:w-[23%] xl:w-[18.5%]">
+          <div key={p._id} className="w-[46%] shrink-0 snap-start sm:w-[30%] lg:w-[23%] xl:w-[18.6%]">
             {loading ? <ProductCardSkeleton /> : <ProductCard product={p} className="h-full" />}
           </div>
         ))}

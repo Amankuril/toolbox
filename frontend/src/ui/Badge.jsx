@@ -9,7 +9,7 @@ const tones = {
   warning: 'bg-amber-50 text-amber-800 ring-amber-200',
   danger: 'bg-red-50 text-red-700 ring-red-200',
   primary: 'bg-primary-soft text-primary ring-primary-muted',
-  accent: 'bg-accent-soft text-accent ring-accent/25',
+  accent: 'bg-accent-soft text-accent-ink ring-accent/25',
 }
 
 export function Badge({ tone = 'neutral', className, children, dot = false }) {
@@ -27,11 +27,12 @@ export function Badge({ tone = 'neutral', className, children, dot = false }) {
   )
 }
 
-export function StatusBadge({ status, className }) {
+/** `labels` overrides the default wording for a domain (e.g. quote statuses). */
+export function StatusBadge({ status, className, labels }) {
   if (!status) return null
   return (
     <Badge tone={STATUS_TONES[status] ?? 'neutral'} dot className={className}>
-      {STATUS_LABELS[status] ?? titleCase(status)}
+      {labels?.[status] ?? STATUS_LABELS[status] ?? titleCase(status)}
     </Badge>
   )
 }

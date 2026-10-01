@@ -10,6 +10,7 @@ import { dashboardService } from '#modules/dashboard/dashboard.service.js';
 import { adminMediaRouter, mediaUploadRouter } from '#modules/media/media.routes.js';
 import { adminOrderRoutes, userOrderRoutes, vendorOrderRoutes } from '#modules/orders/order.routes.js';
 import { adminProductRoutes, publicProductRoutes, vendorProductRoutes } from '#modules/products/product.routes.js';
+import { adminQuoteRoutes, userQuoteRoutes, vendorQuoteRoutes } from '#modules/quotes/quote.routes.js';
 import { adminSettingsRoutes, publicSettingsRoutes } from '#modules/settings/settings.routes.js';
 import { adminUserRoutes, userSelfRoutes } from '#modules/users/user.routes.js';
 import { adminVendorRoutes, publicStoreRoutes, vendorSelfRoutes } from '#modules/vendors/vendor.routes.js';
@@ -40,6 +41,7 @@ export function buildRoutes() {
     .use(userSelfRoutes)
     .use('/cart', cartRoutes)
     .use('/orders', userOrderRoutes)
+    .use('/quotes', userQuoteRoutes)
     .use('/media', mediaUploadRouter());
   api.use('/user', userApi);
 
@@ -50,6 +52,7 @@ export function buildRoutes() {
     .use('/categories', vendorCategoryRoutes)
     .use('/products', vendorProductRoutes)
     .use('/orders', vendorOrderRoutes)
+    .use('/quotes', vendorQuoteRoutes)
     .use('/media', mediaUploadRouter());
   api.use('/vendor', vendorApi);
 
@@ -63,6 +66,7 @@ export function buildRoutes() {
     .use('/categories', adminCategoryRoutes)
     .use('/products', adminProductRoutes)
     .use('/orders', adminOrderRoutes)
+    .use('/quotes', adminQuoteRoutes)
     .use('/banners', adminBannerRoutes)
     .use('/media', adminMediaRouter())
     .use('/settings', adminSettingsRoutes);

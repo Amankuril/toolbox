@@ -1,15 +1,29 @@
 import { Link } from 'react-router'
+import { useModule } from '@/core/module'
 import { useBranding } from '@/core/settings/usePublicSettings'
 import { cn } from '@/core/lib/cn'
 import { formatINR } from '@/core/lib/format'
 
-/** Site logo from admin branding, falling back to a mark + site name. */
+// Each module's logo is designed for its main surface: the white storefront header, or the dark panel sidebar.
+const DARK_SURFACE = { user: false, vendor: true, admin: true }
+
+/**
+ * The current module's logo (set in Admin → Settings → Branding), or the name with the default mark.
+ * `inverted` marks a dark background. On the opposite surface (e.g. the storefront's dark footer) an
+ * uploaded logo sits on a plate of its own background colour, so it always looks like the admin preview.
+ */
 export function Logo({ to = '/', className, inverted = false, suffix }) {
-  const { siteName, logo } = useBranding()
+  const module = useModule()
+  const { siteName, modules } = useBranding()
+  const logo = modules?.[module]?.logo
+  const darkLogo = DARK_SURFACE[module] ?? false
+  const plate = inverted !== darkLogo
   return (
     <Link to={to} className={cn('flex shrink-0 items-center gap-2', className)} aria-label={`${siteName} home`}>
       {logo?.url ? (
-        <img src={logo.url} alt={siteName} className="h-8 w-auto max-w-40 object-contain" />
+        <span className={cn(plate && 'rounded-md px-2.5 py-1.5', plate && (darkLogo ? 'bg-secondary' : 'bg-white'))}>
+          <img src={logo.url} alt={siteName} className="block h-8 w-auto max-w-40 object-contain" />
+        </span>
       ) : (
         <>
           <span className="grid size-8 place-items-center rounded-md bg-primary text-primary-fg">
@@ -45,7 +59,7 @@ export function Price({ price, mrp, size = 'md', className, showTaxNote = false 
       {discount > 0 && (
         <>
           <span className={cn('tabular text-slate-400 line-through', size === 'sm' ? 'text-xs' : 'text-sm')}>{formatINR(mrp)}</span>
-          <span className={cn('font-semibold text-accent', size === 'sm' ? 'text-xs' : 'text-sm')}>{discount}% off</span>
+          <span className={cn('font-semibold text-accent-ink', size === 'sm' ? 'text-xs' : 'text-sm')}>{discount}% off</span>
         </>
       )}
       {showTaxNote && <span className="basis-full text-xs text-slate-500">Inclusive of all taxes</span>}

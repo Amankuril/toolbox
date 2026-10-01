@@ -29,9 +29,9 @@ backend/
       payment/     Razorpay
       otp/ token/ settings/
     modules/       one folder per domain: model · validation · service · routes
-      auth admins users vendors categories products media cart orders banners settings dashboard
+      auth admins users vendors categories products media cart orders quotes banners settings dashboard
     routes/        mounts /api/v1/{auth,public,user,vendor,admin}
-    jobs/          interval jobs (expire unpaid orders) with a Redis lock
+    jobs/          interval jobs (expire unpaid orders and stale quotes) with a Redis lock
   scripts/         seed-admin, seed-catalog (dev), sync-indexes
   tests/           integration tests (in-memory MongoDB, real Redis)
 frontend/
@@ -71,7 +71,7 @@ With `SMS_PROVIDER=console` (the dev default), OTPs are printed in the API log i
 | Script | Where | What |
 |---|---|---|
 | `npm run dev` | both | dev servers (API restarts on change) |
-| `npm test` | backend | integration tests: auth, onboarding, catalogue, media, cart, orders, payments |
+| `npm test` | backend | integration tests: auth, onboarding, catalogue, media, cart, orders, payments, bulk pricing and quotes |
 | `npm run lint` | both | ESLint |
 | `npm run build` | frontend | production bundle in `dist/` |
 | `npm run db:sync-indexes` | backend | create or update MongoDB indexes (run on every deploy) |
@@ -95,6 +95,12 @@ With `SMS_PROVIDER=console` (the dev default), OTPs are printed in the API log i
 **Dynamic theming.** In **Admin → Settings → Appearance**, the admin picks primary, secondary and accent colours plus corner radius, separately for the storefront, the seller panel and the admin panel.
 - The UI derives hover and tint shades with `color-mix`, and picks readable text colour from WCAG contrast.
 - Changes apply to every visitor right after saving. The last theme is cached so pages don't flash the default colours.
+
+**Branding.** In **Admin → Settings → Branding**, each module (storefront, seller panel, admin panel) gets its own logo and browser-tab icon. Tab icons are fitted to 256×256 WebP. Each logo is designed for its module's main surface; where it appears on the opposite background (e.g. the storefront's dark footer), it sits on a plate of its own colour.
+
+**Bulk buying.** Two layers, as on B2B marketplaces:
+- **Quantity tiers.** A seller sets up to 5 price breaks per product (e.g. 10+ at ₹1,399, 100+ at ₹1,199), optionally for business buyers only. `backend/src/modules/products/pricing.js` is the single pricing engine: the cart, checkout and order lines all use it, and order lines record which tier applied.
+- **Quotes (RFQ).** Above the quote threshold, a buyer requests a price for their quantity. The seller replies with a unit price valid for 3–30 days, and can revise it. Accepting puts a locked cart line at that price; placing the order consumes the quote. If an online payment times out, the quote returns to *accepted* while still valid. A job expires stale offers every 5 minutes.
 
 **Moderation.** Vendors, vendor-proposed categories and products wait for admin approval. Each has an auto-approve switch. Editing a live product's content sends it back to review; price and stock edits don't. Suspending a vendor hides their products and signs them out.
 

@@ -1,18 +1,40 @@
-import { AlertTriangle, ShieldCheck, ShoppingCart, Trash2 } from 'lucide-react'
+import { AlertTriangle, FileText, Layers, Lock, ShieldCheck, ShoppingCart, Trash2 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router'
-import { formatINR } from '@/core/lib/format'
-import { Price, Thumb } from '@/ui/Brand'
+import { formatDate, formatINR, formatNumber } from '@/core/lib/format'
+import { Thumb } from '@/ui/Brand'
 import { Button } from '@/ui/Button'
-import { Card, EmptyState, Skeleton } from '@/ui/Card'
+import { EmptyState, Skeleton } from '@/ui/Card'
 import { QuantityStepper } from '@/ui/inputs'
 import { useCart } from '../cart/useCart'
 import { CartSummary } from '../components/CartSummary'
+import { unitShort } from '@/core/lib/units'
 
 const ISSUE_TEXT = {
-  unavailable: 'No longer available — remove it to continue.',
-  out_of_stock: 'Out of stock — remove it to continue.',
+  unavailable: 'No longer available. Remove it to continue.',
+  out_of_stock: 'Out of stock. Remove it to continue.',
   below_moq: 'Below the minimum order quantity.',
   exceeds_stock: 'Not enough stock for this quantity.',
+  quote_expired: 'This quote has expired. Remove it, or request a new quote.',
+  quote_in_order: 'This quote is attached to an order awaiting payment.',
+}
+
+function PricingNote({ line }) {
+  if (line.pricing?.source === 'quote') {
+    return (
+      <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-sky-700">
+        <FileText className="size-3.5" /> Quoted price
+        {line.pricing.quote?.validUntil && <span className="font-normal text-slate-500">· valid until {formatDate(line.pricing.quote.validUntil)}</span>}
+      </p>
+    )
+  }
+  if (line.pricing?.source === 'bulk') {
+    return (
+      <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-accent-ink">
+        <Layers className="size-3.5" /> Bulk price for {formatNumber(line.pricing.tier.minQty)}+ · saving {formatINR(line.bulkSavings)}
+      </p>
+    )
+  }
+  return null
 }
 
 export default function CartPage() {
@@ -29,20 +51,18 @@ export default function CartPage() {
 
   if (!cart.items.length) {
     return (
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
         <title>Your cart</title>
-        <Card>
-          <EmptyState
-            icon={ShoppingCart}
-            title="Your cart is empty"
-            description="Browse tools, machinery and spare parts and add what you need."
-            action={
-              <Button asChild>
-                <Link to="/">Start shopping</Link>
-              </Button>
-            }
-          />
-        </Card>
+        <EmptyState
+          icon={ShoppingCart}
+          title="Your cart is empty"
+          description="Browse tools, machinery and spare parts and add what you need."
+          action={
+            <Button asChild>
+              <Link to="/">Start shopping</Link>
+            </Button>
+          }
+        />
       </div>
     )
   }
@@ -50,65 +70,94 @@ export default function CartPage() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
       <title>Your cart</title>
-      <h1 className="mb-6 text-2xl font-bold text-slate-900">Your cart</h1>
+      <h1 className="font-display text-4xl font-bold text-slate-900">Your cart</h1>
+      <p className="mt-1 text-sm text-slate-500">
+        {formatNumber(cart.count)} unit{cart.count === 1 ? '' : 's'} · prices are confirmed at checkout
+      </p>
 
       {cart.hasIssues && (
-        <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <div className="mt-5 flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           <AlertTriangle className="size-4 shrink-0" /> Some items need your attention before checkout.
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <Card as="ul" className="divide-y divide-slate-100">
+      <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,1fr)_380px]">
+        <ul className="border-t border-slate-200">
           {cart.items.map((line) => {
             const p = line.product
+            const unit = unitShort(p?.unit)
+            const next = line.pricing?.next
+            const nextReachable = next && line.quantity + next.unitsNeeded <= line.maxQuantity
             return (
-              <li key={line.productId} className="flex gap-4 p-4 sm:p-5">
-                <Link to={p ? `/p/${p.slug}` : '#'} className="shrink-0">
-                  <Thumb src={p?.image?.url} alt={p?.name} className="size-20 rounded-lg border border-slate-200 sm:size-24" />
+              <li key={line.productId} className="grid grid-cols-[88px_1fr] gap-4 border-b border-slate-200 py-5 sm:grid-cols-[112px_1fr_auto]">
+                <Link to={p ? `/p/${p.slug}` : '#'} className="aspect-square overflow-hidden rounded-md bg-[#f4f4f2] p-2">
+                  <Thumb src={p?.image?.url} alt={p?.name} className="size-full bg-transparent mix-blend-multiply" />
                 </Link>
-                <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
-                    {p?.brand && <p className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">{p.brand}</p>}
-                    <Link to={p ? `/p/${p.slug}` : '#'} className="line-clamp-2 font-medium text-slate-900 hover:text-primary">
-                      {p?.name ?? 'Unavailable product'}
-                    </Link>
-                    {p && <Price price={p.price} mrp={p.mrp} size="sm" className="mt-1" />}
-                    {line.issue && <p className="mt-1 text-xs font-medium text-red-600">{ISSUE_TEXT[line.issue]}</p>}
+                <div className="min-w-0">
+                  {p?.brand && <p className="text-[11px] font-semibold tracking-[0.08em] text-slate-500 uppercase">{p.brand}</p>}
+                  <Link to={p ? `/p/${p.slug}` : '#'} className="line-clamp-2 font-medium text-slate-900 hover:underline">
+                    {p?.name ?? 'Unavailable product'}
+                  </Link>
+                  <p className="tabular mt-1 text-sm text-slate-600">
+                    {formatINR(line.unitPrice)} / {unit}
+                    {line.unitPrice < line.baseUnitPrice && <span className="ml-2 text-xs text-slate-400 line-through">{formatINR(line.baseUnitPrice)}</span>}
+                  </p>
+                  <PricingNote line={line} />
+                  {line.issue && <p className="mt-1 text-xs font-semibold text-red-600">{ISSUE_TEXT[line.issue]}</p>}
+                  {!line.issue && nextReachable && !line.quantityLocked && (
+                    <button
+                      type="button"
+                      onClick={() => cart.setQty(line.productId, line.quantity + next.unitsNeeded)}
+                      className="mt-2 rounded-sm bg-accent-soft px-2 py-1 text-left text-xs text-slate-800 hover:bg-accent/15"
+                    >
+                      Add {formatNumber(next.unitsNeeded)} more to pay <strong>{formatINR(next.price)}/{unit}</strong>
+                    </button>
+                  )}
+                  <div className="mt-3 flex items-center gap-4 sm:hidden">
+                    <LineControls line={line} cart={cart} />
                   </div>
-                  <div className="flex items-center gap-3 sm:flex-col sm:items-end">
-                    {p && !['unavailable', 'out_of_stock'].includes(line.issue) && (
-                      <QuantityStepper
-                        size="sm"
-                        value={line.quantity}
-                        min={p.moq}
-                        max={line.maxQuantity || 9999}
-                        disabled={cart.isUpdating}
-                        onChange={(q) => cart.setQty(line.productId, q)}
-                      />
-                    )}
-                    <p className="tabular font-semibold text-slate-900">{formatINR(line.lineTotal)}</p>
-                    <Button variant="ghost" size="xs" className="text-slate-500 hover:text-red-600" onClick={() => cart.remove(line.productId)}>
-                      <Trash2 /> Remove
-                    </Button>
-                  </div>
+                </div>
+                <div className="hidden flex-col items-end justify-between gap-3 sm:flex">
+                  <p className="tabular font-display text-2xl leading-none font-bold text-slate-900">{formatINR(line.lineTotal)}</p>
+                  <LineControls line={line} cart={cart} />
                 </div>
               </li>
             )
           })}
-        </Card>
+        </ul>
 
-        <div className="lg:sticky lg:top-36 lg:self-start">
+        <div className="lg:sticky lg:top-40 lg:self-start">
           <CartSummary summary={cart.summary}>
-            <Button size="lg" className="mt-5 w-full" disabled={cart.hasIssues} onClick={() => navigate(cart.signedIn ? '/checkout' : '/login?next=/checkout')}>
-              {cart.signedIn ? 'Proceed to checkout' : 'Sign in to checkout'}
+            <Button size="lg" className="mt-5 w-full font-semibold" disabled={cart.hasIssues} onClick={() => navigate(cart.signedIn ? '/checkout' : '/login?next=/checkout')}>
+              {cart.signedIn ? 'Checkout' : 'Sign in to check out'}
             </Button>
             <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-slate-500">
-              <ShieldCheck className="size-3.5" /> Prices and stock are confirmed at checkout
+              <ShieldCheck className="size-3.5" /> Stock and prices are re-checked when you place the order
             </p>
           </CartSummary>
         </div>
       </div>
+    </div>
+  )
+}
+
+function LineControls({ line, cart }) {
+  const p = line.product
+  return (
+    <div className="flex items-center gap-3">
+      {line.quantityLocked ? (
+        <span className="flex items-center gap-1.5 text-sm text-slate-600" title="Quantity is fixed by the quote">
+          <Lock className="size-3.5" /> Qty {formatNumber(line.quantity)}
+        </span>
+      ) : (
+        p &&
+        !['unavailable', 'out_of_stock'].includes(line.issue) && (
+          <QuantityStepper size="sm" value={line.quantity} min={p.moq} max={line.maxQuantity || 9999} disabled={cart.isUpdating} onChange={(q) => cart.setQty(line.productId, q)} />
+        )
+      )}
+      <Button variant="ghost" size="icon-sm" className="text-slate-400 hover:text-red-600" aria-label={`Remove ${p?.name ?? 'item'}`} onClick={() => cart.remove(line.productId)}>
+        <Trash2 />
+      </Button>
     </div>
   )
 }

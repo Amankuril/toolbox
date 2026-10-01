@@ -20,6 +20,12 @@ const providers = {
     : null,
 };
 
+/** Per-folder processing tweaks; everything is still compressed WebP. */
+const FOLDER_PRESETS = {
+  favicons: { maxDimension: 256, square: true, quality: 90 },
+  branding: { maxDimension: 800, quality: 90 },
+};
+
 function buildKey(folder) {
   const now = new Date();
   const month = String(now.getUTCMonth() + 1).padStart(2, '0');
@@ -46,7 +52,7 @@ export const storageService = {
    * @param {{ folder: string, uploadedBy: { kind: string, id?: any } }} opts
    */
   async uploadImage(file, { folder, uploadedBy }) {
-    const processed = await processImage(file.buffer);
+    const processed = await processImage(file.buffer, FOLDER_PRESETS[folder]);
     const providerName = await this.activeProviderName();
     const provider = providers[providerName];
 

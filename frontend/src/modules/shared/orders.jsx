@@ -133,6 +133,10 @@ export function OrderItemRow({ item, actions, showVendor = false }) {
             <p className="font-medium text-slate-900">{item.name}</p>
             <p className="mt-0.5 text-xs text-slate-500">
               {[item.sku && `SKU ${item.sku}`, `Qty ${item.quantity}`, `${formatINR(item.unitPrice)} each`, `GST ${item.gstRate}%`].filter(Boolean).join(' · ')}
+              {item.pricing?.source === 'bulk' && (
+                <span className="ml-2 rounded bg-accent-soft px-1.5 py-0.5 font-medium text-accent-ink">Bulk price ({item.pricing.tierMinQty}+)</span>
+              )}
+              {item.pricing?.source === 'quote' && <span className="ml-2 rounded bg-sky-50 px-1.5 py-0.5 font-medium text-sky-700">Quoted price</span>}
             </p>
             {showVendor && item.vendor?.store?.name && <p className="mt-0.5 text-xs text-slate-500">Sold by {item.vendor.store.name}</p>}
           </div>

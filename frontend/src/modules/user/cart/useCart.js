@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { create } from 'zustand'
 import { errorMessage } from '@/core/api/errors'
 import { useSession } from '@/core/auth/session'
+import { priceFor, usableTiers } from '@/core/lib/pricing'
 import { safeStorage } from '@/core/lib/storage'
 import { usePublicSettings } from '@/core/settings/usePublicSettings'
 import { storeApi, storeKeys, userApi } from '../api'
@@ -50,14 +51,20 @@ function useGuestView(enabled) {
     const items = lines.map(({ productId, quantity }) => {
       const product = byId.get(productId) ?? null
       const issue = !product ? (data ? 'unavailable' : null) : !product.inStock ? 'out_of_stock' : quantity < product.moq ? 'below_moq' : null
+      // Guests are priced as individual buyers (business-only tiers don't apply); the server re-prices after sign-in.
+      const base = product?.price ?? 0
+      const { unitPrice, tier, next } = priceFor(base, usableTiers(product?.bulk), quantity)
       return {
         productId,
         product,
         quantity,
-        unitPrice: product?.price ?? 0,
+        unitPrice,
+        baseUnitPrice: base,
         unitMrp: product?.mrp ?? 0,
-        lineTotal: (product?.price ?? 0) * quantity,
-        maxQuantity: 9999,
+        lineTotal: unitPrice * quantity,
+        bulkSavings: Math.max(0, (base - unitPrice) * quantity),
+        pricing: { source: tier ? 'bulk' : 'base', tier, next },
+        maxQuantity: product ? Math.min(product.stock || 9999, product.maxOrderQty ?? 9999) : 9999,
         issue,
       }
     })
@@ -72,6 +79,7 @@ function useGuestView(enabled) {
         subtotal,
         mrpTotal,
         savings: mrpTotal - subtotal,
+        bulkSavings: payable.reduce((sum, i) => sum + i.bulkSavings, 0),
         shipping,
         total: subtotal + shipping,
       },

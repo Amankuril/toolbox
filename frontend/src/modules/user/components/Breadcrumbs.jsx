@@ -29,26 +29,3 @@ export function Breadcrumbs({ items }) {
     </nav>
   )
 }
-
-export function CategoryTiles({ categories }) {
-  return (
-    <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 sm:gap-4 lg:grid-cols-6">
-      {categories.map((c) => (
-        <Link
-          key={c._id}
-          to={`/c/${c.slug}`}
-          className="group flex flex-col items-center gap-2 rounded-lg border border-slate-200 bg-white p-3 text-center transition-shadow hover:shadow-md"
-        >
-          <div className="aspect-square w-full overflow-hidden rounded-md bg-slate-50">
-            {c.image?.url ? (
-              <img src={c.image.url} alt="" loading="lazy" className="size-full object-cover transition-transform duration-300 group-hover:scale-105" />
-            ) : (
-              <div className="grid size-full place-items-center text-2xl font-bold text-primary/60">{c.name[0]}</div>
-            )}
-          </div>
-          <span className="line-clamp-2 text-xs font-semibold text-slate-800 group-hover:text-primary sm:text-sm">{c.name}</span>
-        </Link>
-      ))}
-    </div>
-  )
-}

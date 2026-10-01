@@ -96,11 +96,30 @@ export const STATUS_TONES = {
   packed: 'info',
   shipped: 'info',
   delivered: 'success',
+  // quotes (rfq)
+  requested: 'warning',
+  quoted: 'info',
+  accepted: 'success',
+  ordered: 'success',
+  declined: 'danger',
+  withdrawn: 'neutral',
+  expired: 'neutral',
   // payment
   paid: 'success',
   failed: 'danger',
   refunded: 'neutral',
   partially_refunded: 'warning',
+}
+
+export const QUOTE_STATUS_LABELS = {
+  requested: 'Awaiting quote',
+  quoted: 'Quote received',
+  accepted: 'Accepted',
+  ordered: 'Ordered',
+  declined: 'Declined by seller',
+  rejected: 'Declined by buyer',
+  withdrawn: 'Withdrawn',
+  expired: 'Expired',
 }
 
 export const STATUS_LABELS = {

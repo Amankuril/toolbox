@@ -16,6 +16,8 @@ export const storeKeys = {
   addresses: ['user', 'addresses'],
   orders: (p) => ['user', 'orders', p],
   order: (id) => ['user', 'order', id],
+  quotes: (p) => ['user', 'quotes', p],
+  quote: (id) => ['user', 'quote', id],
 }
 
 /** Anonymous storefront reads. */
@@ -52,4 +54,11 @@ export const userApi = {
   retryPayment: (id) => one(u.post(`/orders/${id}/payment/retry`)),
   paymentFailed: (id, reason) => one(u.post(`/orders/${id}/payment/failed`, { reason })),
   cancelItem: (id, itemId, reason) => one(u.post(`/orders/${id}/items/${itemId}/cancel`, { reason })),
+
+  quotes: (params) => list(u.get('/quotes', { params })),
+  quote: (id) => one(u.get(`/quotes/${id}`)),
+  requestQuote: (body) => one(u.post('/quotes', body)),
+  acceptQuote: (id) => one(u.post(`/quotes/${id}/accept`)),
+  rejectQuote: (id, reason) => one(u.post(`/quotes/${id}/reject`, { reason })),
+  withdrawQuote: (id) => one(u.post(`/quotes/${id}/withdraw`)),
 }

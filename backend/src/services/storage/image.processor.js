@@ -27,7 +27,7 @@ sharp.cache(false);
  * @param {{ maxDimension?: number, quality?: number }} [opts]
  * @returns {Promise<{ buffer: Buffer, width: number, height: number, size: number, mimeType: 'image/webp', originalMime: string }>}
  */
-export async function processImage(buffer, { maxDimension = env.IMAGE_MAX_DIMENSION, quality = env.IMAGE_WEBP_QUALITY } = {}) {
+export async function processImage(buffer, { maxDimension = env.IMAGE_MAX_DIMENSION, quality = env.IMAGE_WEBP_QUALITY, square = false } = {}) {
   const detected = await fileTypeFromBuffer(buffer);
   if (!detected || !ACCEPTED_MIME.has(detected.mime)) {
     throw ApiError.badRequest('Unsupported file. Upload a JPG, PNG, WebP, AVIF, GIF or HEIC image.', { code: 'UNSUPPORTED_FILE' });
@@ -36,7 +36,12 @@ export async function processImage(buffer, { maxDimension = env.IMAGE_MAX_DIMENS
   try {
     const { data, info } = await sharp(buffer, { limitInputPixels: MAX_INPUT_PIXELS, failOn: 'error', animated: false })
       .rotate()
-      .resize({ width: maxDimension, height: maxDimension, fit: 'inside', withoutEnlargement: true })
+      // Square mode (favicons): letterbox onto a transparent square instead of cropping the mark.
+      .resize(
+        square
+          ? { width: maxDimension, height: maxDimension, fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } }
+          : { width: maxDimension, height: maxDimension, fit: 'inside', withoutEnlargement: true },
+      )
       .webp({ quality, effort: 4, smartSubsample: true })
       .toBuffer({ resolveWithObject: true });
 

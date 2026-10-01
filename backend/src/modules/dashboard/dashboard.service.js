@@ -3,6 +3,7 @@ import { Category } from '#modules/categories/category.model.js';
 import { Order } from '#modules/orders/order.model.js';
 import { serializeOrder, serializeVendorOrder } from '#modules/orders/order.serializer.js';
 import { Product } from '#modules/products/product.model.js';
+import { Quote } from '#modules/quotes/quote.model.js';
 import { User } from '#modules/users/user.model.js';
 import { Vendor } from '#modules/vendors/vendor.model.js';
 
@@ -85,7 +86,7 @@ export const dashboardService = {
     const since14 = new Date(Date.now() - 14 * DAY);
     const vendorLines = [{ $unwind: '$items' }, { $match: { 'items.vendor': id } }];
 
-    const [products, lowStock, itemStatuses, revenue, daily, recent] = await Promise.all([
+    const [products, lowStock, itemStatuses, revenue, daily, recent, quotes] = await Promise.all([
       Product.aggregate([{ $match: { vendor: id } }, ...groupStatus]),
       Product.find({ vendor: id, status: 'active', 'inventory.stock': { $lte: 5 } })
         .sort({ 'inventory.stock': 1 })
@@ -120,6 +121,7 @@ export const dashboardService = {
         .sort({ createdAt: -1 })
         .limit(6)
         .lean(),
+      Quote.aggregate([{ $match: { vendor: id, status: { $in: ['requested', 'quoted', 'accepted'] } } }, ...groupStatus]),
     ]);
 
     return {
@@ -127,6 +129,7 @@ export const dashboardService = {
       itemsByStatus: byStatus(itemStatuses),
       last30Days: { revenue: revenue[0]?.revenue ?? 0, units: revenue[0]?.units ?? 0, orders: revenue[0]?.orders.length ?? 0 },
       dailySales: dailySeries(daily, 14),
+      quotesByStatus: byStatus(quotes),
       lowStock: lowStock.map((p) => ({ _id: p._id, name: p.name, slug: p.slug, image: p.images?.[0] ?? null, stock: p.inventory.stock })),
       recentOrders: recent.map((o) => serializeVendorOrder(o, id)),
     };

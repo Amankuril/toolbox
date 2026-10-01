@@ -4,6 +4,8 @@ import { hexColor, imageRef } from '#core/validation/common.js';
 export const THEME_MODULES = ['user', 'vendor', 'admin'];
 export const RADIUS_SCALE = ['none', 'sm', 'md', 'lg', 'xl'];
 
+const moduleBrand = z.object({ logo: imageRef.nullable(), favicon: imageRef.nullable() });
+
 const moduleTheme = z.object({
   primary: hexColor,
   secondary: hexColor,
@@ -20,18 +22,21 @@ export const SETTINGS = {
     schema: z.object({
       siteName: z.string().trim().min(1).max(60),
       tagline: z.string().trim().max(160),
-      logo: imageRef.nullable(),
-      favicon: imageRef.nullable(),
       supportEmail: z.union([z.literal(''), z.email()]),
       supportPhone: z.string().trim().max(20),
+      // Each module (storefront, seller panel, admin panel) has its own logo and browser-tab icon.
+      modules: z.object({ user: moduleBrand, vendor: moduleBrand, admin: moduleBrand }),
     }),
     defaults: {
       siteName: 'Toolbox',
       tagline: 'Tools, machinery & spare parts for every trade',
-      logo: null,
-      favicon: null,
       supportEmail: '',
       supportPhone: '',
+      modules: {
+        user: { logo: null, favicon: null },
+        vendor: { logo: null, favicon: null },
+        admin: { logo: null, favicon: null },
+      },
     },
   },
 

@@ -1,4 +1,5 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { Eye } from 'lucide-react'
 import { useNavigate } from 'react-router'
 import { useSearchParamsState } from '@/core/hooks/useSearchParamsState'
 import { formatDateTime, formatINR, formatPhone } from '@/core/lib/format'
@@ -9,6 +10,7 @@ import { DataTable, Pagination } from '@/ui/DataTable'
 import { Select } from '@/ui/Field'
 import { PageHeader } from '@/ui/PageHeader'
 import { SearchField } from '@/ui/SearchField'
+import { RowActions } from '@/ui/RowActions'
 import { adminApi, adminKeys } from '../api'
 
 const TABS = [
@@ -59,7 +61,6 @@ export default function OrdersPage() {
         <DataTable
           loading={isLoading}
           rows={data?.items}
-          onRowClick={(o) => navigate(`/admin/orders/${o._id}`)}
           empty={{ title: 'No orders found' }}
           columns={[
             { key: 'no', header: 'Order', cell: (o) => <span className="font-medium text-slate-900">{o.orderNumber}</span> },
@@ -91,6 +92,17 @@ export default function OrdersPage() {
               header: 'Total',
               className: 'text-right',
               cell: (o) => <span className="tabular font-semibold">{formatINR(o.amounts.total)}</span>,
+            },
+            {
+              key: 'actions',
+              header: '',
+              className: 'w-px',
+              cell: (o) => (
+                <RowActions
+                  label={`Actions for order ${o.orderNumber}`}
+                  items={[{ label: 'View order', icon: Eye, onSelect: () => navigate(`/admin/orders/${o._id}`) }]}
+                />
+              ),
             },
           ]}
         />

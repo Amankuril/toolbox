@@ -1,7 +1,15 @@
 import { z } from 'zod';
 import { paginationQuery } from '#core/utils/pagination.js';
 import { idParams, imageInput, nonEmpty, objectId, optionalText, queryBool } from '#core/validation/common.js';
-import { GST_RATES, MAX_PRODUCT_IMAGES, PRODUCT_CONDITIONS, PRODUCT_STATUSES, PRODUCT_TYPES, PRODUCT_UNITS } from './product.model.js';
+import {
+  GST_RATES,
+  MAX_BULK_TIERS,
+  MAX_PRODUCT_IMAGES,
+  PRODUCT_CONDITIONS,
+  PRODUCT_STATUSES,
+  PRODUCT_TYPES,
+  PRODUCT_UNITS,
+} from './product.model.js';
 
 /** Paise; capped at ₹10 crore to catch unit mistakes (rupees sent as paise × 100). */
 const money = z.number().int('Amount must be in paise (whole number)').min(0).max(1_000_000_000);
@@ -26,6 +34,27 @@ const inventory = z
     path: ['maxOrderQty'],
     message: 'Must be at least the minimum order quantity',
   });
+
+/**
+ * Shape only; the rules that depend on price/MOQ (ascending quantities, descending prices)
+ * are enforced in the service against the product's effective values.
+ */
+const bulkPricing = z.object({
+  tiers: z
+    .array(
+      z.object({
+        minQty: z.number().int().min(2, 'Bulk tiers start at 2 units or more').max(1_000_000),
+        price: money.min(1, 'Enter a price per unit'),
+      }),
+    )
+    .max(MAX_BULK_TIERS, `Up to ${MAX_BULK_TIERS} bulk tiers`),
+  businessOnly: z.boolean().default(false),
+});
+
+const quotes = z.object({
+  enabled: z.boolean(),
+  minQty: z.number().int().min(1).max(10_000_000).optional(),
+});
 
 const stringList = (max, itemMax) =>
   z
@@ -52,6 +81,8 @@ const fields = {
     .optional()
     .or(z.literal('').transform(() => undefined)),
   inventory,
+  bulkPricing,
+  quotes,
   specifications: z.array(z.object({ label: nonEmpty(80), value: nonEmpty(300) })).max(50),
   condition: z.enum(PRODUCT_CONDITIONS),
   warranty: z.object({ months: z.number().int().min(0).max(240).optional(), details: optionalText(500) }),
@@ -149,6 +180,7 @@ export const publicListProducts = {
     maxPrice: z.coerce.number().int().min(0).optional(),
     inStock: queryBool,
     featured: queryBool,
+    bulk: queryBool,
     sort: z.enum(PUBLIC_SORTS).optional(),
     ids: z
       .string()

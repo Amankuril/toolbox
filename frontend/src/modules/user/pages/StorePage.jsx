@@ -31,16 +31,16 @@ export default function StorePage() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
       {store && <title>{`${store.store.name} | ${siteName}`}</title>}
-      <div className="mb-8 rounded-xl border border-slate-200 bg-white p-5 sm:p-6">
+      <div className="mb-10 border-b border-slate-200 pb-8">
         {isLoading ? (
           <Skeleton className="h-16" />
         ) : (
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
             <Thumb src={store.store.logo?.url} alt={store.store.name} className="size-16 shrink-0 rounded-lg border border-slate-200" />
             <div className="min-w-0 flex-1">
-              <h1 className="flex flex-wrap items-center gap-2 text-2xl font-bold text-slate-900">
+              <h1 className="flex flex-wrap items-center gap-3 font-display text-4xl font-bold text-slate-900">
                 {store.store.name}
-                <span className="inline-flex items-center gap-1 rounded-full bg-accent-soft px-2 py-0.5 text-xs font-semibold text-accent">
+                <span className="inline-flex items-center gap-1 rounded-full bg-accent-soft px-2 py-0.5 text-xs font-semibold text-accent-ink">
                   <BadgeCheck className="size-3.5" /> Reviewed seller
                 </span>
               </h1>
@@ -59,7 +59,7 @@ export default function StorePage() {
           </div>
         )}
       </div>
-      <ProductListing key={slug} base={{ vendor: slug }} heading={<h2 className="text-lg font-bold text-slate-900">Products</h2>} />
+      <ProductListing key={slug} base={{ vendor: slug }} heading={<h2 className="font-display text-2xl font-bold text-slate-900">All products from this seller</h2>} />
     </div>
   )
 }

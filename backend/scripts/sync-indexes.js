@@ -12,6 +12,7 @@ import '#modules/categories/category.model.js';
 import '#modules/media/media.model.js';
 import '#modules/orders/order.model.js';
 import '#modules/products/product.model.js';
+import '#modules/quotes/quote.model.js';
 import '#modules/settings/setting.model.js';
 import '#modules/users/user.model.js';
 import '#modules/vendors/vendor.model.js';

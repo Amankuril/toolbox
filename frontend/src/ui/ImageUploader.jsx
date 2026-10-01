@@ -13,9 +13,21 @@ const MAX_MB = 8
  * Uploads through the centralised media API (compressed → WebP → Cloudinary or local, per admin toggle).
  * Value is an array of `{ media, url, alt? }`. The first image is the cover.
  *
- * @param {{ audience: 'admin'|'vendor'|'user', folder: string, value: any[], onChange: (v: any[]) => void, max?: number, aspect?: string }} props
+ * `gridClassName` replaces the default column layout, e.g. `grid-cols-1` for a single wide slot.
+ *
+ * @param {{ audience: 'admin'|'vendor'|'user', folder: string, value: any[], onChange: (v: any[]) => void, max?: number, aspect?: string, gridClassName?: string }} props
  */
-export function ImageUploader({ audience, folder, value = [], onChange, max = 10, aspect = 'aspect-square', label = 'Upload images', compact = false }) {
+export function ImageUploader({
+  audience,
+  folder,
+  value = [],
+  onChange,
+  max = 10,
+  aspect = 'aspect-square',
+  label = 'Upload images',
+  compact = false,
+  gridClassName,
+}) {
   const inputRef = useRef(null)
   const [progress, setProgress] = useState(null)
   const remaining = max - value.length
@@ -57,7 +69,7 @@ export function ImageUploader({ audience, folder, value = [], onChange, max = 10
 
   return (
     <div>
-      <div className={cn('grid gap-3', compact ? 'grid-cols-3 sm:grid-cols-4' : 'grid-cols-2 sm:grid-cols-4 lg:grid-cols-5')}>
+      <div className={cn('grid gap-3', gridClassName ?? (compact ? 'grid-cols-3 sm:grid-cols-4' : 'grid-cols-2 sm:grid-cols-4 lg:grid-cols-5'))}>
         {value.map((img, i) => (
           <div key={img.media} className={cn('group relative overflow-hidden rounded-lg border border-slate-200 bg-slate-50', aspect)}>
             <img src={img.url} alt={img.alt ?? ''} className="size-full object-contain" loading="lazy" />

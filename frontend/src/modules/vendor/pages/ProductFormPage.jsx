@@ -22,6 +22,8 @@ import { PageHeader } from '@/ui/PageHeader'
 import { useVendor, vendorApi, vendorKeys } from '../api'
 import { CategoryDialog } from '../components/CategoryDialog'
 import { useCategoryOptions } from '../components/categoryOptions'
+import { BulkPricingCard } from '../components/BulkPricingCard'
+import { bulkTierIssues, MAX_TIERS } from '../components/bulkRules'
 import { CompatibilityPicker } from '../components/CompatibilityPicker'
 
 const optNum = (schema) => schema.optional()
@@ -52,6 +54,18 @@ const schema = z
       maxOrderQty: optNum(z.number().int().min(1)),
       unit: z.string(),
     }),
+    bulkPricing: z.object({
+      tiers: z
+        .array(
+          z.object({
+            minQty: z.number({ error: 'Enter a quantity' }).int().min(2, 'At least 2'),
+            price: z.number({ error: 'Enter a price' }).int().min(1, 'Enter a price'),
+          }),
+        )
+        .max(MAX_TIERS),
+      businessOnly: z.boolean(),
+    }),
+    quotes: z.object({ enabled: z.boolean(), minQty: optNum(z.number().int().min(1)) }),
     condition: z.enum(['new', 'refurbished', 'used']),
     warranty: z.object({ months: optNum(z.number().int().min(0).max(240)), details: z.string().trim().max(500).optional() }),
     shipping: z.object({ weightKg: optNum(z.number().min(0)), dispatchDays: optNum(z.number().int().min(0).max(60)) }),
@@ -64,6 +78,11 @@ const schema = z
   .refine((v) => !v.inventory.maxOrderQty || v.inventory.maxOrderQty >= v.inventory.moq, {
     path: ['inventory', 'maxOrderQty'],
     message: 'Must be at least the minimum order',
+  })
+  .superRefine((v, ctx) => {
+    for (const issue of bulkTierIssues(v.bulkPricing.tiers, { basePrice: v.pricing.price, moq: v.inventory.moq })) {
+      ctx.addIssue({ code: 'custom', path: ['bulkPricing', 'tiers', issue.index, issue.field], message: issue.message })
+    }
   })
 
 const EMPTY = {
@@ -79,6 +98,8 @@ const EMPTY = {
   pricing: { mrp: undefined, price: undefined, gstRate: 18 },
   hsnCode: '',
   inventory: { stock: undefined, moq: 1, maxOrderQty: undefined, unit: 'piece' },
+  bulkPricing: { tiers: [], businessOnly: false },
+  quotes: { enabled: true, minQty: undefined },
   condition: 'new',
   warranty: { months: undefined, details: '' },
   shipping: { weightKg: undefined, dispatchDays: 2 },
@@ -103,6 +124,8 @@ function toForm(p) {
     pricing: { mrp: p.pricing.mrp, price: p.pricing.price, gstRate: p.pricing.gstRate },
     hsnCode: p.hsnCode ?? '',
     inventory: { stock: p.inventory.stock, moq: p.inventory.moq, maxOrderQty: p.inventory.maxOrderQty ?? undefined, unit: p.inventory.unit },
+    bulkPricing: { tiers: (p.bulkPricing?.tiers ?? []).map(({ minQty, price }) => ({ minQty, price })), businessOnly: Boolean(p.bulkPricing?.businessOnly) },
+    quotes: { enabled: p.quotes?.enabled ?? true, minQty: p.quotes?.minQty ?? undefined },
     condition: p.condition,
     warranty: { months: p.warranty?.months ?? undefined, details: p.warranty?.details ?? '' },
     shipping: { weightKg: p.shipping?.weightKg ?? undefined, dispatchDays: p.shipping?.dispatchDays ?? undefined },
@@ -130,6 +153,8 @@ function toPayload(v) {
     pricing: v.pricing,
     hsnCode: v.hsnCode,
     inventory: clean(v.inventory),
+    bulkPricing: v.bulkPricing,
+    quotes: clean(v.quotes),
     condition: v.condition,
     warranty: clean(v.warranty),
     shipping: clean(v.shipping),
@@ -163,6 +188,7 @@ function ProductForm({ product }) {
   const specs = useFieldArray({ control, name: 'specifications' })
   const type = useWatch({ control, name: 'type' })
   const pricing = useWatch({ control, name: 'pricing' })
+  const unit = useWatch({ control, name: 'inventory.unit' })
 
   // Warn before leaving with unsaved changes.
   useEffect(() => {
@@ -357,6 +383,8 @@ function ProductForm({ product }) {
               </div>
             </CardBody>
           </Card>
+
+          <BulkPricingCard control={control} register={register} errors={e} unit={unit} />
 
           {type === 'part' && (
             <Card>

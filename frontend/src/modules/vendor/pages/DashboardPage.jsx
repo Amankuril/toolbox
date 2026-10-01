@@ -1,11 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, IndianRupee, Package, PackagePlus, ShoppingBag, Truck } from 'lucide-react'
+import { AlertTriangle, FileText, IndianRupee, Package, PackagePlus, ShoppingBag, Truck } from 'lucide-react'
 import { Link, useNavigate } from 'react-router'
 import { formatCompactINR, formatDate, formatINR, formatNumber } from '@/core/lib/format'
 import { StatusBadge } from '@/ui/Badge'
 import { Thumb } from '@/ui/Brand'
 import { Button } from '@/ui/Button'
-import { Card, CardBody, CardHeader, Skeleton } from '@/ui/Card'
+import { Alert, Card, CardBody, CardHeader, Skeleton } from '@/ui/Card'
 import { ColumnChart } from '@/ui/ColumnChart'
 import { DataTable } from '@/ui/DataTable'
 import { PageHeader, StatCard } from '@/ui/PageHeader'
@@ -82,6 +82,21 @@ export default function VendorDashboardPage() {
         }
       />
 
+      {data.quotesByStatus?.requested > 0 && (
+        <Alert
+          tone="info"
+          icon={FileText}
+          title={`${data.quotesByStatus.requested} quote request${data.quotesByStatus.requested === 1 ? '' : 's'} waiting for your price`}
+          className="mb-6"
+          action={
+            <Button size="sm" asChild>
+              <Link to="/vendor/quotes">Reply</Link>
+            </Button>
+          }
+        >
+          Buyers are asking for a price on bulk quantities.
+        </Alert>
+      )}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Sales, last 30 days"

@@ -37,7 +37,14 @@ const orderItemSchema = new Schema({
   type: String,
   hsnCode: String,
   unitPrice: { type: Number, required: true, min: 0 },
+  // The listed price at purchase; differs from unitPrice when a bulk tier or quote applied.
+  basePrice: { type: Number, min: 0 },
   unitMrp: { type: Number, required: true, min: 0 },
+  pricing: {
+    source: { type: String, enum: ['base', 'bulk', 'quote'], default: 'base' },
+    tierMinQty: Number,
+    quote: { type: Schema.Types.ObjectId, ref: 'Quote' },
+  },
   gstRate: { type: Number, required: true },
   quantity: { type: Number, required: true, min: 1 },
   lineTotal: { type: Number, required: true, min: 0 },

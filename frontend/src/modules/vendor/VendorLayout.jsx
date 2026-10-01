@@ -1,18 +1,19 @@
-import { useQueryClient } from '@tanstack/react-query'
-import { ArrowRight, Clock, FolderTree, LayoutDashboard, Package, ShoppingBag, Store, TriangleAlert } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { ArrowRight, Clock, FileText, FolderTree, LayoutDashboard, Package, ShoppingBag, Store, TriangleAlert } from 'lucide-react'
 import { Link, useNavigate } from 'react-router'
 import { signOutEverywhere } from '@/core/api/http'
 import { formatPhone } from '@/core/lib/format'
 import { Logo } from '@/ui/Brand'
 import { Button } from '@/ui/Button'
 import { PanelShell } from '@/ui/PanelShell'
-import { useVendor, vendorKeys } from './api'
+import { useVendor, vendorApi, vendorKeys } from './api'
 
-const NAV = [
+const buildNav = (newQuotes) => [
   {
     items: [
       { to: '/vendor', end: true, label: 'Dashboard', icon: LayoutDashboard },
       { to: '/vendor/orders', label: 'Orders', icon: ShoppingBag },
+      { to: '/vendor/quotes', label: 'Quote requests', icon: FileText, badge: newQuotes },
     ],
   },
   {
@@ -63,12 +64,18 @@ function StatusBanner({ vendor }) {
 
 export default function VendorLayout() {
   const vendor = useVendor()
+  const { data: quotes } = useQuery({
+    queryKey: vendorKeys.quotes({ summary: true }),
+    queryFn: () => vendorApi.quotes({ limit: 1 }),
+    enabled: vendor?.status === 'approved',
+    refetchInterval: 60_000,
+  })
   const navigate = useNavigate()
   const qc = useQueryClient()
   return (
     <PanelShell
       brand={<Logo to="/vendor" inverted suffix="Seller" />}
-      nav={NAV}
+      nav={buildNav(quotes?.meta?.counts?.requested ?? 0)}
       user={{ name: vendor?.store?.name ?? 'Your store', subtitle: formatPhone(vendor?.phone) }}
       menuItems={[{ label: 'Store profile', icon: Store, to: '/vendor/profile' }]}
       banner={<StatusBanner vendor={vendor} />}

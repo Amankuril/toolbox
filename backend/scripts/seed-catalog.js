@@ -335,6 +335,21 @@ const PARTS = [
   ['Tiller Blade Set (24 pcs)', 'engine-parts', 'Kisankraft', 850_000, 689_000, 15, 'Kisankraft KK-IC-8 Power Tiller 7HP', ['KK-IC-8']],
 ];
 
+/** Quantity price breaks for a few demo products, so bulk buying shows up on the storefront. */
+const BULK = {
+  'Bosch GSB 550 Impact Drill 13mm': { tiers: [{ minQty: 5, price: 339_900 }, { minQty: 20, price: 324_900 }] },
+  'Taparia Combination Spanner Set (8 pcs)': { tiers: [{ minQty: 10, price: 109_900 }, { minQty: 50, price: 99_900 }] },
+  'Karam Safety Helmet with Ratchet (Pack of 5)': {
+    tiers: [
+      { minQty: 10, price: 139_900 },
+      { minQty: 25, price: 129_900 },
+      { minQty: 100, price: 119_900 },
+    ],
+  },
+  'Neptune BS-13 Battery Sprayer 16L': { tiers: [{ minQty: 10, price: 274_900 }, { minQty: 50, price: 259_900 }], businessOnly: true },
+  'Carbon Brush Pair for Bosch GSB 550': { tiers: [{ minQty: 20, price: 21_900 }, { minQty: 100, price: 18_900 }] },
+};
+
 let created = 0;
 const nameToId = {};
 for (const [i, [type, name, catSlug, brand, mrp, price, stock, specs]] of PRODUCTS.entries()) {
@@ -367,6 +382,7 @@ for (const [i, [type, name, catSlug, brand, mrp, price, stock, specs]] of PRODUC
       specifications: specs.map(([label, value]) => ({ label, value })),
       warranty: { months: 12, details: 'Manufacturer warranty' },
       shipping: { dispatchDays: 2 },
+      bulkPricing: BULK[name] ?? { tiers: [] },
       status: 'active',
       isFeatured: i % 3 === 0,
       publishedAt: new Date(Date.now() - i * 3_600_000),
@@ -397,6 +413,7 @@ for (const [i, [name, catSlug, brand, mrp, price, stock, fits, models]] of PARTS
     inventory: { stock, moq: 1, unit: 'set' },
     compatibleWith: [nameToId[fits]],
     compatibleModels: models,
+    bulkPricing: BULK[name] ?? { tiers: [] },
     status: 'active',
     publishedAt: new Date(),
     moderation: { approvedAt: new Date() },

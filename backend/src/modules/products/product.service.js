@@ -8,6 +8,7 @@ import { Vendor } from '#modules/vendors/vendor.model.js';
 import { serializePublicVendor } from '#modules/vendors/vendor.serializer.js';
 import { settingsService } from '#services/settings/settings.service.js';
 import { Product } from './product.model.js';
+import { assertValidBulkPricing } from './pricing.js';
 import { CARD_FIELDS, serializeProduct, serializeProductCard, serializePublicProduct } from './product.serializer.js';
 
 /** What makes a product visible on the storefront. */
@@ -24,6 +25,8 @@ const SIMPLE_FIELDS = [
   'pricing',
   'hsnCode',
   'inventory',
+  'bulkPricing',
+  'quotes',
   'specifications',
   'condition',
   'warranty',
@@ -140,6 +143,7 @@ export const productService = {
       else product.status = 'pending';
     }
 
+    assertValidBulkPricing(product);
     await product.save().catch(assertSkuFree);
     return serializeProduct(product.toObject());
   },
@@ -162,6 +166,7 @@ export const productService = {
       product.status = 'pending';
     }
 
+    assertValidBulkPricing(product);
     await product.save().catch(assertSkuFree);
     return serializeProduct(product.toObject());
   },
@@ -174,6 +179,14 @@ export const productService = {
     if (mrp !== undefined) product.pricing.mrp = mrp;
     if (price !== undefined) product.pricing.price = price;
     if (product.pricing.price > product.pricing.mrp) throw ApiError.unprocessable('Selling price cannot be more than MRP');
+    try {
+      assertValidBulkPricing(product);
+    } catch (err) {
+      if (err.code !== 'INVALID_BULK_PRICING') throw err;
+      throw ApiError.unprocessable('Bulk tier prices must stay below the selling price. Edit the product to update its tiers first.', {
+        code: 'INVALID_BULK_PRICING',
+      });
+    }
     await product.save();
     return serializeProduct(product.toObject());
   },
@@ -283,6 +296,7 @@ export const productService = {
       else product.status = input.status;
     }
 
+    assertValidBulkPricing(product);
     await product.save().catch(assertSkuFree);
     return serializeProduct(product.toObject());
   },
@@ -306,7 +320,7 @@ export const productService = {
 
   /* ─────────────────────────── Public ─────────────────────────── */
 
-  async publicList({ page, limit, q, category, vendor, type, brand, condition, minPrice, maxPrice, inStock, featured, sort, ids }) {
+  async publicList({ page, limit, q, category, vendor, type, brand, condition, minPrice, maxPrice, inStock, featured, bulk, sort, ids }) {
     const match = { ...VISIBLE };
     if (q) match.$text = { $search: q };
 
@@ -325,6 +339,7 @@ export const productService = {
     if (condition) match.condition = condition;
     if (inStock) match['inventory.stock'] = { $gt: 0 };
     if (featured) match.isFeatured = true;
+    if (bulk) match['bulkPricing.tiers.0'] = { $exists: true };
 
     // Price range is applied after facets so the price facet shows the full range for the other filters.
     const priceMatch = {};
@@ -358,7 +373,7 @@ export const productService = {
             { $sort: sortStage(sort, Boolean(q)) },
             { $skip: (page - 1) * limit },
             { $limit: limit },
-            { $project: { ...project, images: { $slice: ['$images', 1] } } },
+            { $project: { ...project, images: { $slice: ['$images', 1] }, specifications: { $slice: ['$specifications', 3] } } },
           ],
           total: [{ $match: { ...brandFilter, ...priceFilter } }, { $count: 'n' }],
           brands: [
@@ -426,7 +441,7 @@ export const productService = {
   async suggest(q) {
     const rx = new RegExp(escapeRegex(q), 'i');
     const [products, categories] = await Promise.all([
-      Product.find({ ...VISIBLE, $or: [{ name: rx }, { brand: rx }, { modelNumber: rx }] })
+      Product.find({ ...VISIBLE, $or: [{ name: rx }, { brand: rx }, { modelNumber: rx }, { compatibleModels: rx }] })
         .sort({ isFeatured: -1, publishedAt: -1 })
         .limit(6)
         .select('name slug images pricing')

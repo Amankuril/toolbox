@@ -1,18 +1,45 @@
 import { useSearchParams } from 'react-router'
 import { useBranding } from '@/core/settings/usePublicSettings'
+import { ListingHeader } from '../components/ListingHeader'
 import { ProductListing } from '../components/ProductListing'
+import { useCategoryTree } from '../hooks'
 
 export default function SearchPage() {
   const [params] = useSearchParams()
   const { siteName } = useBranding()
+  const { data: tree = [] } = useCategoryTree()
   const q = params.get('q')?.trim() ?? ''
-  const title = q ? `Results for “${q}”` : params.get('featured') ? 'Featured products' : params.get('sort') === 'newest' ? 'New arrivals' : 'All products'
+  const category = params.get('category') || undefined
+  const department = tree.find((c) => c.slug === category)
+
+  const title = q
+    ? `“${q}”`
+    : params.get('bulk')
+      ? 'Bulk deals'
+      : params.get('featured')
+        ? 'Featured products'
+        : params.get('sort') === 'newest'
+          ? 'New in'
+          : params.get('brand')
+            ? params.get('brand').split(',').join(', ')
+            : 'All products'
+  const description = q
+    ? department
+      ? `Searching in ${department.name}`
+      : null
+    : params.get('bulk')
+      ? 'Products with price breaks for larger quantities. The right price is applied automatically in your cart.'
+      : null
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
       <title>{`${q ? `${q} — Search` : title} | ${siteName}`}</title>
       <meta name="robots" content="noindex" />
-      <ProductListing key={q} base={{ q: q || undefined }} heading={<h1 className="text-2xl font-bold text-slate-900">{title}</h1>} />
+      <ProductListing
+        key={`${q}|${category}`}
+        base={{ q: q || undefined, category }}
+        heading={<ListingHeader crumbs={[{ label: q ? 'Search' : title }]} eyebrow={q ? 'Search results for' : undefined} title={title} description={description} />}
+      />
     </div>
   )
 }

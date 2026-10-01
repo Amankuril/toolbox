@@ -93,13 +93,26 @@ export function Tabs({ value, onValueChange, defaultValue, tabs, className }) {
   )
 }
 
+/** Drops falsy items plus leading, trailing and doubled separators. */
+function cleanItems(items) {
+  const out = []
+  for (const item of items) {
+    if (!item) continue
+    if (item === 'separator' && (!out.length || out.at(-1) === 'separator')) continue
+    out.push(item)
+  }
+  while (out.at(-1) === 'separator') out.pop()
+  return out
+}
+
 export function Menu({ trigger, items, align = 'end' }) {
   return (
-    <DropdownMenu.Root>
+    // Non-modal: actions often open a dialog, and a modal menu would leave the page inert behind it.
+    <DropdownMenu.Root modal={false}>
       <DropdownMenu.Trigger asChild>{trigger}</DropdownMenu.Trigger>
       <DropdownMenu.Portal>
         <DropdownMenu.Content align={align} sideOffset={6} className="z-50 min-w-44 rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
-          {items.filter(Boolean).map((item, i) =>
+          {cleanItems(items).map((item, i) =>
             item === 'separator' ? (
               <DropdownMenu.Separator key={i} className="my-1 h-px bg-slate-100" />
             ) : (

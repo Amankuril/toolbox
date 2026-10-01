@@ -16,6 +16,7 @@ export const adminRoutes = {
             { index: true, ...page(() => import('./pages/DashboardPage')) },
             { path: 'orders', ...page(() => import('./pages/OrdersPage')) },
             { path: 'orders/:id', ...page(() => import('./pages/OrderDetailPage')) },
+            { path: 'quotes', ...page(() => import('./pages/QuotesPage')) },
             { path: 'products', ...page(() => import('./pages/ProductsPage')) },
             { path: 'products/:id', ...page(() => import('./pages/ProductDetailPage')) },
             { path: 'categories', ...page(() => import('./pages/CategoriesPage')) },

@@ -1,5 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Ban, Building2, RotateCcw, User } from 'lucide-react'
+import { Ban, Building2, Eye, RotateCcw, User } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { errorMessage } from '@/core/api/errors'
@@ -12,12 +12,26 @@ import { FilterTabs } from '@/ui/Controls'
 import { DataTable, Pagination } from '@/ui/DataTable'
 import { ConfirmDialog, Dialog } from '@/ui/Dialog'
 import { DescriptionList, PageHeader } from '@/ui/PageHeader'
+import { ActionDialog, RowActions } from '@/ui/RowActions'
 import { SearchField } from '@/ui/SearchField'
 import { adminApi, adminKeys } from '../api'
 
 export default function CustomersPage() {
   const [filters, setFilters] = useSearchParamsState()
   const [selected, setSelected] = useState(null)
+  const [action, setAction] = useState(null)
+  const qc = useQueryClient()
+  const setStatus = async (u, status) => {
+    try {
+      await adminApi.setUserStatus(u._id, status)
+      qc.invalidateQueries({ queryKey: ['admin', 'users'] })
+      qc.invalidateQueries({ queryKey: adminKeys.user(u._id) })
+      toast.success(status === 'blocked' ? 'Customer blocked and signed out' : 'Customer unblocked')
+    } catch (err) {
+      toast.error(errorMessage(err))
+      throw err
+    }
+  }
   const params = { page: Number(filters.page ?? 1), limit: 20, status: filters.status || undefined, q: filters.q || undefined }
   const { data, isLoading } = useQuery({ queryKey: adminKeys.users(params), queryFn: () => adminApi.users(params), placeholderData: keepPreviousData })
 
@@ -42,7 +56,6 @@ export default function CustomersPage() {
         <DataTable
           loading={isLoading}
           rows={data?.items}
-          onRowClick={(u) => setSelected(u._id)}
           empty={{ title: 'No customers found' }}
           columns={[
             {
@@ -65,11 +78,41 @@ export default function CustomersPage() {
             { key: 'status', header: 'Status', cell: (u) => <StatusBadge status={u.status} /> },
             { key: 'last', header: 'Last sign-in', cell: (u) => formatDate(u.lastLoginAt) },
             { key: 'joined', header: 'Joined', cell: (u) => formatDate(u.createdAt) },
+            {
+              key: 'actions',
+              header: '',
+              className: 'w-px',
+              cell: (u) => (
+                <RowActions
+                  label={`Actions for ${u.name}`}
+                  items={[
+                    { label: 'View details', icon: Eye, onSelect: () => setSelected(u._id) },
+                    'separator',
+                    u.status === 'active'
+                      ? { label: 'Block', icon: Ban, danger: true, onSelect: () => setAction({ type: 'block', row: u }) }
+                      : { label: 'Unblock', icon: RotateCcw, onSelect: () => setStatus(u, 'active').catch(() => {}) },
+                  ]}
+                />
+              ),
+            },
           ]}
         />
         <Pagination meta={data?.meta} onPageChange={(page) => setFilters({ page })} />
       </Card>
       <CustomerDialog id={selected} onClose={() => setSelected(null)} />
+      <ActionDialog
+        action={action}
+        onClose={() => setAction(null)}
+        configs={{
+          block: {
+            kind: 'confirm',
+            title: (u) => `Block ${u.name}?`,
+            description: 'They are signed out and cannot sign in or place orders until unblocked.',
+            confirmLabel: 'Block',
+            run: (u) => setStatus(u, 'blocked'),
+          },
+        }}
+      />
     </>
   )
 }

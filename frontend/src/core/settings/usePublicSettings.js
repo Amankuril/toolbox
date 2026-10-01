@@ -26,5 +26,5 @@ export function useModuleTheme(module) {
 
 export function useBranding() {
   const { data } = usePublicSettings()
-  return data?.branding ?? { siteName: 'Toolbox', tagline: '', logo: null }
+  return data?.branding ?? { siteName: 'Toolbox', tagline: '', modules: {} }
 }

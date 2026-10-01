@@ -520,7 +520,7 @@ function Submitted({ vendor }) {
   return (
     <Card>
       <CardBody className="flex flex-col items-center py-14 text-center">
-        <div className="mb-5 grid size-14 place-items-center rounded-full bg-accent-soft text-accent">
+        <div className="mb-5 grid size-14 place-items-center rounded-full bg-accent-soft text-accent-ink">
           <CircleCheckBig className="size-7" />
         </div>
         <h2 className="text-xl font-bold text-slate-900">Application submitted</h2>

@@ -6,6 +6,8 @@ const cartItemSchema = new Schema(
   {
     product: { type: Schema.Types.ObjectId, ref: 'Product', required: true },
     quantity: { type: Number, required: true, min: 1 },
+    // Set when the line comes from an accepted quote: quantity and unit price are locked to it.
+    quote: { type: Schema.Types.ObjectId, ref: 'Quote' },
     addedAt: { type: Date, default: Date.now },
   },
   { _id: false },

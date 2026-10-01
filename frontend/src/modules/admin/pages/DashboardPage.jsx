@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { ArrowRight, FolderTree, IndianRupee, Package, ShoppingBag, Store, Users } from 'lucide-react'
+import { ArrowRight, Eye, FolderTree, IndianRupee, Package, ShoppingBag, Store, Users } from 'lucide-react'
 import { Link, useNavigate } from 'react-router'
 import { formatCompactINR, formatDate, formatINR, formatNumber, formatRelative } from '@/core/lib/format'
 import { StatusBadge } from '@/ui/Badge'
@@ -7,6 +7,7 @@ import { Card, CardBody, CardHeader, Skeleton } from '@/ui/Card'
 import { ColumnChart } from '@/ui/ColumnChart'
 import { DataTable } from '@/ui/DataTable'
 import { PageHeader, StatCard } from '@/ui/PageHeader'
+import { RowActions } from '@/ui/RowActions'
 import { adminApi, adminKeys } from '../api'
 
 export default function DashboardPage() {
@@ -107,7 +108,6 @@ export default function DashboardPage() {
         />
         <DataTable
           rows={recentOrders}
-          onRowClick={(o) => navigate(`/admin/orders/${o._id}`)}
           empty={{ title: 'No orders yet', description: 'Orders will appear here as customers check out.' }}
           columns={[
             { key: 'no', header: 'Order', cell: (o) => <span className="font-medium text-slate-900">{o.orderNumber}</span> },
@@ -120,6 +120,17 @@ export default function DashboardPage() {
               header: 'Total',
               className: 'text-right',
               cell: (o) => <span className="tabular font-semibold">{formatINR(o.amounts.total)}</span>,
+            },
+            {
+              key: 'actions',
+              header: '',
+              className: 'w-px',
+              cell: (o) => (
+                <RowActions
+                  label={`Actions for order ${o.orderNumber}`}
+                  items={[{ label: 'View order', icon: Eye, onSelect: () => navigate(`/admin/orders/${o._id}`) }]}
+                />
+              ),
             },
           ]}
         />

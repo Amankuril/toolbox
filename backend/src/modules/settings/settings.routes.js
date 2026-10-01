@@ -13,7 +13,10 @@ export const publicSettingsRoutes = Router().get('/', async (_req, res) => {
   ok(res, await settingsService.publicView());
 });
 
-const brandingImages = z.object({ logo: imageInput.nullable().optional(), favicon: imageInput.nullable().optional() }).loose();
+const moduleImages = z.object({ logo: imageInput.nullable().optional(), favicon: imageInput.nullable().optional() });
+const brandingImages = z
+  .object({ modules: z.object({ user: moduleImages, vendor: moduleImages, admin: moduleImages }).partial().optional() })
+  .loose();
 
 /** Mounted at /admin/settings. */
 export const adminSettingsRoutes = Router()
@@ -27,10 +30,16 @@ export const adminSettingsRoutes = Router()
 
       // Image refs are resolved server-side so a URL can never be injected into branding.
       if (req.params.key === 'branding') {
-        const images = brandingImages.parse(patch);
-        patch = { ...patch };
-        for (const field of ['logo', 'favicon']) {
-          if (images[field] !== undefined) patch[field] = images[field] ? await mediaService.resolveOne(images[field], actor) : null;
+        const { modules = {} } = brandingImages.parse(patch);
+        patch = { ...patch, modules: {} };
+        for (const [module, images] of Object.entries(modules)) {
+          patch.modules[module] = {};
+          for (const field of ['logo', 'favicon']) {
+            if (images[field] === undefined) continue;
+            // Settings are stored as plain JSON, so keep the media id as a string.
+            const ref = images[field] ? await mediaService.resolveOne(images[field], actor) : null;
+            patch.modules[module][field] = ref && { media: String(ref.media), url: ref.url };
+          }
         }
       }
 
