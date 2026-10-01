@@ -30,12 +30,17 @@ export const userService = {
     if (businessName !== undefined) user.set('business.name', businessName);
     if (gstin !== undefined) user.set('business.gstin', gstin ?? undefined);
     if (user.accountType === 'business' && !user.business?.name) {
-      throw ApiError.unprocessable('Business name is required for business accounts', { details: [{ path: 'businessName', message: 'Required' }] });
+      throw ApiError.unprocessable('Business name is required for business accounts', {
+        details: [{ path: 'businessName', message: 'Required' }],
+      });
     }
     try {
       await user.save();
     } catch (err) {
-      if (err?.code === 11000) throw ApiError.conflict('This email is already used by another account', { details: [{ path: 'email', message: 'Already in use' }] });
+      if (err?.code === 11000)
+        throw ApiError.conflict('This email is already used by another account', {
+          details: [{ path: 'email', message: 'Already in use' }],
+        });
       throw err;
     }
     return serializeUser(user.toObject());

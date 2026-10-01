@@ -116,7 +116,10 @@ const orderSchema = new Schema(
 orderSchema.index({ user: 1, createdAt: -1 });
 orderSchema.index({ vendors: 1, createdAt: -1 });
 orderSchema.index({ status: 1, createdAt: -1 });
-orderSchema.index({ 'payment.providerOrderId': 1 }, { unique: true, partialFilterExpression: { 'payment.providerOrderId': { $type: 'string' } } });
+orderSchema.index(
+  { 'payment.providerOrderId': 1 },
+  { unique: true, partialFilterExpression: { 'payment.providerOrderId': { $type: 'string' } } },
+);
 orderSchema.index({ status: 1, expiresAt: 1 }, { partialFilterExpression: { status: 'pending_payment' } });
 
 export const Order = mongoose.models.Order ?? mongoose.model('Order', orderSchema);

@@ -13,7 +13,10 @@ const tracking = z
   .object({
     carrier: optionalText(80),
     trackingNumber: optionalText(80),
-    url: z.url({ protocol: /^https?$/ }).max(500).optional(),
+    url: z
+      .url({ protocol: /^https?$/ })
+      .max(500)
+      .optional(),
   })
   .optional();
 
@@ -42,7 +45,9 @@ export const userOrderRoutes = Router()
   .post('/:id/payment/verify', validate({ params: idParams, body: verifyBody }), async (req, res) =>
     ok(res, await orderService.verifyPayment(req.account, req.params.id, req.body)),
   )
-  .post('/:id/payment/retry', validate({ params: idParams }), async (req, res) => ok(res, await orderService.retryPayment(req.account, req.params.id)))
+  .post('/:id/payment/retry', validate({ params: idParams }), async (req, res) =>
+    ok(res, await orderService.retryPayment(req.account, req.params.id)),
+  )
   .post('/:id/payment/failed', validate({ params: idParams, body: z.object({ reason: optionalText(300) }) }), async (req, res) => {
     await orderService.recordPaymentFailure(req.account, req.params.id, req.body.reason);
     ok(res, { recorded: true });
@@ -69,7 +74,11 @@ export const vendorOrderRoutes = Router()
   })
   .get('/:id', validate({ params: idParams }), async (req, res) => ok(res, await orderService.vendorGet(req.auth.id, req.params.id)))
   .patch('/:id/items/:itemId', validate({ params: itemParams, body: itemUpdateBody }), async (req, res) => {
-    const order = await orderService.updateItem({ orderId: req.params.id, itemId: req.params.itemId, vendorId: req.auth.id }, req.body, actorOf(req));
+    const order = await orderService.updateItem(
+      { orderId: req.params.id, itemId: req.params.itemId, vendorId: req.auth.id },
+      req.body,
+      actorOf(req),
+    );
     ok(res, orderService.serializeVendorOrder(order, req.auth.id));
   });
 

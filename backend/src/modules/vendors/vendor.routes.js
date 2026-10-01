@@ -23,7 +23,9 @@ export const vendorSelfRoutes = Router()
   .put('/onboarding/business', validate(businessStep), async (req, res) => ok(res, await vendorService.saveBusiness(req.auth.id, req.body)))
   .put('/onboarding/address', validate(addressStep), async (req, res) => ok(res, await vendorService.saveAddress(req.auth.id, req.body)))
   .put('/onboarding/bank', validate(bankStep), async (req, res) => ok(res, await vendorService.saveBank(req.auth.id, req.body)))
-  .put('/onboarding/documents', validate(documentsStep), async (req, res) => ok(res, await vendorService.saveDocuments(req.auth.id, req.body)))
+  .put('/onboarding/documents', validate(documentsStep), async (req, res) =>
+    ok(res, await vendorService.saveDocuments(req.auth.id, req.body)),
+  )
   .post('/onboarding/submit', async (req, res) => ok(res, await vendorService.submit(req.auth.id)));
 
 export const adminVendorRoutes = Router()
@@ -36,9 +38,15 @@ export const adminVendorRoutes = Router()
     res.set('Cache-Control', 'no-store');
     ok(res, await vendorService.adminRevealBank(req.params.id, actorOf(req)));
   })
-  .post('/:id/review', validate(adminReviewVendor), async (req, res) => ok(res, await vendorService.adminReview(req.params.id, req.body, actorOf(req))))
-  .post('/:id/suspend', validate(adminSuspendVendor), async (req, res) => ok(res, await vendorService.adminSuspend(req.params.id, req.body, actorOf(req))))
-  .post('/:id/reinstate', validate({ params: idParams }), async (req, res) => ok(res, await vendorService.adminReinstate(req.params.id, actorOf(req))));
+  .post('/:id/review', validate(adminReviewVendor), async (req, res) =>
+    ok(res, await vendorService.adminReview(req.params.id, req.body, actorOf(req))),
+  )
+  .post('/:id/suspend', validate(adminSuspendVendor), async (req, res) =>
+    ok(res, await vendorService.adminSuspend(req.params.id, req.body, actorOf(req))),
+  )
+  .post('/:id/reinstate', validate({ params: idParams }), async (req, res) =>
+    ok(res, await vendorService.adminReinstate(req.params.id, actorOf(req))),
+  );
 
 export const publicStoreRoutes = Router().get('/:slug', validate(storeSlugParams), async (req, res) => {
   res.set('Cache-Control', 'public, max-age=60');

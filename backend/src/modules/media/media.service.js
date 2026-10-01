@@ -11,7 +11,16 @@ export const FOLDER_ACCESS = {
 };
 
 export function serializeMedia(m) {
-  return { _id: m._id, url: m.url, provider: m.provider, folder: m.folder, width: m.width, height: m.height, size: m.size, createdAt: m.createdAt };
+  return {
+    _id: m._id,
+    url: m.url,
+    provider: m.provider,
+    folder: m.folder,
+    width: m.width,
+    height: m.height,
+    size: m.size,
+    createdAt: m.createdAt,
+  };
 }
 
 export const mediaService = {

@@ -31,26 +31,35 @@ const bannerFields = {
   endsAt: z.coerce.date().nullable().optional(),
 };
 
-const activeBanners = cached('banners', () => Banner.find({ status: 'active' }).sort({ placement: 1, sortOrder: 1, createdAt: -1 }).lean(), 5 * 60_000);
+const activeBanners = cached(
+  'banners',
+  () => Banner.find({ status: 'active' }).sort({ placement: 1, sortOrder: 1, createdAt: -1 }).lean(),
+  5 * 60_000,
+);
 
 async function resolveImages(input, actor) {
   const out = { ...input };
   if (input.image) out.image = await mediaService.resolveOne(input.image, actor);
-  if (input.mobileImage !== undefined) out.mobileImage = input.mobileImage ? await mediaService.resolveOne(input.mobileImage, actor) : undefined;
+  if (input.mobileImage !== undefined)
+    out.mobileImage = input.mobileImage ? await mediaService.resolveOne(input.mobileImage, actor) : undefined;
   return out;
 }
 
-export const publicBannerRoutes = Router().get('/', validate({ query: z.object({ placement: z.enum(BANNER_PLACEMENTS).optional() }) }), async (req, res) => {
-  const now = Date.now();
-  const rows = (await activeBanners.get()).filter(
-    (b) =>
-      (!req.query.placement || b.placement === req.query.placement) &&
-      (!b.startsAt || new Date(b.startsAt).getTime() <= now) &&
-      (!b.endsAt || new Date(b.endsAt).getTime() > now),
-  );
-  res.set('Cache-Control', 'public, max-age=60');
-  ok(res, rows);
-});
+export const publicBannerRoutes = Router().get(
+  '/',
+  validate({ query: z.object({ placement: z.enum(BANNER_PLACEMENTS).optional() }) }),
+  async (req, res) => {
+    const now = Date.now();
+    const rows = (await activeBanners.get()).filter(
+      (b) =>
+        (!req.query.placement || b.placement === req.query.placement) &&
+        (!b.startsAt || new Date(b.startsAt).getTime() <= now) &&
+        (!b.endsAt || new Date(b.endsAt).getTime() > now),
+    );
+    res.set('Cache-Control', 'public, max-age=60');
+    ok(res, rows);
+  },
+);
 
 export const adminBannerRoutes = Router()
   .get('/', async (_req, res) => ok(res, await Banner.find().sort({ placement: 1, sortOrder: 1, createdAt: -1 }).lean()))

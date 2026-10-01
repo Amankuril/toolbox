@@ -1,1 +1,15 @@
 node_modules/
+
+# Secrets — only the *.example files belong in git
+.env
+.env.*
+!.env.example
+
+# Local uploads (dev). Production uploads live in /var/www/toolbox/uploads
+backend/uploads/
+
+# Build / tooling output
+dist/
+coverage/
+*.log
+.DS_Store

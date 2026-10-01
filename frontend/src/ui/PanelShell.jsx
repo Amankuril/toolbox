@@ -66,7 +66,9 @@ export function PanelShell({ brand, nav, user, menuItems = [], onSignOut, banner
           <Menu
             trigger={
               <button type="button" className="flex items-center gap-3 rounded-md px-2 py-1.5 text-left hover:bg-slate-100">
-                <span className="grid size-9 place-items-center rounded-full bg-primary-soft text-sm font-bold text-primary uppercase">{user.name?.[0] ?? '?'}</span>
+                <span className="grid size-9 place-items-center rounded-full bg-primary-soft text-sm font-bold text-primary uppercase">
+                  {user.name?.[0] ?? '?'}
+                </span>
                 <span className="hidden min-w-0 sm:block">
                   <span className="block truncate text-sm font-semibold text-slate-900">{user.name}</span>
                   {user.subtitle && <span className="block truncate text-xs text-slate-500">{user.subtitle}</span>}

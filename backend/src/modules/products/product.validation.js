@@ -22,7 +22,10 @@ const inventory = z
     maxOrderQty: z.number().int().min(1).max(100_000).optional(),
     unit: z.enum(PRODUCT_UNITS).default('piece'),
   })
-  .refine((i) => !i.maxOrderQty || i.maxOrderQty >= i.moq, { path: ['maxOrderQty'], message: 'Must be at least the minimum order quantity' });
+  .refine((i) => !i.maxOrderQty || i.maxOrderQty >= i.moq, {
+    path: ['maxOrderQty'],
+    message: 'Must be at least the minimum order quantity',
+  });
 
 const stringList = (max, itemMax) =>
   z

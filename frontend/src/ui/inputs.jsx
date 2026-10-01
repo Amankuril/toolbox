@@ -2,13 +2,16 @@ import { Minus, Plus } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { cn } from '@/core/lib/cn'
 import { fromPaise, toPaise } from '@/core/lib/format'
-import { controlClass, Input } from './Field'
+import { controlClass } from './controlClass'
+import { Input } from './Field'
 
 /** 10-digit Indian mobile with a fixed +91 prefix. Value is the bare 10 digits. */
 export function PhoneInput({ value, onChange, className, ...props }) {
   return (
     <div className={cn('flex', className)}>
-      <span className="inline-flex h-11 items-center rounded-l-md border border-r-0 border-slate-300 bg-slate-50 px-3 text-sm font-medium text-slate-600">+91</span>
+      <span className="inline-flex h-11 items-center rounded-l-md border border-r-0 border-slate-300 bg-slate-50 px-3 text-sm font-medium text-slate-600">
+        +91
+      </span>
       <input
         type="tel"
         inputMode="numeric"
@@ -135,7 +138,13 @@ export function QuantityStepper({ value, onChange, min = 1, max = 9999, disabled
   const h = size === 'sm' ? 'h-8' : 'h-10'
   return (
     <div className={cn('inline-flex items-center rounded-md border border-slate-300 bg-white', disabled && 'opacity-60')}>
-      <button type="button" aria-label="Decrease quantity" disabled={disabled || value <= min} onClick={() => onChange(Math.max(min, value - 1))} className={cn(h, 'grid w-9 place-items-center text-slate-600 hover:text-slate-900 disabled:opacity-40')}>
+      <button
+        type="button"
+        aria-label="Decrease quantity"
+        disabled={disabled || value <= min}
+        onClick={() => onChange(Math.max(min, value - 1))}
+        className={cn(h, 'grid w-9 place-items-center text-slate-600 hover:text-slate-900 disabled:opacity-40')}
+      >
         <Minus className="size-4" />
       </button>
       <input
@@ -149,7 +158,13 @@ export function QuantityStepper({ value, onChange, min = 1, max = 9999, disabled
         }}
         className={cn(h, 'tabular w-12 border-x border-slate-200 text-center text-sm font-semibold focus:outline-none')}
       />
-      <button type="button" aria-label="Increase quantity" disabled={disabled || value >= max} onClick={() => onChange(Math.min(max, value + 1))} className={cn(h, 'grid w-9 place-items-center text-slate-600 hover:text-slate-900 disabled:opacity-40')}>
+      <button
+        type="button"
+        aria-label="Increase quantity"
+        disabled={disabled || value >= max}
+        onClick={() => onChange(Math.min(max, value + 1))}
+        className={cn(h, 'grid w-9 place-items-center text-slate-600 hover:text-slate-900 disabled:opacity-40')}
+      >
         <Plus className="size-4" />
       </button>
     </div>
@@ -192,7 +207,12 @@ export function TagInput({ value = [], onChange, placeholder = 'Type and press E
       {value.map((t) => (
         <span key={t} className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
           {t}
-          <button type="button" aria-label={`Remove ${t}`} onClick={() => onChange(value.filter((x) => x !== t))} className="text-slate-400 hover:text-slate-700">
+          <button
+            type="button"
+            aria-label={`Remove ${t}`}
+            onClick={() => onChange(value.filter((x) => x !== t))}
+            className="text-slate-400 hover:text-slate-700"
+          >
             ×
           </button>
         </span>

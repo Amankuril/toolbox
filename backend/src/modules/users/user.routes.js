@@ -24,4 +24,6 @@ export const adminUserRoutes = Router()
     ok(res, items, meta);
   })
   .get('/:id', validate({ params: idParams }), async (req, res) => ok(res, await userService.adminGet(req.params.id)))
-  .patch('/:id/status', validate(adminSetUserStatus), async (req, res) => ok(res, await userService.adminSetStatus(req.params.id, req.body.status)));
+  .patch('/:id/status', validate(adminSetUserStatus), async (req, res) =>
+    ok(res, await userService.adminSetStatus(req.params.id, req.body.status)),
+  );

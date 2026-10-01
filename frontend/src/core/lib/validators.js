@@ -44,3 +44,10 @@ export const addressFields = {
   state: required('State', 80),
   pincode,
 }
+
+/** Mirrors the API admin password policy. */
+export const passwordRule = z
+  .string()
+  .min(10, 'Use at least 10 characters')
+  .max(128)
+  .refine((v) => /[A-Za-z]/.test(v) && /\d/.test(v), 'Include at least one letter and one number')

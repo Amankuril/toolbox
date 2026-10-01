@@ -116,9 +116,7 @@ export const env = Object.freeze({
   COOKIE_SECURE: raw.COOKIE_SECURE ?? isProduction,
   CORS_ORIGINS: raw.CORS_ORIGINS.length ? raw.CORS_ORIGINS : ['http://localhost:5173'],
   // In production local uploads live outside the app so nginx can serve them directly.
-  LOCAL_UPLOAD_DIR: path.resolve(
-    raw.LOCAL_UPLOAD_DIR ?? (isProduction ? '/var/www/toolbox/uploads' : path.join(backendRoot, 'uploads')),
-  ),
+  LOCAL_UPLOAD_DIR: path.resolve(raw.LOCAL_UPLOAD_DIR ?? (isProduction ? '/var/www/toolbox/uploads' : path.join(backendRoot, 'uploads'))),
   cloudinaryConfigured: Boolean(raw.CLOUDINARY_CLOUD_NAME && raw.CLOUDINARY_API_KEY && raw.CLOUDINARY_API_SECRET),
   razorpayConfigured: Boolean(raw.RAZORPAY_KEY_ID && raw.RAZORPAY_KEY_SECRET),
 });

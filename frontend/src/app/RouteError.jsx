@@ -13,10 +13,18 @@ export function RouteError() {
   return (
     <div className="grid min-h-dvh place-items-center bg-slate-50 px-6">
       <div className="max-w-md text-center">
-        <div className="mx-auto mb-5 grid size-14 place-items-center rounded-full bg-primary-soft text-primary">{notFound ? <Compass className="size-7" /> : <AlertTriangle className="size-7" />}</div>
-        <h1 className="text-2xl font-bold text-slate-900">{notFound ? 'Page not found' : staleChunk ? 'A new version is available' : 'Something went wrong'}</h1>
+        <div className="mx-auto mb-5 grid size-14 place-items-center rounded-full bg-primary-soft text-primary">
+          {notFound ? <Compass className="size-7" /> : <AlertTriangle className="size-7" />}
+        </div>
+        <h1 className="text-2xl font-bold text-slate-900">
+          {notFound ? 'Page not found' : staleChunk ? 'A new version is available' : 'Something went wrong'}
+        </h1>
         <p className="mt-2 text-slate-600">
-          {notFound ? "The page you're looking for doesn't exist or has moved." : staleChunk ? 'Reload to get the latest version.' : 'An unexpected error occurred. Please try again.'}
+          {notFound
+            ? "The page you're looking for doesn't exist or has moved."
+            : staleChunk
+              ? 'Reload to get the latest version.'
+              : 'An unexpected error occurred. Please try again.'}
         </p>
         <div className="mt-6 flex justify-center gap-3">
           <Button onClick={() => window.location.reload()}>Reload</Button>

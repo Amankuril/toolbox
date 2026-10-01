@@ -23,7 +23,12 @@ export function PageHeader({ title, description, actions, back, className, meta 
 }
 
 export function StatCard({ label, value, hint, icon: Icon, tone = 'primary', to }) {
-  const toneClass = { primary: 'bg-primary-soft text-primary', accent: 'bg-accent-soft text-accent', warning: 'bg-amber-50 text-amber-600', neutral: 'bg-slate-100 text-slate-600' }[tone]
+  const toneClass = {
+    primary: 'bg-primary-soft text-primary',
+    accent: 'bg-accent-soft text-accent',
+    warning: 'bg-amber-50 text-amber-600',
+    neutral: 'bg-slate-100 text-slate-600',
+  }[tone]
   const body = (
     <div className="flex items-start justify-between gap-3 p-5">
       <div className="min-w-0">

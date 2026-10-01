@@ -131,7 +131,10 @@ describe('admin auth', () => {
     for (let i = 0; i < 5; i += 1) {
       await request(app).post(`${API}/auth/admin/login`).send({ email: 'ops@toolbox.test', password: 'wrong' }).expect(401);
     }
-    const locked = await request(app).post(`${API}/auth/admin/login`).send({ email: 'ops@toolbox.test', password: 'Correct!horse9' }).expect(429);
+    const locked = await request(app)
+      .post(`${API}/auth/admin/login`)
+      .send({ email: 'ops@toolbox.test', password: 'Correct!horse9' })
+      .expect(429);
     expect(locked.body.error.code).toBe('LOGIN_LOCKED');
   });
 

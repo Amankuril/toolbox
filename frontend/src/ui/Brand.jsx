@@ -21,7 +21,16 @@ export function Logo({ to = '/', className, inverted = false, suffix }) {
           <span className={cn('text-lg font-extrabold tracking-tight', inverted ? 'text-white' : 'text-slate-900')}>{siteName}</span>
         </>
       )}
-      {suffix && <span className={cn('rounded px-1.5 py-0.5 text-[11px] font-semibold tracking-wide uppercase', inverted ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-600')}>{suffix}</span>}
+      {suffix && (
+        <span
+          className={cn(
+            'rounded px-1.5 py-0.5 text-[11px] font-semibold tracking-wide uppercase',
+            inverted ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-600',
+          )}
+        >
+          {suffix}
+        </span>
+      )}
     </Link>
   )
 }

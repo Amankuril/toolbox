@@ -39,7 +39,11 @@ export const dashboardService = {
         { $match: { createdAt: { $gte: since30 }, status: COUNTED } },
         { $group: { _id: null, gmv: { $sum: '$amounts.total' }, orders: { $sum: 1 } } },
       ]),
-      Order.find({ status: { $ne: 'pending_payment' } }).sort({ createdAt: -1 }).limit(8).populate('user', 'name phone').lean(),
+      Order.find({ status: { $ne: 'pending_payment' } })
+        .sort({ createdAt: -1 })
+        .limit(8)
+        .populate('user', 'name phone')
+        .lean(),
       Order.aggregate([
         { $match: { createdAt: { $gte: since14 }, status: COUNTED } },
         {
@@ -88,7 +92,11 @@ export const dashboardService = {
         .limit(6)
         .select('name slug images inventory.stock')
         .lean(),
-      Order.aggregate([{ $match: { vendors: id, status: { $ne: 'pending_payment' } } }, ...vendorLines, { $group: { _id: '$items.status', count: { $sum: 1 } } }]),
+      Order.aggregate([
+        { $match: { vendors: id, status: { $ne: 'pending_payment' } } },
+        ...vendorLines,
+        { $group: { _id: '$items.status', count: { $sum: 1 } } },
+      ]),
       Order.aggregate([
         { $match: { vendors: id, createdAt: { $gte: since30 }, status: COUNTED } },
         ...vendorLines,
@@ -108,7 +116,10 @@ export const dashboardService = {
         },
         { $project: { revenue: 1, orders: { $size: '$orderIds' } } },
       ]),
-      Order.find({ vendors: id, status: { $ne: 'pending_payment' } }).sort({ createdAt: -1 }).limit(6).lean(),
+      Order.find({ vendors: id, status: { $ne: 'pending_payment' } })
+        .sort({ createdAt: -1 })
+        .limit(6)
+        .lean(),
     ]);
 
     return {

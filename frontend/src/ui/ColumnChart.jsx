@@ -30,18 +30,20 @@ export function ColumnChart({ data, formatValue, formatTick = formatValue, heigh
   const [width, setWidth] = useState(600)
   const [active, setActive] = useState(null)
   const [showTable, setShowTable] = useState(false)
+  const max = Math.max(0, ...data.map((d) => d.value))
+  const empty = max === 0
 
+  // Re-attach when the measured element remounts (table toggle, empty → data).
   useEffect(() => {
     const el = wrapRef.current
     if (!el) return
     const ro = new ResizeObserver(([entry]) => setWidth(Math.max(280, entry.contentRect.width)))
     ro.observe(el)
     return () => ro.disconnect()
-  }, [showTable])
+  }, [showTable, empty])
 
   const innerW = width - PAD.left - PAD.right
   const innerH = height - PAD.top - PAD.bottom
-  const max = Math.max(0, ...data.map((d) => d.value))
   const step = niceStep(max)
   const top = Math.max(step, Math.ceil(max / step) * step)
   const ticks = Array.from({ length: Math.round(top / step) + 1 }, (_, i) => i * step)
@@ -61,7 +63,11 @@ export function ColumnChart({ data, formatValue, formatTick = formatValue, heigh
         </button>
       </div>
 
-      {showTable ? (
+      {empty && !showTable ? (
+        <div className="grid place-items-center rounded-lg border border-dashed border-slate-200 text-sm text-slate-500" style={{ height }}>
+          No sales in this period yet
+        </div>
+      ) : showTable ? (
         <div className="max-h-64 overflow-y-auto">
           <table className="w-full text-sm">
             <caption className="sr-only">{title}</caption>
@@ -102,7 +108,12 @@ export function ColumnChart({ data, formatValue, formatTick = formatValue, heigh
               return (
                 <g key={d.label}>
                   {h > 0 && (
-                    <path d={columnPath(x, y(d.value), barW, h)} fill="var(--tb-primary)" opacity={active === null || active === i ? 1 : 0.45} className="transition-opacity" />
+                    <path
+                      d={columnPath(x, y(d.value), barW, h)}
+                      fill="var(--tb-primary)"
+                      opacity={active === null || active === i ? 1 : 0.45}
+                      className="transition-opacity"
+                    />
                   )}
                   {i % labelEvery === 0 && (
                     <text x={PAD.left + band * i + band / 2} y={height - 8} textAnchor="middle" className="fill-slate-500 text-[11px]">

@@ -19,7 +19,10 @@ export function createRazorpayProvider({ keyId, keySecret, webhookSecret }) {
 
     /** @param {{ amount: number, currency: string, receipt: string, notes?: object }} input amount in paise */
     async createOrder({ amount, currency, receipt, notes }) {
-      const order = await wrap(() => client.orders.create({ amount, currency, receipt, notes }), 'Could not start the payment. Please try again.');
+      const order = await wrap(
+        () => client.orders.create({ amount, currency, receipt, notes }),
+        'Could not start the payment. Please try again.',
+      );
       return { providerOrderId: order.id, amount: order.amount, currency: order.currency, status: order.status };
     },
 

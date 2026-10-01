@@ -16,7 +16,9 @@ export const adminService = {
   async changePassword(id, { currentPassword, newPassword }) {
     const admin = await Admin.findById(id).select('+passwordHash');
     if (!admin || !(await argon2.verify(admin.passwordHash, currentPassword))) {
-      throw ApiError.unprocessable('Current password is incorrect', { details: [{ path: 'currentPassword', message: 'Incorrect password' }] });
+      throw ApiError.unprocessable('Current password is incorrect', {
+        details: [{ path: 'currentPassword', message: 'Incorrect password' }],
+      });
     }
     admin.passwordHash = await hashPassword(newPassword);
     admin.passwordChangedAt = new Date();

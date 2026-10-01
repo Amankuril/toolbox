@@ -65,10 +65,7 @@ export const sessionService = {
     if (session.revokedAt) {
       const withinGrace = session.revokedReason === 'rotated' && Date.now() - session.revokedAt.getTime() < ROTATION_GRACE_MS;
       if (!withinGrace) {
-        await Session.updateMany(
-          { family: session.family, revokedAt: null },
-          { revokedAt: new Date(), revokedReason: 'reuse_detected' },
-        );
+        await Session.updateMany({ family: session.family, revokedAt: null }, { revokedAt: new Date(), revokedReason: 'reuse_detected' });
         clearRefreshCookie(res, audience);
       }
       throw ApiError.unauthorized('Session is no longer valid. Please sign in again.', {

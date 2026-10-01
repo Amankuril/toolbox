@@ -3,7 +3,16 @@ import sharp from 'sharp';
 import { env } from '#config/env.js';
 import { ApiError } from '#core/errors/ApiError.js';
 
-const ACCEPTED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/gif', 'image/tiff', 'image/heic', 'image/heif']);
+const ACCEPTED_MIME = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/avif',
+  'image/gif',
+  'image/tiff',
+  'image/heic',
+  'image/heif',
+]);
 
 // Refuse decompression bombs: ~50 megapixels is far above any legitimate product photo.
 const MAX_INPUT_PIXELS = 50_000_000;

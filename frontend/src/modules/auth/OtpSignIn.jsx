@@ -18,10 +18,13 @@ function useCountdown() {
     const t = setInterval(() => setNow(Date.now()), 500)
     return () => clearInterval(t)
   }, [until, now])
-  return [Math.max(0, Math.ceil((until - now) / 1000)), (seconds) => {
-    setNow(Date.now())
-    setUntil(Date.now() + seconds * 1000)
-  }]
+  return [
+    Math.max(0, Math.ceil((until - now) / 1000)),
+    (seconds) => {
+      setNow(Date.now())
+      setUntil(Date.now() + seconds * 1000)
+    },
+  ]
 }
 
 /**
@@ -122,7 +125,13 @@ export function OtpSignIn({ audience, onAuthenticated, onOnboarding }) {
           <PencilLine className="size-3.5" /> Change
         </button>
       </div>
-      <OtpInput value={otp} onChange={(v) => (setOtp(v), setError(null))} onComplete={(code) => verify.mutate(code)} disabled={verify.isPending} invalid={Boolean(error)} />
+      <OtpInput
+        value={otp}
+        onChange={(v) => (setOtp(v), setError(null))}
+        onComplete={(code) => verify.mutate(code)}
+        disabled={verify.isPending}
+        invalid={Boolean(error)}
+      />
       {error && <Alert tone="danger">{error}</Alert>}
       <Button type="submit" size="lg" loading={verify.isPending} disabled={otp.length !== 6}>
         Verify &amp; continue
@@ -132,7 +141,12 @@ export function OtpSignIn({ audience, onAuthenticated, onOnboarding }) {
         {resendIn > 0 ? (
           <span className="tabular">Resend in {resendIn}s</span>
         ) : (
-          <button type="button" className="font-medium text-primary hover:underline disabled:opacity-50" disabled={send.isPending} onClick={() => send.mutate()}>
+          <button
+            type="button"
+            className="font-medium text-primary hover:underline disabled:opacity-50"
+            disabled={send.isPending}
+            onClick={() => send.mutate()}
+          >
             Resend code
           </button>
         )}

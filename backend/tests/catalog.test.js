@@ -5,7 +5,18 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { env } from '#config/env.js';
 import { Vendor } from '#modules/vendors/vendor.model.js';
-import { API, approvedVendor, bearer, createAdmin, otpSignIn, setModeration, startTestApp, stopTestApp, testImage, upload } from './helpers.js';
+import {
+  API,
+  approvedVendor,
+  bearer,
+  createAdmin,
+  otpSignIn,
+  setModeration,
+  startTestApp,
+  stopTestApp,
+  testImage,
+  upload,
+} from './helpers.js';
 
 let app;
 let admin;
@@ -20,7 +31,11 @@ afterAll(stopTestApp);
 
 describe('vendor onboarding', () => {
   it('walks through the wizard, locks details after submission and encrypts the bank account', async () => {
-    const s = await otpSignIn(app, { phone: '9100000002', audience: 'vendor', register: { contactName: 'Meera', email: 'meera@shop.test', storeName: 'Meera Machines' } });
+    const s = await otpSignIn(app, {
+      phone: '9100000002',
+      audience: 'vendor',
+      register: { contactName: 'Meera', email: 'meera@shop.test', storeName: 'Meera Machines' },
+    });
     expect(s.account).toMatchObject({ status: 'onboarding', store: { name: 'Meera Machines', slug: 'meera-machines' } });
     const auth = bearer(s.accessToken);
 
@@ -42,7 +57,13 @@ describe('vendor onboarding', () => {
     const bank = await request(app)
       .put(`${API}/vendor/onboarding/bank`)
       .set(auth)
-      .send({ accountHolderName: 'Meera', accountNumber: '998877665544', confirmAccountNumber: '998877665544', ifsc: 'ICIC0000123', bankName: 'ICICI' })
+      .send({
+        accountHolderName: 'Meera',
+        accountNumber: '998877665544',
+        confirmAccountNumber: '998877665544',
+        ifsc: 'ICIC0000123',
+        bankName: 'ICICI',
+      })
       .expect(200);
     expect(bank.body.data.bank.accountNumberMasked).toBe('XXXXXX5544');
     expect(JSON.stringify(bank.body)).not.toContain('998877665544');
@@ -59,7 +80,11 @@ describe('vendor onboarding', () => {
   });
 
   it('rejects a GSTIN already used by another seller', async () => {
-    const s = await otpSignIn(app, { phone: '9100000003', audience: 'vendor', register: { contactName: 'Dup', email: 'dup@shop.test', storeName: 'Dup' } });
+    const s = await otpSignIn(app, {
+      phone: '9100000003',
+      audience: 'vendor',
+      register: { contactName: 'Dup', email: 'dup@shop.test', storeName: 'Dup' },
+    });
     const res = await request(app)
       .put(`${API}/vendor/onboarding/business`)
       .set(bearer(s.accessToken))
@@ -80,7 +105,10 @@ describe('media pipeline', () => {
     const meta = await sharp(await fs.readFile(onDisk)).metadata();
     expect(meta.format).toBe('webp');
 
-    await request(app).get(media.url).expect(200).expect('Content-Type', /image\/webp/);
+    await request(app)
+      .get(media.url)
+      .expect(200)
+      .expect('Content-Type', /image\/webp/);
   });
 
   it('rejects non-images even when they claim to be images', async () => {
@@ -97,7 +125,11 @@ describe('media pipeline', () => {
   });
 
   it('refuses enabling Cloudinary when it is not configured', async () => {
-    const res = await request(app).put(`${API}/admin/settings/storage`).set(bearer(admin.accessToken)).send({ cloudinaryEnabled: true }).expect(422);
+    const res = await request(app)
+      .put(`${API}/admin/settings/storage`)
+      .set(bearer(admin.accessToken))
+      .send({ cloudinaryEnabled: true })
+      .expect(422);
     expect(res.body.error.code).toBe('INTEGRATION_NOT_CONFIGURED');
   });
 });
@@ -114,7 +146,11 @@ describe('catalogue', () => {
 
     await request(app).post(`${API}/admin/categories`).set(a).send({ name: 'power tools' }).expect(409);
 
-    const proposal = await request(app).post(`${API}/vendor/categories`).set(bearer(vendor.accessToken)).send({ name: 'Drills', parent: root._id }).expect(201);
+    const proposal = await request(app)
+      .post(`${API}/vendor/categories`)
+      .set(bearer(vendor.accessToken))
+      .send({ name: 'Drills', parent: root._id })
+      .expect(201);
     drills = proposal.body.data;
     expect(drills).toMatchObject({ status: 'pending', level: 1 });
 
@@ -126,16 +162,25 @@ describe('catalogue', () => {
     expect(tree.find((c) => c.slug === 'power-tools').children.map((c) => c.slug)).toEqual(['drills']);
 
     // Approved categories are no longer vendor-editable.
-    await request(app).patch(`${API}/vendor/categories/${drills._id}`).set(bearer(vendor.accessToken)).send({ name: 'Drill Machines' }).expect(403);
+    await request(app)
+      .patch(`${API}/vendor/categories/${drills._id}`)
+      .set(bearer(vendor.accessToken))
+      .send({ name: 'Drill Machines' })
+      .expect(403);
 
     const leaf = await request(app).post(`${API}/admin/categories`).set(a).send({ name: 'Cordless', parent: drills._id }).expect(201);
-    const tooDeep = await request(app).post(`${API}/admin/categories`).set(a).send({ name: 'Too deep', parent: leaf.body.data._id }).expect(422);
+    const tooDeep = await request(app)
+      .post(`${API}/admin/categories`)
+      .set(a)
+      .send({ name: 'Too deep', parent: leaf.body.data._id })
+      .expect(422);
     expect(tooDeep.body.error.code).toBe('MAX_DEPTH');
   });
 
   it('vendor lists machinery and a compatible spare part; admin approves; storefront shows them', async () => {
     const v = bearer(vendor.accessToken);
-    const img = (await upload(app, vendor.accessToken, 'products', [await testImage({ width: 1200, height: 1200 })]).expect(201)).body.data[0];
+    const img = (await upload(app, vendor.accessToken, 'products', [await testImage({ width: 1200, height: 1200 })]).expect(201)).body
+      .data[0];
 
     const created = await request(app)
       .post(`${API}/vendor/products`)
@@ -160,20 +205,37 @@ describe('catalogue', () => {
     await request(app)
       .post(`${API}/vendor/products`)
       .set(v)
-      .send({ type: 'tool', name: 'Dupe', category: drills._id, sku: 'GSB-500', pricing: { mrp: 100, price: 100, gstRate: 18 }, inventory: { stock: 1 } })
+      .send({
+        type: 'tool',
+        name: 'Dupe',
+        category: drills._id,
+        sku: 'GSB-500',
+        pricing: { mrp: 100, price: 100, gstRate: 18 },
+        inventory: { stock: 1 },
+      })
       .expect(409);
 
     const pricey = await request(app)
       .post(`${API}/vendor/products`)
       .set(v)
-      .send({ type: 'tool', name: 'Bad price', category: drills._id, pricing: { mrp: 100, price: 200, gstRate: 18 }, inventory: { stock: 1 } })
+      .send({
+        type: 'tool',
+        name: 'Bad price',
+        category: drills._id,
+        pricing: { mrp: 100, price: 200, gstRate: 18 },
+        inventory: { stock: 1 },
+      })
       .expect(422);
     expect(pricey.body.error.details[0].path).toBe('pricing.price');
 
     let list = (await request(app).get(`${API}/public/products?category=power-tools`).expect(200)).body;
     expect(list.data).toHaveLength(0);
 
-    await request(app).post(`${API}/admin/products/${machine._id}/review`).set(bearer(admin.accessToken)).send({ action: 'approve' }).expect(200);
+    await request(app)
+      .post(`${API}/admin/products/${machine._id}/review`)
+      .set(bearer(admin.accessToken))
+      .send({ action: 'approve' })
+      .expect(200);
 
     const part = await request(app)
       .post(`${API}/vendor/products`)
@@ -190,7 +252,11 @@ describe('catalogue', () => {
         publish: true,
       })
       .expect(201);
-    await request(app).post(`${API}/admin/products/${part.body.data._id}/review`).set(bearer(admin.accessToken)).send({ action: 'approve' }).expect(200);
+    await request(app)
+      .post(`${API}/admin/products/${part.body.data._id}/review`)
+      .set(bearer(admin.accessToken))
+      .send({ action: 'approve' })
+      .expect(200);
 
     list = (await request(app).get(`${API}/public/products?category=power-tools&sort=price_asc`).expect(200)).body;
     expect(list.data.map((p) => p.type)).toEqual(['part', 'machinery']);
@@ -209,27 +275,56 @@ describe('catalogue', () => {
 
   it('editing a live product sends it back to review, but stock/price edits do not', async () => {
     const v = bearer(vendor.accessToken);
-    const quick = await request(app).patch(`${API}/vendor/products/${machine._id}/stock`).set(v).send({ stock: 3, price: 379_900 }).expect(200);
+    const quick = await request(app)
+      .patch(`${API}/vendor/products/${machine._id}/stock`)
+      .set(v)
+      .send({ stock: 3, price: 379_900 })
+      .expect(200);
     expect(quick.body.data).toMatchObject({ status: 'active', inventory: { stock: 3 }, pricing: { price: 379_900 } });
 
-    const edited = await request(app).patch(`${API}/vendor/products/${machine._id}`).set(v).send({ name: 'Bosch GSB 500W Professional Impact Drill' }).expect(200);
+    const edited = await request(app)
+      .patch(`${API}/vendor/products/${machine._id}`)
+      .set(v)
+      .send({ name: 'Bosch GSB 500W Professional Impact Drill' })
+      .expect(200);
     expect(edited.body.data.status).toBe('pending');
     await request(app).get(`${API}/public/products/${machine.slug}`).expect(404);
 
     await setModeration({ autoApproveProducts: true });
-    await request(app).post(`${API}/admin/products/${machine._id}/review`).set(bearer(admin.accessToken)).send({ action: 'approve' }).expect(200);
-    const again = await request(app).patch(`${API}/vendor/products/${machine._id}`).set(v).send({ description: 'Now with more torque.' }).expect(200);
+    await request(app)
+      .post(`${API}/admin/products/${machine._id}/review`)
+      .set(bearer(admin.accessToken))
+      .send({ action: 'approve' })
+      .expect(200);
+    const again = await request(app)
+      .patch(`${API}/vendor/products/${machine._id}`)
+      .set(v)
+      .send({ description: 'Now with more torque.' })
+      .expect(200);
     expect(again.body.data.status).toBe('active');
     await setModeration({ autoApproveProducts: false });
   });
 
   it("stops vendors from using another vendor's media", async () => {
-    const other = await approvedVendor(app, admin.accessToken, { phone: '9100000009', storeName: 'Other Co', gstin: '07AAACR5055K1Z3', pan: 'AAACR5055K' });
-    const theirs = (await upload(app, other.accessToken, 'products', [await testImage({ width: 400, height: 400 })]).expect(201)).body.data[0];
+    const other = await approvedVendor(app, admin.accessToken, {
+      phone: '9100000009',
+      storeName: 'Other Co',
+      gstin: '07AAACR5055K1Z3',
+      pan: 'AAACR5055K',
+    });
+    const theirs = (await upload(app, other.accessToken, 'products', [await testImage({ width: 400, height: 400 })]).expect(201)).body
+      .data[0];
     const res = await request(app)
       .post(`${API}/vendor/products`)
       .set(bearer(vendor.accessToken))
-      .send({ type: 'tool', name: 'Thief', category: drills._id, images: [{ media: theirs._id }], pricing: { mrp: 100, price: 100, gstRate: 18 }, inventory: { stock: 1 } })
+      .send({
+        type: 'tool',
+        name: 'Thief',
+        category: drills._id,
+        images: [{ media: theirs._id }],
+        pricing: { mrp: 100, price: 100, gstRate: 18 },
+        inventory: { stock: 1 },
+      })
       .expect(403);
     expect(res.body.error.code).toBe('MEDIA_FORBIDDEN');
   });
@@ -252,13 +347,21 @@ describe('catalogue', () => {
 
 describe('settings & theme', () => {
   it('admin updates a module theme and the storefront sees it', async () => {
-    await request(app).put(`${API}/admin/settings/theme`).set(bearer(admin.accessToken)).send({ vendor: { primary: '#0EA5E9' } }).expect(200);
+    await request(app)
+      .put(`${API}/admin/settings/theme`)
+      .set(bearer(admin.accessToken))
+      .send({ vendor: { primary: '#0EA5E9' } })
+      .expect(200);
     const pub = (await request(app).get(`${API}/public/settings`).expect(200)).body.data;
     expect(pub.theme.vendor).toMatchObject({ primary: '#0ea5e9', secondary: '#0f172a' });
     expect(pub.theme.user.primary).toBe('#e8590c');
     expect(pub).not.toHaveProperty('moderation');
 
-    await request(app).put(`${API}/admin/settings/theme`).set(bearer(admin.accessToken)).send({ user: { primary: 'orange' } }).expect(422);
+    await request(app)
+      .put(`${API}/admin/settings/theme`)
+      .set(bearer(admin.accessToken))
+      .send({ user: { primary: 'orange' } })
+      .expect(422);
   });
 
   it('only admins can change settings', async () => {

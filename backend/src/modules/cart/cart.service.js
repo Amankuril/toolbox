@@ -26,12 +26,17 @@ function lineIssue(product, quantity) {
 }
 
 async function assertOrderable(productId, quantity) {
-  const product = await Product.findOne({ _id: productId, ...VISIBLE }).select(PRICING_FIELDS).lean();
+  const product = await Product.findOne({ _id: productId, ...VISIBLE })
+    .select(PRICING_FIELDS)
+    .lean();
   if (!product) throw ApiError.notFound('This product is no longer available', { code: 'PRODUCT_UNAVAILABLE' });
   const issue = lineIssue(product, quantity);
   if (issue === 'out_of_stock') throw ApiError.conflict(`${product.name} is out of stock`, { code: 'OUT_OF_STOCK' });
   if (issue === 'below_moq') {
-    throw ApiError.unprocessable(`Minimum order quantity is ${product.inventory.moq}`, { code: 'BELOW_MOQ', details: { moq: product.inventory.moq } });
+    throw ApiError.unprocessable(`Minimum order quantity is ${product.inventory.moq}`, {
+      code: 'BELOW_MOQ',
+      details: { moq: product.inventory.moq },
+    });
   }
   if (issue === 'exceeds_stock') {
     const max = maxOrderable(product);
@@ -48,7 +53,9 @@ export const cartService = {
   async view(userId) {
     const cart = await Cart.findOne({ user: userId }).lean();
     const entries = cart?.items ?? [];
-    const products = await Product.find({ _id: { $in: entries.map((i) => i.product) } }).select(PRICING_FIELDS).lean();
+    const products = await Product.find({ _id: { $in: entries.map((i) => i.product) } })
+      .select(PRICING_FIELDS)
+      .lean();
     const byId = new Map(products.map((p) => [String(p._id), p]));
 
     const items = entries.map(({ product: productId, quantity }) => {
@@ -105,7 +112,11 @@ export const cartService = {
       { returnDocument: 'after' },
     );
     if (!updated) {
-      const cart = await Cart.findOneAndUpdate({ user: userId }, { $setOnInsert: { user: userId } }, { upsert: true, returnDocument: 'after' });
+      const cart = await Cart.findOneAndUpdate(
+        { user: userId },
+        { $setOnInsert: { user: userId } },
+        { upsert: true, returnDocument: 'after' },
+      );
       if (cart.items.length >= MAX_CART_ITEMS) throw ApiError.unprocessable(`Your cart can hold up to ${MAX_CART_ITEMS} different items`);
       await Cart.updateOne({ user: userId, 'items.product': { $ne: productId } }, { $push: { items: { product: productId, quantity } } });
     }
@@ -120,7 +131,9 @@ export const cartService = {
   /** Merges a guest (localStorage) cart after sign-in. Invalid lines are skipped, not fatal. */
   async merge(userId, lines) {
     for (const { productId, quantity } of lines.slice(0, MAX_CART_ITEMS)) {
-      const product = await Product.findOne({ _id: productId, ...VISIBLE }).select(PRICING_FIELDS).lean();
+      const product = await Product.findOne({ _id: productId, ...VISIBLE })
+        .select(PRICING_FIELDS)
+        .lean();
       if (!product || product.inventory.stock <= 0) continue;
       const qty = Math.max(product.inventory.moq, Math.min(quantity, maxOrderable(product)));
       await this.setItem(userId, productId, qty).catch(() => {});

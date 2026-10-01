@@ -32,7 +32,10 @@ async function reserveStock(lines) {
     );
     if (!res.modifiedCount) {
       await releaseStock(taken);
-      throw ApiError.conflict(`${line.name} just went out of stock. Please review your cart.`, { code: 'OUT_OF_STOCK', details: { product: line.product } });
+      throw ApiError.conflict(`${line.name} just went out of stock. Please review your cart.`, {
+        code: 'OUT_OF_STOCK',
+        details: { product: line.product },
+      });
     }
     taken.push(line);
   }
@@ -40,7 +43,9 @@ async function reserveStock(lines) {
 
 async function releaseStock(lines) {
   if (!lines.length) return;
-  await Product.bulkWrite(lines.map((l) => ({ updateOne: { filter: { _id: l.product }, update: { $inc: { 'inventory.stock': l.quantity } } } })));
+  await Product.bulkWrite(
+    lines.map((l) => ({ updateOne: { filter: { _id: l.product }, update: { $inc: { 'inventory.stock': l.quantity } } } })),
+  );
 }
 
 function deriveStatus(order) {
@@ -76,7 +81,10 @@ async function markPaid({ providerOrderId, paymentId }) {
     { returnDocument: 'after' },
   );
   if (order) {
-    await cartService.removeProducts(order.user, order.items.map((i) => i.product));
+    await cartService.removeProducts(
+      order.user,
+      order.items.map((i) => i.product),
+    );
     return order;
   }
 
@@ -129,7 +137,13 @@ async function refundForCancellation(order, item) {
 
   const provider = paymentService.webhookProvider('razorpay');
   if (!provider) throw ApiError.serviceUnavailable('Refunds are unavailable: payment gateway not configured');
-  return { amount, ...(await provider.refund(order.payment.providerPaymentId, { amount, notes: { orderNumber: order.orderNumber, itemId: String(item._id) } })) };
+  return {
+    amount,
+    ...(await provider.refund(order.payment.providerPaymentId, {
+      amount,
+      notes: { orderNumber: order.orderNumber, itemId: String(item._id) },
+    })),
+  };
 }
 
 export const orderService = {
@@ -214,7 +228,10 @@ export const orderService = {
     }
 
     if (paymentMethod === 'cod') {
-      await cartService.removeProducts(user._id, lines.map((l) => l.product));
+      await cartService.removeProducts(
+        user._id,
+        lines.map((l) => l.product),
+      );
       return { order: serializeOrder(order), payment: null };
     }
 
@@ -228,7 +245,10 @@ export const orderService = {
       order.payment.providerOrderId = gatewayOrder.providerOrderId;
       await order.save();
     } catch (err) {
-      await Order.updateOne({ _id: order._id }, { status: 'cancelled', cancelledAt: new Date(), cancelReason: 'Payment could not be started', 'items.$[].status': 'cancelled' });
+      await Order.updateOne(
+        { _id: order._id },
+        { status: 'cancelled', cancelledAt: new Date(), cancelReason: 'Payment could not be started', 'items.$[].status': 'cancelled' },
+      );
       await releaseStock(lines);
       throw err;
     }
@@ -258,7 +278,8 @@ export const orderService = {
     if (order.status !== 'pending_payment' || !order.payment.providerOrderId) {
       throw ApiError.conflict('This order is not awaiting payment', { code: 'NOT_AWAITING_PAYMENT' });
     }
-    if (order.expiresAt && order.expiresAt < new Date()) throw ApiError.conflict('The payment window has closed. Please place the order again.', { code: 'PAYMENT_WINDOW_CLOSED' });
+    if (order.expiresAt && order.expiresAt < new Date())
+      throw ApiError.conflict('The payment window has closed. Please place the order again.', { code: 'PAYMENT_WINDOW_CLOSED' });
     return { order: serializeOrder(order), payment: checkoutPayload(order, user) };
   },
 
@@ -271,7 +292,8 @@ export const orderService = {
   async handleRazorpayWebhook({ rawBody, signature, eventId }) {
     const provider = paymentService.webhookProvider('razorpay');
     if (!provider) throw ApiError.serviceUnavailable('Razorpay not configured');
-    if (!provider.verifyWebhookSignature(rawBody, signature)) throw ApiError.badRequest('Invalid webhook signature', { code: 'INVALID_SIGNATURE' });
+    if (!provider.verifyWebhookSignature(rawBody, signature))
+      throw ApiError.badRequest('Invalid webhook signature', { code: 'INVALID_SIGNATURE' });
 
     const event = JSON.parse(rawBody.toString('utf8'));
     const payment = event.payload?.payment?.entity;
@@ -305,12 +327,21 @@ export const orderService = {
 
   /** Cancels online orders whose payment window elapsed and returns their stock. */
   async expireUnpaid(now = new Date()) {
-    const stale = await Order.find({ status: 'pending_payment', expiresAt: { $lte: now } }).select('_id').limit(200).lean();
+    const stale = await Order.find({ status: 'pending_payment', expiresAt: { $lte: now } })
+      .select('_id')
+      .limit(200)
+      .lean();
     let expired = 0;
     for (const { _id } of stale) {
       const claimed = await Order.findOneAndUpdate(
         { _id, status: 'pending_payment' },
-        { status: 'cancelled', cancelledAt: now, cancelReason: 'Payment not completed in time', 'payment.status': 'failed', 'items.$[].status': 'cancelled' },
+        {
+          status: 'cancelled',
+          cancelledAt: now,
+          cancelReason: 'Payment not completed in time',
+          'payment.status': 'failed',
+          'items.$[].status': 'cancelled',
+        },
       ).lean();
       if (claimed) {
         await releaseStock(claimed.items.map((i) => ({ product: i.product, quantity: i.quantity })));
@@ -332,7 +363,8 @@ export const orderService = {
     if (scope.vendorId) filter.vendors = scope.vendorId;
     const order = await Order.findOne(filter);
     const item = order?.items.id(scope.itemId);
-    if (!order || !item || (scope.vendorId && String(item.vendor) !== String(scope.vendorId))) throw ApiError.notFound('Order item not found');
+    if (!order || !item || (scope.vendorId && String(item.vendor) !== String(scope.vendorId)))
+      throw ApiError.notFound('Order item not found');
     if (order.status === 'pending_payment') throw ApiError.conflict('This order is still awaiting payment', { code: 'AWAITING_PAYMENT' });
 
     const changingStatus = status && status !== item.status;
@@ -409,7 +441,10 @@ export const orderService = {
         .lean(),
       Order.countDocuments(filter),
     ]);
-    return { items: rows.map((o) => serializeVendorOrder(o, vendorId)), meta: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) } };
+    return {
+      items: rows.map((o) => serializeVendorOrder(o, vendorId)),
+      meta: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
+    };
   },
 
   async vendorGet(vendorId, id) {
@@ -442,7 +477,10 @@ export const orderService = {
   },
 
   async adminGet(id) {
-    const order = await Order.findById(id).populate('user', 'name phone email').populate('items.vendor', 'store.name store.slug phone').lean();
+    const order = await Order.findById(id)
+      .populate('user', 'name phone email')
+      .populate('items.vendor', 'store.name store.slug phone')
+      .lean();
     if (!order) throw ApiError.notFound('Order not found');
     // user and items.vendor are populated, and the serializer passes them through.
     return serializeOrder(order);

@@ -21,7 +21,12 @@ if (env.isProduction) {
 }
 
 const TREE = [
-  ['Power Tools', ['Drills & Drivers', ['Impact Drills', 'Cordless Drills']], ['Grinders', ['Angle Grinders', 'Die Grinders']], ['Saws', []]],
+  [
+    'Power Tools',
+    ['Drills & Drivers', ['Impact Drills', 'Cordless Drills']],
+    ['Grinders', ['Angle Grinders', 'Die Grinders']],
+    ['Saws', []],
+  ],
   ['Hand Tools', ['Spanners & Wrenches', []], ['Pliers & Cutters', []], ['Measuring Tools', []]],
   ['Agricultural Machinery', ['Power Tillers', []], ['Sprayers', ['Battery Sprayers', 'Power Sprayers']], ['Brush Cutters', []]],
   ['Pumps & Motors', ['Monoblock Pumps', []], ['Submersible Pumps', []], ['Motors', []]],
@@ -61,7 +66,10 @@ function bannerArt({ title, subtitle, color }) {
 }
 
 async function uploadArt(buffer, folder, name) {
-  const media = await storageService.uploadImage({ buffer, originalname: `${slugify(name)}.png`, size: buffer.length }, { folder, uploadedBy: { kind: 'system' } });
+  const media = await storageService.uploadImage(
+    { buffer, originalname: `${slugify(name)}.png`, size: buffer.length },
+    { folder, uploadedBy: { kind: 'system' } },
+  );
   return { media: media._id, url: media.url, alt: name };
 }
 
@@ -69,7 +77,9 @@ async function ensureCategory(name, parent, i) {
   const slug = slugify(name);
   const existing = await Category.findOne({ slug });
   if (existing) return existing;
-  const image = parent ? undefined : await uploadArt(await artwork({ title: name, color: COLORS[i % COLORS.length], width: 600, height: 600 }), 'categories', name);
+  const image = parent
+    ? undefined
+    : await uploadArt(await artwork({ title: name, color: COLORS[i % COLORS.length], width: 600, height: 600 }), 'categories', name);
   return Category.create({
     name,
     slug,
@@ -105,7 +115,11 @@ if (!vendor) {
     contactName: 'Demo Seller',
     email: 'demo-seller@toolbox.local',
     status: 'approved',
-    store: { name: 'Shakti Industrial Supplies', slug: 'shakti-industrial-supplies', description: 'Authorised dealer for power tools, pumps and agri machinery since 1998.' },
+    store: {
+      name: 'Shakti Industrial Supplies',
+      slug: 'shakti-industrial-supplies',
+      description: 'Authorised dealer for power tools, pumps and agri machinery since 1998.',
+    },
     business: { legalName: 'Shakti Industrial Supplies Pvt Ltd', type: 'private_limited', gstin: '27AAPCS1234F1Z9', pan: 'AAPCS1234F' },
     address: { line1: 'Plot 22, MIDC Bhosari', city: 'Pune', state: 'Maharashtra', pincode: '411026' },
     onboarding: { completedSteps: ['business', 'address', 'bank', 'documents'], submittedAt: new Date() },
@@ -114,25 +128,210 @@ if (!vendor) {
 }
 
 const PRODUCTS = [
-  ['machinery', 'Bosch GSB 550 Impact Drill 13mm', 'impact-drills', 'Bosch', 450_000, 349_900, 25, [['Power', '550 W'], ['Chuck', '13 mm'], ['Speed', '0-2800 rpm']]],
-  ['machinery', 'Dewalt DCD776 Cordless Drill Driver 18V', 'cordless-drills', 'Dewalt', 1_199_900, 889_900, 12, [['Voltage', '18 V'], ['Battery', '2 × 1.3 Ah Li-ion']]],
-  ['machinery', 'Makita GA4030 Angle Grinder 100mm', 'angle-grinders', 'Makita', 520_000, 399_000, 30, [['Power', '720 W'], ['Disc', '100 mm']]],
-  ['tool', 'Taparia Combination Spanner Set (8 pcs)', 'spanners-and-wrenches', 'Taparia', 165_000, 119_900, 80, [['Pieces', '8'], ['Sizes', '6-22 mm']]],
-  ['tool', 'Stanley Digital Vernier Caliper 150mm', 'measuring-tools', 'Stanley', 320_000, 249_900, 18, [['Range', '0-150 mm'], ['Resolution', '0.01 mm']]],
-  ['machinery', 'Kirloskar KS-128 Monoblock Pump 1HP', 'monoblock-pumps', 'Kirloskar', 890_000, 699_900, 10, [['Power', '1 HP'], ['Head', '32 m'], ['Phase', 'Single']]],
-  ['machinery', 'Crompton 1.5HP V4 Submersible Pump', 'submersible-pumps', 'Crompton', 1_650_000, 1_349_000, 6, [['Power', '1.5 HP'], ['Stages', '10']]],
-  ['machinery', 'Kisankraft KK-IC-8 Power Tiller 7HP', 'power-tillers', 'Kisankraft', 9_500_000, 7_899_000, 3, [['Engine', '7 HP diesel'], ['Tilling width', '800 mm']]],
-  ['machinery', 'Neptune BS-13 Battery Sprayer 16L', 'battery-sprayers', 'Neptune', 450_000, 289_900, 40, [['Capacity', '16 L'], ['Battery', '12 V 8 Ah']]],
-  ['machinery', 'Honda GX35 Brush Cutter 4-Stroke', 'brush-cutters', 'Honda', 2_800_000, 2_349_000, 7, [['Engine', '35.8 cc'], ['Shaft', 'Straight']]],
-  ['machinery', 'Ador Champ 200 Inverter Welding Machine', 'welding-machines', 'Ador', 1_450_000, 1_099_000, 9, [['Current', '200 A'], ['Electrode', '1.6-4 mm']]],
-  ['machinery', 'Elgi 2HP 50L Air Compressor', 'air-compressors', 'Elgi', 3_200_000, 2_649_000, 5, [['Tank', '50 L'], ['Pressure', '8 bar']]],
-  ['tool', 'Karam Safety Helmet with Ratchet (Pack of 5)', 'safety-equipment', 'Karam', 200_000, 149_900, 120, [['Standard', 'IS 2925'], ['Pack', '5']]],
+  [
+    'machinery',
+    'Bosch GSB 550 Impact Drill 13mm',
+    'impact-drills',
+    'Bosch',
+    450_000,
+    349_900,
+    25,
+    [
+      ['Power', '550 W'],
+      ['Chuck', '13 mm'],
+      ['Speed', '0-2800 rpm'],
+    ],
+  ],
+  [
+    'machinery',
+    'Dewalt DCD776 Cordless Drill Driver 18V',
+    'cordless-drills',
+    'Dewalt',
+    1_199_900,
+    889_900,
+    12,
+    [
+      ['Voltage', '18 V'],
+      ['Battery', '2 × 1.3 Ah Li-ion'],
+    ],
+  ],
+  [
+    'machinery',
+    'Makita GA4030 Angle Grinder 100mm',
+    'angle-grinders',
+    'Makita',
+    520_000,
+    399_000,
+    30,
+    [
+      ['Power', '720 W'],
+      ['Disc', '100 mm'],
+    ],
+  ],
+  [
+    'tool',
+    'Taparia Combination Spanner Set (8 pcs)',
+    'spanners-and-wrenches',
+    'Taparia',
+    165_000,
+    119_900,
+    80,
+    [
+      ['Pieces', '8'],
+      ['Sizes', '6-22 mm'],
+    ],
+  ],
+  [
+    'tool',
+    'Stanley Digital Vernier Caliper 150mm',
+    'measuring-tools',
+    'Stanley',
+    320_000,
+    249_900,
+    18,
+    [
+      ['Range', '0-150 mm'],
+      ['Resolution', '0.01 mm'],
+    ],
+  ],
+  [
+    'machinery',
+    'Kirloskar KS-128 Monoblock Pump 1HP',
+    'monoblock-pumps',
+    'Kirloskar',
+    890_000,
+    699_900,
+    10,
+    [
+      ['Power', '1 HP'],
+      ['Head', '32 m'],
+      ['Phase', 'Single'],
+    ],
+  ],
+  [
+    'machinery',
+    'Crompton 1.5HP V4 Submersible Pump',
+    'submersible-pumps',
+    'Crompton',
+    1_650_000,
+    1_349_000,
+    6,
+    [
+      ['Power', '1.5 HP'],
+      ['Stages', '10'],
+    ],
+  ],
+  [
+    'machinery',
+    'Kisankraft KK-IC-8 Power Tiller 7HP',
+    'power-tillers',
+    'Kisankraft',
+    9_500_000,
+    7_899_000,
+    3,
+    [
+      ['Engine', '7 HP diesel'],
+      ['Tilling width', '800 mm'],
+    ],
+  ],
+  [
+    'machinery',
+    'Neptune BS-13 Battery Sprayer 16L',
+    'battery-sprayers',
+    'Neptune',
+    450_000,
+    289_900,
+    40,
+    [
+      ['Capacity', '16 L'],
+      ['Battery', '12 V 8 Ah'],
+    ],
+  ],
+  [
+    'machinery',
+    'Honda GX35 Brush Cutter 4-Stroke',
+    'brush-cutters',
+    'Honda',
+    2_800_000,
+    2_349_000,
+    7,
+    [
+      ['Engine', '35.8 cc'],
+      ['Shaft', 'Straight'],
+    ],
+  ],
+  [
+    'machinery',
+    'Ador Champ 200 Inverter Welding Machine',
+    'welding-machines',
+    'Ador',
+    1_450_000,
+    1_099_000,
+    9,
+    [
+      ['Current', '200 A'],
+      ['Electrode', '1.6-4 mm'],
+    ],
+  ],
+  [
+    'machinery',
+    'Elgi 2HP 50L Air Compressor',
+    'air-compressors',
+    'Elgi',
+    3_200_000,
+    2_649_000,
+    5,
+    [
+      ['Tank', '50 L'],
+      ['Pressure', '8 bar'],
+    ],
+  ],
+  [
+    'tool',
+    'Karam Safety Helmet with Ratchet (Pack of 5)',
+    'safety-equipment',
+    'Karam',
+    200_000,
+    149_900,
+    120,
+    [
+      ['Standard', 'IS 2925'],
+      ['Pack', '5'],
+    ],
+  ],
 ];
 
 const PARTS = [
-  ['Carbon Brush Pair for Bosch GSB 550', 'power-tool-spares', 'Bosch', 35_000, 24_900, 200, 'Bosch GSB 550 Impact Drill 13mm', ['GSB 550', 'GSB 500 RE']],
-  ['Armature for Makita GA4030', 'power-tool-spares', 'Makita', 180_000, 129_900, 25, 'Makita GA4030 Angle Grinder 100mm', ['GA4030', 'GA4031']],
-  ['Mechanical Seal Kit for KS-128', 'pump-spares', 'Kirloskar', 90_000, 64_900, 60, 'Kirloskar KS-128 Monoblock Pump 1HP', ['KS-128', 'KS-126']],
+  [
+    'Carbon Brush Pair for Bosch GSB 550',
+    'power-tool-spares',
+    'Bosch',
+    35_000,
+    24_900,
+    200,
+    'Bosch GSB 550 Impact Drill 13mm',
+    ['GSB 550', 'GSB 500 RE'],
+  ],
+  [
+    'Armature for Makita GA4030',
+    'power-tool-spares',
+    'Makita',
+    180_000,
+    129_900,
+    25,
+    'Makita GA4030 Angle Grinder 100mm',
+    ['GA4030', 'GA4031'],
+  ],
+  [
+    'Mechanical Seal Kit for KS-128',
+    'pump-spares',
+    'Kirloskar',
+    90_000,
+    64_900,
+    60,
+    'Kirloskar KS-128 Monoblock Pump 1HP',
+    ['KS-128', 'KS-126'],
+  ],
   ['Tiller Blade Set (24 pcs)', 'engine-parts', 'Kisankraft', 850_000, 689_000, 15, 'Kisankraft KK-IC-8 Power Tiller 7HP', ['KK-IC-8']],
 ];
 
@@ -153,9 +352,15 @@ for (const [i, [type, name, catSlug, brand, mrp, price, stock, specs]] of PRODUC
       slug,
       sku: `SKU-${1000 + i}`,
       brand,
-      shortDescription: `${brand} ${type === 'tool' ? 'hand tool' : 'machine'} with manufacturer warranty and GST invoice.`,
-      description: `${name} from ${brand}. Built for daily professional use. Ships with a GST invoice and manufacturer warranty. Bulk pricing available on request.`,
-      images: [await uploadArt(await artwork({ title: brand, subtitle: name.replace(brand, '').trim().slice(0, 34), color: COLORS[i % COLORS.length] }), 'products', name)],
+      shortDescription: `${brand} ${type === 'tool' ? 'hand tool' : 'machine'} with manufacturer warranty.`,
+      description: `${name} from ${brand}. Built for daily professional use. Covered by the manufacturer warranty.`,
+      images: [
+        await uploadArt(
+          await artwork({ title: brand, subtitle: name.replace(brand, '').trim().slice(0, 34), color: COLORS[i % COLORS.length] }),
+          'products',
+          name,
+        ),
+      ],
       pricing: { mrp, price, gstRate: 18 },
       hsnCode: '8467',
       inventory: { stock, moq: 1, unit: 'piece' },
@@ -202,11 +407,19 @@ console.log(`Products created: ${created}`);
 
 if (!(await Banner.exists({}))) {
   const heroes = [
-    ['Power tools for every job', 'Genuine brands · GST invoice · Pan-India delivery', '#e8590c', '/c/power-tools'],
+    ['Power tools for every job', 'Drills, grinders and saws from reviewed sellers', '#e8590c', '/c/power-tools'],
     ['Farm machinery, delivered', 'Tillers, sprayers and brush cutters from trusted sellers', '#0f9d58', '/c/agricultural-machinery'],
   ];
   for (const [i, [title, subtitle, color, link]] of heroes.entries()) {
-    await Banner.create({ title, subtitle, link, ctaLabel: 'Shop now', placement: 'home_hero', sortOrder: i, image: await uploadArt(await bannerArt({ title, subtitle, color }), 'banners', title) });
+    await Banner.create({
+      title,
+      subtitle,
+      link,
+      ctaLabel: 'Shop now',
+      placement: 'home_hero',
+      sortOrder: i,
+      image: await uploadArt(await bannerArt({ title, subtitle, color }), 'banners', title),
+    });
   }
   console.log('Banners created');
 }

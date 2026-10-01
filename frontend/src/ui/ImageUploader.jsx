@@ -131,7 +131,10 @@ function IconAction({ label, onClick, danger, children }) {
       type="button"
       aria-label={label}
       onClick={onClick}
-      className={cn('grid size-7 place-items-center rounded bg-white/90 text-slate-700 shadow [&_svg]:size-3.5', danger ? 'hover:text-red-600' : 'hover:text-slate-900')}
+      className={cn(
+        'grid size-7 place-items-center rounded bg-white/90 text-slate-700 shadow [&_svg]:size-3.5',
+        danger ? 'hover:text-red-600' : 'hover:text-slate-900',
+      )}
     >
       {children}
     </button>

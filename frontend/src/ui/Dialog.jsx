@@ -50,10 +50,7 @@ export function Sheet({ open, onOpenChange, title, children, side = 'left', foot
       <RDialog.Portal>
         <RDialog.Overlay className={overlay} />
         <RDialog.Content
-          className={cn(
-            'fixed inset-y-0 z-50 flex w-[88vw] max-w-sm flex-col bg-white shadow-2xl focus:outline-none',
-            side === 'left' ? 'left-0' : 'right-0',
-          )}
+          className={cn('fixed inset-y-0 z-50 flex w-[88vw] max-w-sm flex-col bg-white shadow-2xl focus:outline-none', side === 'left' ? 'left-0' : 'right-0')}
         >
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
             <RDialog.Title className="text-base font-semibold">{title}</RDialog.Title>
@@ -76,7 +73,17 @@ export function Sheet({ open, onOpenChange, title, children, side = 'left', foot
  * Confirmation for destructive / important actions. `onConfirm` may be async;
  * the dialog stays open with a spinner until it settles.
  */
-export function ConfirmDialog({ trigger, title, description, confirmLabel = 'Confirm', tone = 'danger', onConfirm, children, open: controlledOpen, onOpenChange }) {
+export function ConfirmDialog({
+  trigger,
+  title,
+  description,
+  confirmLabel = 'Confirm',
+  tone = 'danger',
+  onConfirm,
+  children,
+  open: controlledOpen,
+  onOpenChange,
+}) {
   const [internalOpen, setInternalOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const open = controlledOpen ?? internalOpen
@@ -88,6 +95,8 @@ export function ConfirmDialog({ trigger, title, description, confirmLabel = 'Con
     try {
       await onConfirm?.()
       setOpen(false)
+    } catch {
+      /* caller surfaces the error (toast); keep the dialog open */
     } finally {
       setBusy(false)
     }

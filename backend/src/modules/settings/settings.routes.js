@@ -18,19 +18,23 @@ const brandingImages = z.object({ logo: imageInput.nullable().optional(), favico
 /** Mounted at /admin/settings. */
 export const adminSettingsRoutes = Router()
   .get('/', async (_req, res) => ok(res, await settingsService.adminView()))
-  .put('/:key', validate({ params: z.object({ key: z.enum(SETTING_KEYS) }), body: z.record(z.string(), z.unknown()) }), async (req, res) => {
-    const actor = actorOf(req);
-    let patch = req.body;
+  .put(
+    '/:key',
+    validate({ params: z.object({ key: z.enum(SETTING_KEYS) }), body: z.record(z.string(), z.unknown()) }),
+    async (req, res) => {
+      const actor = actorOf(req);
+      let patch = req.body;
 
-    // Image refs are resolved server-side so a URL can never be injected into branding.
-    if (req.params.key === 'branding') {
-      const images = brandingImages.parse(patch);
-      patch = { ...patch };
-      for (const field of ['logo', 'favicon']) {
-        if (images[field] !== undefined) patch[field] = images[field] ? await mediaService.resolveOne(images[field], actor) : null;
+      // Image refs are resolved server-side so a URL can never be injected into branding.
+      if (req.params.key === 'branding') {
+        const images = brandingImages.parse(patch);
+        patch = { ...patch };
+        for (const field of ['logo', 'favicon']) {
+          if (images[field] !== undefined) patch[field] = images[field] ? await mediaService.resolveOne(images[field], actor) : null;
+        }
       }
-    }
 
-    await settingsService.update(req.params.key, patch, actor);
-    ok(res, await settingsService.adminView());
-  });
+      await settingsService.update(req.params.key, patch, actor);
+      ok(res, await settingsService.adminView());
+    },
+  );

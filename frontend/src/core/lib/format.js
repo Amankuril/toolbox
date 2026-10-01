@@ -55,7 +55,10 @@ export function formatPhone(e164) {
   return m ? `+91 ${m[1]} ${m[2]}` : (e164 ?? '')
 }
 
-export const titleCase = (s) => String(s ?? '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+export const titleCase = (s) =>
+  String(s ?? '')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase())
 
 export function pluralize(n, one, many = `${one}s`) {
   return `${formatNumber(n)} ${n === 1 ? one : many}`

@@ -30,7 +30,8 @@ export function serializeVendor(vendor) {
       isComplete: ONBOARDING_STEPS.every((s) => completed.includes(s)),
       submittedAt: vendor.onboarding?.submittedAt ?? null,
     },
-    review: vendor.review?.reviewedAt || vendor.review?.note ? { reviewedAt: vendor.review.reviewedAt, note: vendor.review.note ?? null } : null,
+    review:
+      vendor.review?.reviewedAt || vendor.review?.note ? { reviewedAt: vendor.review.reviewedAt, note: vendor.review.note ?? null } : null,
     lastLoginAt: vendor.lastLoginAt ?? null,
     createdAt: vendor.createdAt,
   };
@@ -41,7 +42,12 @@ export function serializePublicVendor(vendor) {
   if (!vendor) return null;
   return {
     _id: vendor._id,
-    store: { name: vendor.store?.name, slug: vendor.store?.slug, logo: vendor.store?.logo ?? null, description: vendor.store?.description ?? null },
+    store: {
+      name: vendor.store?.name,
+      slug: vendor.store?.slug,
+      logo: vendor.store?.logo ?? null,
+      description: vendor.store?.description ?? null,
+    },
     city: vendor.address?.city ?? null,
     state: vendor.address?.state ?? null,
     memberSince: vendor.createdAt,

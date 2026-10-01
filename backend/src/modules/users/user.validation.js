@@ -17,14 +17,15 @@ export const updateMe = {
     .partial(),
 };
 
+// No defaults here: zod's .partial() still applies them, which would overwrite fields on update.
 const addressBody = addressSchema.extend({
-  label: z.string().trim().max(40).default('Home'),
+  label: z.string().trim().max(40),
   name: nonEmpty(120),
   phone: indianPhone,
   isDefault: z.boolean().optional(),
 });
 
-export const createAddress = { body: addressBody };
+export const createAddress = { body: addressBody.extend({ label: addressBody.shape.label.default('Home') }) };
 export const updateAddress = {
   params: z.object({ addressId: objectId }),
   body: addressBody.partial(),

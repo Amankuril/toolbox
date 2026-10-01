@@ -70,7 +70,9 @@ export function testImage({ width = 2400, height = 1800, color = '#e8590c' } = {
 }
 
 export function upload(app, token, folder, buffers) {
-  let req = request(app).post(`${API}/${tokenAudience(token)}/media?folder=${folder}`).set(bearer(token));
+  let req = request(app)
+    .post(`${API}/${tokenAudience(token)}/media?folder=${folder}`)
+    .set(bearer(token));
   buffers.forEach((b, i) => {
     req = req.attach('files', b, { filename: `img-${i}.png`, contentType: 'image/png' });
   });
@@ -87,10 +89,18 @@ export async function setModeration(values) {
 
 /** Onboards and approves a vendor end to end; returns their session. */
 export async function approvedVendor(app, adminToken, { phone, storeName = 'Acme Tools', gstin = '27AAPFU0939F1ZV', pan = 'AAPFU0939F' }) {
-  const session = await otpSignIn(app, { phone, audience: 'vendor', register: { contactName: 'Ravi Kumar', email: `${phone}@acme.test`, storeName } });
+  const session = await otpSignIn(app, {
+    phone,
+    audience: 'vendor',
+    register: { contactName: 'Ravi Kumar', email: `${phone}@acme.test`, storeName },
+  });
   const auth = bearer(session.accessToken);
 
-  await request(app).put(`${API}/vendor/onboarding/business`).set(auth).send({ legalName: `${storeName} Pvt Ltd`, type: 'private_limited', gstin, pan }).expect(200);
+  await request(app)
+    .put(`${API}/vendor/onboarding/business`)
+    .set(auth)
+    .send({ legalName: `${storeName} Pvt Ltd`, type: 'private_limited', gstin, pan })
+    .expect(200);
   await request(app)
     .put(`${API}/vendor/onboarding/address`)
     .set(auth)
@@ -99,16 +109,34 @@ export async function approvedVendor(app, adminToken, { phone, storeName = 'Acme
   await request(app)
     .put(`${API}/vendor/onboarding/bank`)
     .set(auth)
-    .send({ accountHolderName: storeName, accountNumber: '123456789012', confirmAccountNumber: '123456789012', ifsc: 'HDFC0001234', bankName: 'HDFC Bank' })
+    .send({
+      accountHolderName: storeName,
+      accountNumber: '123456789012',
+      confirmAccountNumber: '123456789012',
+      ifsc: 'HDFC0001234',
+      bankName: 'HDFC Bank',
+    })
     .expect(200);
-  const docs = await upload(app, session.accessToken, 'documents', [await testImage({ width: 800, height: 600 }), await testImage({ width: 800, height: 600 })]);
+  const docs = await upload(app, session.accessToken, 'documents', [
+    await testImage({ width: 800, height: 600 }),
+    await testImage({ width: 800, height: 600 }),
+  ]);
   await request(app)
     .put(`${API}/vendor/onboarding/documents`)
     .set(auth)
-    .send({ documents: [{ type: 'gst_certificate', media: docs.body.data[0]._id }, { type: 'cancelled_cheque', media: docs.body.data[1]._id }] })
+    .send({
+      documents: [
+        { type: 'gst_certificate', media: docs.body.data[0]._id },
+        { type: 'cancelled_cheque', media: docs.body.data[1]._id },
+      ],
+    })
     .expect(200);
   await request(app).post(`${API}/vendor/onboarding/submit`).set(auth).expect(200);
-  await request(app).post(`${API}/admin/vendors/${session.account._id}/review`).set(bearer(adminToken)).send({ action: 'approve' }).expect(200);
+  await request(app)
+    .post(`${API}/admin/vendors/${session.account._id}/review`)
+    .set(bearer(adminToken))
+    .send({ action: 'approve' })
+    .expect(200);
 
   return session;
 }

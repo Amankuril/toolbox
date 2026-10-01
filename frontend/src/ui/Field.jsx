@@ -1,5 +1,6 @@
 import { useId } from 'react'
 import { cn } from '@/core/lib/cn'
+import { controlClass } from './controlClass'
 
 /**
  * Label + control + hint/error, wired for accessibility. The child control receives
@@ -33,14 +34,6 @@ export function Field({ label, hint, error, required, className, children, label
   )
 }
 
-export const controlClass = cn(
-  'block w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 shadow-xs transition-colors',
-  'placeholder:text-slate-400 hover:border-slate-400',
-  'focus:border-primary focus:ring-3 focus:ring-primary/15 focus:outline-none',
-  'disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500',
-  'aria-invalid:border-red-400 aria-invalid:focus:ring-red-500/15',
-)
-
 export function Input({ className, prefix, suffix, ...props }) {
   if (!prefix && !suffix) return <input className={cn(controlClass, 'h-10', className)} {...props} />
   return (
@@ -58,7 +51,10 @@ export function Textarea({ className, rows = 4, ...props }) {
 
 export function Select({ className, children, placeholder, ...props }) {
   return (
-    <select className={cn(controlClass, 'h-10 appearance-none bg-[length:16px] bg-[right_0.6rem_center] bg-no-repeat pr-8', selectChevron, className)} {...props}>
+    <select
+      className={cn(controlClass, 'h-10 appearance-none bg-[length:16px] bg-[right_0.6rem_center] bg-no-repeat pr-8', selectChevron, className)}
+      {...props}
+    >
       {placeholder !== undefined && <option value="">{placeholder}</option>}
       {children}
     </select>

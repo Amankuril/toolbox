@@ -49,7 +49,8 @@ beforeAll(async () => {
   vendor = await approvedVendor(app, admin.accessToken, { phone: '9200000001' });
   await setModeration({ autoApproveProducts: true });
 
-  const cat = (await request(app).post(`${API}/admin/categories`).set(bearer(admin.accessToken)).send({ name: 'Pumps' }).expect(201)).body.data;
+  const cat = (await request(app).post(`${API}/admin/categories`).set(bearer(admin.accessToken)).send({ name: 'Pumps' }).expect(201)).body
+    .data;
   product = (
     await request(app)
       .post(`${API}/vendor/products`)
@@ -80,6 +81,33 @@ afterAll(stopTestApp);
 
 const user = () => bearer(customer.accessToken);
 
+describe('addresses', () => {
+  it('partial updates keep untouched fields (no schema defaults leak in)', async () => {
+    const list = (
+      await request(app)
+        .post(`${API}/user/addresses`)
+        .set(user())
+        .send({
+          label: 'Warehouse',
+          name: 'Joe',
+          phone: '9200000099',
+          line1: 'Gat 12',
+          city: 'Nashik',
+          state: 'Maharashtra',
+          pincode: '422010',
+        })
+        .expect(201)
+    ).body.data;
+    const warehouse = list.find((a) => a.label === 'Warehouse');
+    const updated = (await request(app).patch(`${API}/user/addresses/${warehouse._id}`).set(user()).send({ isDefault: true }).expect(200))
+      .body.data;
+    expect(updated.find((a) => a._id === warehouse._id)).toMatchObject({ label: 'Warehouse', isDefault: true });
+    expect(updated.filter((a) => a.isDefault)).toHaveLength(1);
+    // Restore the original default for the checkout tests below.
+    await request(app).patch(`${API}/user/addresses/${addressId}`).set(user()).send({ isDefault: true }).expect(200);
+  });
+});
+
 describe('cart', () => {
   it('enforces MOQ / max quantity and prices lines from live product data', async () => {
     const tooMany = await request(app).put(`${API}/user/cart/items/${product._id}`).set(user()).send({ quantity: 4 }).expect(422);
@@ -106,7 +134,11 @@ describe('cash on delivery', () => {
     expect(vendorView.amounts.subtotal).toBe(1_299_800);
 
     const itemId = order.items[0]._id;
-    const bad = await request(app).patch(`${API}/vendor/orders/${order._id}/items/${itemId}`).set(v).send({ status: 'delivered' }).expect(409);
+    const bad = await request(app)
+      .patch(`${API}/vendor/orders/${order._id}/items/${itemId}`)
+      .set(v)
+      .send({ status: 'delivered' })
+      .expect(409);
     expect(bad.body.error.code).toBe('INVALID_TRANSITION');
 
     for (const status of ['confirmed', 'shipped', 'delivered']) {
@@ -132,13 +164,21 @@ describe('cash on delivery', () => {
 
 describe('razorpay', () => {
   it('is unavailable until the admin enables it', async () => {
-    const res = await request(app).post(`${API}/user/orders/checkout`).set(user()).send({ addressId, paymentMethod: 'razorpay' }).expect(422);
+    const res = await request(app)
+      .post(`${API}/user/orders/checkout`)
+      .set(user())
+      .send({ addressId, paymentMethod: 'razorpay' })
+      .expect(422);
     expect(res.body.error.code).toBe('PAYMENT_UNAVAILABLE');
   });
 
   it('verifies the checkout signature, then ignores a duplicate webhook', async () => {
     await settingsService.update('payments', { razorpayEnabled: true }, { kind: 'system' });
-    const res = await request(app).post(`${API}/user/orders/checkout`).set(user()).send({ addressId, paymentMethod: 'razorpay' }).expect(201);
+    const res = await request(app)
+      .post(`${API}/user/orders/checkout`)
+      .set(user())
+      .send({ addressId, paymentMethod: 'razorpay' })
+      .expect(201);
     const { order, payment } = res.body.data;
     expect(order.status).toBe('pending_payment');
     expect(payment).toMatchObject({ provider: 'razorpay', providerOrderId: 'order_test_1', amount: 649_900 + 10_000 });
@@ -159,7 +199,10 @@ describe('razorpay', () => {
       .expect(200);
     expect(paid.body.data).toMatchObject({ status: 'placed', payment: { status: 'paid' } });
 
-    const body = JSON.stringify({ event: 'payment.captured', payload: { payment: { entity: { id: 'pay_1', order_id: payment.providerOrderId } } } });
+    const body = JSON.stringify({
+      event: 'payment.captured',
+      payload: { payment: { entity: { id: 'pay_1', order_id: payment.providerOrderId } } },
+    });
     const send = () =>
       request(app)
         .post(`${API}/webhooks/razorpay`)
@@ -170,11 +213,16 @@ describe('razorpay', () => {
     expect((await send().expect(200)).body.data).toEqual({ processed: true });
     expect((await send().expect(200)).body.data).toEqual({ duplicate: true });
 
-    await request(app).post(`${API}/webhooks/razorpay`).set('Content-Type', 'application/json').set('X-Razorpay-Signature', 'bad').send(body).expect(400);
+    await request(app)
+      .post(`${API}/webhooks/razorpay`)
+      .set('Content-Type', 'application/json')
+      .set('X-Razorpay-Signature', 'bad')
+      .send(body)
+      .expect(400);
   });
 
   it('refunds a cancelled line on a paid order and restocks it', async () => {
-    const order = (await Order.findOne({ 'payment.providerOrderId': 'order_test_1' }).lean());
+    const order = await Order.findOne({ 'payment.providerOrderId': 'order_test_1' }).lean();
     const before = await stockOf(product._id);
     const res = await request(app)
       .post(`${API}/user/orders/${order._id}/items/${order.items[0]._id}/cancel`)
@@ -188,7 +236,9 @@ describe('razorpay', () => {
 
   it('releases stock when the payment window lapses; a late webhook re-reserves it', async () => {
     await request(app).put(`${API}/user/cart/items/${product._id}`).set(user()).send({ quantity: 1 }).expect(200);
-    const { order, payment } = (await request(app).post(`${API}/user/orders/checkout`).set(user()).send({ addressId, paymentMethod: 'razorpay' }).expect(201)).body.data;
+    const { order, payment } = (
+      await request(app).post(`${API}/user/orders/checkout`).set(user()).send({ addressId, paymentMethod: 'razorpay' }).expect(201)
+    ).body.data;
     const reserved = await stockOf(product._id);
 
     await Order.updateOne({ _id: order._id }, { expiresAt: new Date(Date.now() - 1000) });
@@ -196,7 +246,10 @@ describe('razorpay', () => {
     expect(await stockOf(product._id)).toBe(reserved + 1);
     expect((await Order.findById(order._id).lean()).status).toBe('cancelled');
 
-    const body = JSON.stringify({ event: 'payment.captured', payload: { payment: { entity: { id: 'pay_late', order_id: payment.providerOrderId } } } });
+    const body = JSON.stringify({
+      event: 'payment.captured',
+      payload: { payment: { entity: { id: 'pay_late', order_id: payment.providerOrderId } } },
+    });
     await request(app)
       .post(`${API}/webhooks/razorpay`)
       .set('Content-Type', 'application/json')

@@ -17,7 +17,9 @@ async function loadEditable(vendorId) {
   const vendor = await Vendor.findById(vendorId);
   if (!vendor) throw ApiError.notFound('Vendor not found');
   if (!EDITABLE_STATUSES.includes(vendor.status)) {
-    throw ApiError.conflict('These details are locked after submission. Contact support to change them.', { code: 'VENDOR_DETAILS_LOCKED' });
+    throw ApiError.conflict('These details are locked after submission. Contact support to change them.', {
+      code: 'VENDOR_DETAILS_LOCKED',
+    });
   }
   return vendor;
 }
@@ -90,7 +92,10 @@ export const vendorService = {
     const vendor = await loadEditable(vendorId);
     const missing = ONBOARDING_STEPS.filter((s) => !vendor.onboarding.completedSteps.includes(s));
     if (missing.length) {
-      throw ApiError.unprocessable(`Complete these steps first: ${missing.join(', ')}`, { code: 'ONBOARDING_INCOMPLETE', details: missing });
+      throw ApiError.unprocessable(`Complete these steps first: ${missing.join(', ')}`, {
+        code: 'ONBOARDING_INCOMPLETE',
+        details: missing,
+      });
     }
 
     const { autoApproveVendors } = await settingsService.get('moderation');
@@ -121,7 +126,14 @@ export const vendorService = {
     if (status) filter.status = status;
     if (q) {
       const rx = new RegExp(escapeRegex(q), 'i');
-      filter.$or = [{ 'store.name': rx }, { contactName: rx }, { phone: rx }, { email: rx }, { 'business.gstin': rx }, { 'business.legalName': rx }];
+      filter.$or = [
+        { 'store.name': rx },
+        { contactName: rx },
+        { phone: rx },
+        { email: rx },
+        { 'business.gstin': rx },
+        { 'business.legalName': rx },
+      ];
     }
     const [rows, total] = await Promise.all([
       Vendor.find(filter)
@@ -143,7 +155,8 @@ export const vendorService = {
   async adminReview(id, { action, note }, admin) {
     const vendor = await Vendor.findById(id);
     if (!vendor) throw ApiError.notFound('Vendor not found');
-    if (vendor.status !== 'pending_review') throw ApiError.conflict('Only submitted applications can be reviewed', { code: 'INVALID_STATUS' });
+    if (vendor.status !== 'pending_review')
+      throw ApiError.conflict('Only submitted applications can be reviewed', { code: 'INVALID_STATUS' });
 
     vendor.status = action === 'approve' ? 'approved' : 'rejected';
     vendor.review = { reviewedAt: new Date(), reviewedBy: admin.id, note: action === 'reject' ? note : undefined };
@@ -183,7 +196,11 @@ export const vendorService = {
     const vendor = await Vendor.findById(id).select('+bank.accountNumberEnc').lean();
     if (!vendor?.bank?.accountNumberEnc) throw ApiError.notFound('No bank account on file');
     logger.info({ vendorId: id, adminId: admin.id }, 'Vendor bank account revealed');
-    return { accountNumber: decrypt(vendor.bank.accountNumberEnc), ifsc: vendor.bank.ifsc, accountHolderName: vendor.bank.accountHolderName };
+    return {
+      accountNumber: decrypt(vendor.bank.accountNumberEnc),
+      ifsc: vendor.bank.ifsc,
+      accountHolderName: vendor.bank.accountHolderName,
+    };
   },
 
   /* ─────────────── Public ─────────────── */

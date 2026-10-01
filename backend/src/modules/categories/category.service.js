@@ -139,7 +139,8 @@ export const categoryService = {
 
     const parentChanged = input.parent !== undefined && String(input.parent ?? '') !== String(category.parent ?? '');
     if (parentChanged && input.parent) {
-      const intoOwnSubtree = String(input.parent) === String(category._id) || (await Category.exists({ _id: input.parent, ancestors: category._id }));
+      const intoOwnSubtree =
+        String(input.parent) === String(category._id) || (await Category.exists({ _id: input.parent, ancestors: category._id }));
       if (intoOwnSubtree) throw ApiError.unprocessable('A category cannot be moved inside itself', { code: 'CATEGORY_CYCLE' });
     }
 
@@ -241,7 +242,9 @@ export const categoryService = {
     if (!category) throw ApiError.notFound('Category not found');
 
     const [ancestors, children] = await Promise.all([
-      Category.find({ _id: { $in: category.ancestors } }).select('name slug level status').lean(),
+      Category.find({ _id: { $in: category.ancestors } })
+        .select('name slug level status')
+        .lean(),
       Category.find({ parent: category._id, status: 'active' }).sort({ sortOrder: 1, name: 1 }).select(PUBLIC_FIELDS).lean(),
     ]);
     if (ancestors.some((a) => a.status !== 'active')) throw ApiError.notFound('Category not found');

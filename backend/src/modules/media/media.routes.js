@@ -18,7 +18,12 @@ const uploadQuery = { query: z.object({ folder: z.enum(MEDIA_FOLDERS) }) };
  */
 export function mediaUploadRouter() {
   const router = Router();
-  const limit = rateLimit({ keyPrefix: 'media-upload', points: 60, duration: 10 * 60, key: (req) => `${req.auth.audience}:${req.auth.id}` });
+  const limit = rateLimit({
+    keyPrefix: 'media-upload',
+    points: 60,
+    duration: 10 * 60,
+    key: (req) => `${req.auth.audience}:${req.auth.id}`,
+  });
 
   router.post('/', limit, uploadImages('files'), validate(uploadQuery), async (req, res) => {
     created(res, await mediaService.upload(req.files, { folder: req.query.folder, actor: actorOf(req) }));
@@ -33,7 +38,13 @@ export function adminMediaRouter() {
 
   router.get(
     '/',
-    validate({ query: z.object({ ...paginationQuery, folder: z.enum(MEDIA_FOLDERS).optional(), provider: z.enum(['local', 'cloudinary']).optional() }) }),
+    validate({
+      query: z.object({
+        ...paginationQuery,
+        folder: z.enum(MEDIA_FOLDERS).optional(),
+        provider: z.enum(['local', 'cloudinary']).optional(),
+      }),
+    }),
     async (req, res) => {
       const { items, meta } = await mediaService.list(req.query);
       ok(res, items, meta);

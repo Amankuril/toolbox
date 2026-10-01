@@ -14,7 +14,12 @@ import {
 const router = Router();
 
 // Per-phone limits live in the OTP service; these cap abuse from a single IP.
-const otpSendLimit = rateLimit({ keyPrefix: 'otp-send-ip', points: 20, duration: 60 * 60, message: 'Too many OTP requests from this network' });
+const otpSendLimit = rateLimit({
+  keyPrefix: 'otp-send-ip',
+  points: 20,
+  duration: 60 * 60,
+  message: 'Too many OTP requests from this network',
+});
 const otpVerifyLimit = rateLimit({ keyPrefix: 'otp-verify-ip', points: 30, duration: 10 * 60 });
 const adminLoginLimit = rateLimit({ keyPrefix: 'admin-login-ip', points: 20, duration: 15 * 60 });
 const refreshLimit = rateLimit({ keyPrefix: 'refresh-ip', points: 120, duration: 60 });

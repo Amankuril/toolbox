@@ -33,7 +33,20 @@ const SIMPLE_FIELDS = [
 ];
 
 /** Editing any of these on a live product sends it back for review (when moderation is on). */
-const REVIEWED_FIELDS = ['type', 'name', 'category', 'brand', 'modelNumber', 'shortDescription', 'description', 'images', 'specifications', 'condition', 'compatibleWith', 'compatibleModels'];
+const REVIEWED_FIELDS = [
+  'type',
+  'name',
+  'category',
+  'brand',
+  'modelNumber',
+  'shortDescription',
+  'description',
+  'images',
+  'specifications',
+  'condition',
+  'compatibleWith',
+  'compatibleModels',
+];
 
 const toComparable = (v) => JSON.stringify(v ?? null, (_k, val) => (val instanceof mongoose.Types.ObjectId ? String(val) : val));
 
@@ -59,7 +72,10 @@ async function buildChanges(input, actor, selfId) {
 
 function assertSkuFree(err) {
   if (err?.code === 11000 && err.keyPattern?.sku) {
-    throw ApiError.conflict('You already have a product with this SKU', { code: 'DUPLICATE_SKU', details: [{ path: 'sku', message: 'Already used' }] });
+    throw ApiError.conflict('You already have a product with this SKU', {
+      code: 'DUPLICATE_SKU',
+      details: [{ path: 'sku', message: 'Already used' }],
+    });
   }
   throw err;
 }
@@ -174,7 +190,10 @@ export const productService = {
   },
 
   async vendorArchive(vendor, id) {
-    const res = await Product.updateOne({ _id: id, vendor: vendor._id, status: { $ne: 'archived' } }, { status: 'archived', isFeatured: false });
+    const res = await Product.updateOne(
+      { _id: id, vendor: vendor._id, status: { $ne: 'archived' } },
+      { status: 'archived', isFeatured: false },
+    );
     if (!res.matchedCount) throw ApiError.notFound('Product not found');
   },
 
@@ -204,11 +223,23 @@ export const productService = {
   /** Lightweight search used by the "compatible with" picker (any vendor's tools/machinery). */
   async compatibilityCandidates(q) {
     const rx = new RegExp(escapeRegex(q), 'i');
-    const rows = await Product.find({ type: { $in: ['machinery', 'tool'] }, status: { $in: ['active', 'pending', 'inactive'] }, $or: [{ name: rx }, { modelNumber: rx }, { brand: rx }] })
+    const rows = await Product.find({
+      type: { $in: ['machinery', 'tool'] },
+      status: { $in: ['active', 'pending', 'inactive'] },
+      $or: [{ name: rx }, { modelNumber: rx }, { brand: rx }],
+    })
       .limit(20)
       .select('name slug type brand modelNumber images')
       .lean();
-    return rows.map((r) => ({ _id: r._id, name: r.name, slug: r.slug, type: r.type, brand: r.brand, modelNumber: r.modelNumber, image: r.images?.[0] ?? null }));
+    return rows.map((r) => ({
+      _id: r._id,
+      name: r.name,
+      slug: r.slug,
+      type: r.type,
+      brand: r.brand,
+      modelNumber: r.modelNumber,
+      image: r.images?.[0] ?? null,
+    }));
   },
 
   /* ─────────────────────────── Admin ─────────────────────────── */
@@ -310,7 +341,19 @@ export const productService = {
           items: [
             { $match: { ...brandFilter, ...priceFilter } },
             ...(sort === 'discount'
-              ? [{ $addFields: { discount: { $cond: [{ $gt: ['$pricing.mrp', 0] }, { $divide: [{ $subtract: ['$pricing.mrp', '$pricing.price'] }, '$pricing.mrp'] }, 0] } } }]
+              ? [
+                  {
+                    $addFields: {
+                      discount: {
+                        $cond: [
+                          { $gt: ['$pricing.mrp', 0] },
+                          { $divide: [{ $subtract: ['$pricing.mrp', '$pricing.price'] }, '$pricing.mrp'] },
+                          0,
+                        ],
+                      },
+                    },
+                  },
+                ]
               : []),
             { $sort: sortStage(sort, Boolean(q)) },
             { $skip: (page - 1) * limit },
@@ -350,10 +393,17 @@ export const productService = {
     if (!product) throw ApiError.notFound('Product not found');
 
     const [breadcrumbs, spareParts, related] = await Promise.all([
-      Category.find({ _id: { $in: product.categoryPath } }).select('name slug level').sort({ level: 1 }).lean(),
+      Category.find({ _id: { $in: product.categoryPath } })
+        .select('name slug level')
+        .sort({ level: 1 })
+        .lean(),
       product.type === 'part'
         ? []
-        : Product.find({ ...VISIBLE, compatibleWith: product._id }).sort({ publishedAt: -1 }).limit(12).select(CARD_FIELDS).lean(),
+        : Product.find({ ...VISIBLE, compatibleWith: product._id })
+            .sort({ publishedAt: -1 })
+            .limit(12)
+            .select(CARD_FIELDS)
+            .lean(),
       Product.find({ ...VISIBLE, category: product.category, _id: { $ne: product._id } })
         .sort({ isFeatured: -1, publishedAt: -1 })
         .limit(12)
