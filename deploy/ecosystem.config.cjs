@@ -12,7 +12,7 @@ module.exports = {
       name: 'toolbox-api',
       cwd: path.resolve(__dirname, '../backend'),
       script: 'src/server.js',
-      node_args: '--env-file=.env',
+      node_args: '--env-file-if-exists=.env',
       // sharp image processing is multi-threaded; 2–4 instances is usually plenty.
       instances: process.env.API_INSTANCES || 2,
       exec_mode: 'cluster',

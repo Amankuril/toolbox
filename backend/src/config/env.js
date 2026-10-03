@@ -1,8 +1,67 @@
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 
 const backendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+
+function loadEnvFallback(filePath) {
+  try {
+    const content = fs.readFileSync(filePath, 'utf8');
+    for (const line of content.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      let clean = trimmed;
+      if (clean.startsWith('export ')) clean = clean.slice(7).trim();
+      const eqIdx = clean.indexOf('=');
+      if (eqIdx === -1) continue;
+      const key = clean.slice(0, eqIdx).trim();
+      let val = clean.slice(eqIdx + 1).trim();
+      if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+        val = val.slice(1, -1);
+      }
+      if (process.env[key] === undefined) {
+        process.env[key] = val;
+      }
+    }
+  } catch {
+    // Ignore read errors
+  }
+}
+
+function loadEnvFile(filePath) {
+  if (typeof process.loadEnvFile === 'function') {
+    try {
+      process.loadEnvFile(filePath);
+      return;
+    } catch {
+      // Fallback if built-in throws
+    }
+  }
+  loadEnvFallback(filePath);
+}
+
+// In test environment, skip auto-loading .env so tests remain isolated
+if (process.env.NODE_ENV !== 'test') {
+  const nodeEnv = process.env.NODE_ENV;
+  const candidates = [
+    process.env.ENV_FILE,
+    process.env.DOTENV_CONFIG_PATH,
+    nodeEnv ? path.resolve(backendRoot, `.env.${nodeEnv}`) : null,
+    nodeEnv ? path.resolve(process.cwd(), `.env.${nodeEnv}`) : null,
+    path.resolve(backendRoot, '.env'),
+    path.resolve(process.cwd(), '.env'),
+    path.resolve(backendRoot, '../.env'),
+  ].filter(Boolean);
+
+  const seen = new Set();
+  for (const file of candidates) {
+    if (!seen.has(file) && fs.existsSync(file)) {
+      seen.add(file);
+      loadEnvFile(file);
+    }
+  }
+}
 
 const bool = (fallback) =>
   z
