@@ -1,18 +1,110 @@
+# Dependencies
 node_modules/
+.pnp
+.pnp.js
 
-# Secrets — only the *.example files belong in git
+# Environment variables & secrets (keep only *.example / *.template in git)
 .env
 .env.*
+*.env
+*.env.*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 !.env.example
+!.env.*.example
+!.env.template
+!.env.*.template
 
-# Local uploads (dev). Production uploads live in /var/www/toolbox/uploads
-backend/uploads/
+# Private keys, SSL/TLS certificates & SSH keys
+*.pem
+*.key
+*.pkcs12
+*.pfx
+*.p12
+*.cer
+*.crt
+*.csr
+*.der
+*.keystore
+*.jks
+id_rsa*
+id_ecdsa*
+id_ed25519*
+known_hosts
 
-# Local dev database (npm run db:local)
-backend/.data/
+# API credentials, service accounts & auth tokens
+credentials.json
+client_secret*.json
+service-account*.json
+firebase-adminsdk*.json
+google-services.json
+*secret*.json
+*token*.json
+*.secret
+*.secret.*
 
-# Build / tooling output
-dist/
-coverage/
+# Package manager auth tokens & configs
+.npmrc
+.yarnrc
+.netrc
+
+# Database files, dumps, backups & local state
+/backend/.data/
+/.data/
+*.sqlite
+*.sqlite3
+*.db
+*.sql
+*.dump
+dump.rdb
+*.rdb
+*.bak
+*.backup
+
+# Local uploads & file storage (dev uploads live locally; prod in /var/www/toolbox/uploads)
+/backend/uploads/
+/uploads/
+/storage/
+
+# Logs & debugging output (often contain sensitive tokens/dumps in stack traces)
 *.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Build & tooling output
+dist/
+dist-ssr/
+build/
+coverage/
+.nyc_output/
+.turbo/
+.parcel-cache/
+.cache/
+tmp/
+temp/
+
+# Editor & OS files
 .DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/launch.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.swp
+*.swo
+*~
