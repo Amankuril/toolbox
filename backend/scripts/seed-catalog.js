@@ -8,6 +8,7 @@ import sharp from 'sharp';
 import { connectDatabase, disconnectDatabase } from '#config/db.js';
 import { env } from '#config/env.js';
 import { connectRedis, disconnectRedis } from '#config/redis.js';
+import { invalidateCache } from '#core/cache/cached.js';
 import { slugify } from '#core/utils/strings.js';
 import { Banner } from '#modules/banners/banner.model.js';
 import { Category } from '#modules/categories/category.model.js';
@@ -337,8 +338,18 @@ const PARTS = [
 
 /** Quantity price breaks for a few demo products, so bulk buying shows up on the storefront. */
 const BULK = {
-  'Bosch GSB 550 Impact Drill 13mm': { tiers: [{ minQty: 5, price: 339_900 }, { minQty: 20, price: 324_900 }] },
-  'Taparia Combination Spanner Set (8 pcs)': { tiers: [{ minQty: 10, price: 109_900 }, { minQty: 50, price: 99_900 }] },
+  'Bosch GSB 550 Impact Drill 13mm': {
+    tiers: [
+      { minQty: 5, price: 339_900 },
+      { minQty: 20, price: 324_900 },
+    ],
+  },
+  'Taparia Combination Spanner Set (8 pcs)': {
+    tiers: [
+      { minQty: 10, price: 109_900 },
+      { minQty: 50, price: 99_900 },
+    ],
+  },
   'Karam Safety Helmet with Ratchet (Pack of 5)': {
     tiers: [
       { minQty: 10, price: 139_900 },
@@ -346,8 +357,19 @@ const BULK = {
       { minQty: 100, price: 119_900 },
     ],
   },
-  'Neptune BS-13 Battery Sprayer 16L': { tiers: [{ minQty: 10, price: 274_900 }, { minQty: 50, price: 259_900 }], businessOnly: true },
-  'Carbon Brush Pair for Bosch GSB 550': { tiers: [{ minQty: 20, price: 21_900 }, { minQty: 100, price: 18_900 }] },
+  'Neptune BS-13 Battery Sprayer 16L': {
+    tiers: [
+      { minQty: 10, price: 274_900 },
+      { minQty: 50, price: 259_900 },
+    ],
+    businessOnly: true,
+  },
+  'Carbon Brush Pair for Bosch GSB 550': {
+    tiers: [
+      { minQty: 20, price: 21_900 },
+      { minQty: 100, price: 18_900 },
+    ],
+  },
 };
 
 let created = 0;
@@ -440,6 +462,9 @@ if (!(await Banner.exists({}))) {
   }
   console.log('Banners created');
 }
+
+// Running API servers keep these in memory; make them reload so the seed shows up at once.
+await Promise.all(['category-tree', 'banners', 'settings'].map(invalidateCache));
 
 await Promise.all([disconnectDatabase(), disconnectRedis()]);
 process.exit(0);

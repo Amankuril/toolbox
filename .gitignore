@@ -8,6 +8,9 @@ node_modules/
 # Local uploads (dev). Production uploads live in /var/www/toolbox/uploads
 backend/uploads/
 
+# Local dev database (npm run db:local)
+backend/.data/
+
 # Build / tooling output
 dist/
 coverage/

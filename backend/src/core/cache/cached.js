@@ -44,6 +44,11 @@ export function cached(name, loader, ttlMs = 60_000) {
   return api;
 }
 
+/** Clears a cache on every running API instance; for scripts that write to the database directly. */
+export async function invalidateCache(name) {
+  await redis.publish(INVALIDATE_CHANNEL, name);
+}
+
 export async function listenForCacheInvalidation() {
   await redisSubscriber.subscribe(INVALIDATE_CHANNEL);
   redisSubscriber.on('message', (ch, name) => {

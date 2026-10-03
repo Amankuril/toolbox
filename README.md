@@ -50,6 +50,7 @@ deploy/            nginx config, PM2 ecosystem, deployment guide
 ## Running locally
 
 You need **Node 24**, **MongoDB** and **Redis** running locally (or connection URLs to remote ones).
+No MongoDB installed? After `npm install` in `backend`, run `npm run db:local`. It starts the mongod that the tests download, with data kept in `backend/.data/mongo` (git-ignored). Run it again after a reboot.
 
 ```bash
 # API
@@ -75,6 +76,7 @@ With `SMS_PROVIDER=console` (the dev default), OTPs are printed in the API log i
 | `npm run lint` | both | ESLint |
 | `npm run build` | frontend | production bundle in `dist/` |
 | `npm run db:sync-indexes` | backend | create or update MongoDB indexes (run on every deploy) |
+| `npm run db:local` | backend | start a local dev MongoDB on :27017 (`-- --stop` to stop it) |
 
 ## How things work
 
