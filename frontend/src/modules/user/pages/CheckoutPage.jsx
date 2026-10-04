@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Banknote, Check, CreditCard, MapPin, Plus } from 'lucide-react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { parseApiError } from '@/core/api/errors'
@@ -69,6 +69,7 @@ export default function CheckoutPage() {
   const qc = useQueryClient()
   const { data: addresses, isLoading: addressesLoading } = useQuery({ queryKey: storeKeys.addresses, queryFn: userApi.addresses })
 
+  const idempotencyKeyRef = useRef(crypto.randomUUID())
   const [addressId, setAddressId] = useState(null)
   const [addressDialog, setAddressDialog] = useState(false)
   const [method, setMethod] = useState(null)
@@ -90,6 +91,7 @@ export default function CheckoutPage() {
         addressId: chosenAddress,
         paymentMethod: chosenMethod,
         notes: notes.trim() || undefined,
+        idempotencyKey: idempotencyKeyRef.current,
         ...(wantsGst && gst.gstin ? { gstin: gst.gstin.trim().toUpperCase(), businessName: gst.businessName.trim() || undefined } : {}),
       }),
     onSuccess: async ({ order, payment }) => {
@@ -100,10 +102,11 @@ export default function CheckoutPage() {
         return
       }
       setPaying(true)
-      const paid = await payForOrder({ order, payment, siteName: settings.branding.siteName })
+      const payResult = await payForOrder({ order, payment, siteName: settings.branding.siteName })
       setPaying(false)
       qc.invalidateQueries({ queryKey: storeKeys.cart })
-      navigate(`/account/orders/${order._id}${paid ? '?placed=1' : ''}`, { replace: true })
+      const queryParam = payResult.status === 'paid' ? '?placed=1' : payResult.status === 'verifying' ? '?verifying=1' : ''
+      navigate(`/account/orders/${order._id}${queryParam}`, { replace: true })
     },
     onError: (err) => {
       const e = parseApiError(err)

@@ -35,10 +35,13 @@ export default function MyOrderDetailPage() {
   const retry = useMutation({
     mutationFn: () => userApi.retryPayment(id),
     onSuccess: async ({ order, payment }) => {
-      if (await payForOrder({ order, payment, siteName })) {
+      const payResult = await payForOrder({ order, payment, siteName })
+      if (payResult.status === 'paid') {
         toast.success('Payment received — thank you!')
         refresh(await userApi.order(id))
         qc.invalidateQueries({ queryKey: storeKeys.cart })
+      } else if (payResult.status === 'verifying') {
+        refresh(await userApi.order(id))
       }
     },
     onError: (err) => toast.error(errorMessage(err)),
@@ -56,6 +59,7 @@ export default function MyOrderDetailPage() {
 
   if (isLoading || !o) return <Skeleton className="h-96" />
   const justPlaced = params.get('placed') === '1' && o.status !== 'pending_payment'
+  const isVerifying = params.get('verifying') === '1' && o.status === 'pending_payment'
 
   return (
     <>
@@ -72,7 +76,12 @@ export default function MyOrderDetailPage() {
           {o.payment.method === 'cod' ? 'Pay in cash when it arrives. ' : 'Your payment is confirmed. '}We&apos;ll show updates here as sellers ship your items.
         </Alert>
       )}
-      {o.status === 'pending_payment' && (
+      {isVerifying && (
+        <Alert tone="info" icon={Clock} title="Payment status is being verified" className="mb-5">
+          We are confirming your payment with Razorpay. Please do not make another payment yet. This page will update automatically once verified.
+        </Alert>
+      )}
+      {o.status === 'pending_payment' && !isVerifying && (
         <Alert
           tone="warning"
           icon={Clock}

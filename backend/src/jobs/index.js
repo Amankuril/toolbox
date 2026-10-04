@@ -24,6 +24,14 @@ const JOBS = [
       if (expired) logger.info({ expired }, 'Expired lapsed quotes');
     },
   },
+  {
+    name: 'reconcile-pending-payments',
+    everyMs: 3 * 60_000,
+    async run() {
+      const reconciled = await orderService.reconcilePendingPayments();
+      if (reconciled) logger.info({ reconciled }, 'Reconciled pending payments with gateway');
+    },
+  },
 ];
 
 export function startJobs() {

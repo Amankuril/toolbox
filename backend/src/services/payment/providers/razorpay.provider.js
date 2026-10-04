@@ -47,5 +47,18 @@ export function createRazorpayProvider({ keyId, keySecret, webhookSecret }) {
       const r = await wrap(() => client.payments.refund(paymentId, { ...(amount ? { amount } : {}), notes }), 'Refund failed');
       return { refundId: r.id, amount: r.amount, status: r.status };
     },
+
+    async fetchOrderPayments(providerOrderId) {
+      if (!client.orders?.fetchPayments) return [];
+      const res = await wrap(() => client.orders.fetchPayments(providerOrderId), 'Could not fetch order payments');
+      return (res?.items || []).map((p) => ({
+        id: p.id,
+        orderId: p.order_id,
+        status: p.status,
+        amount: p.amount,
+        method: p.method,
+        captured: p.captured,
+      }));
+    },
   };
 }

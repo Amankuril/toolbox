@@ -26,6 +26,7 @@ const checkoutBody = z.object({
   notes: optionalText(500),
   gstin: gstin.optional(),
   businessName: optionalText(200),
+  idempotencyKey: z.string().trim().max(100).optional(),
 });
 
 const verifyBody = z.object({

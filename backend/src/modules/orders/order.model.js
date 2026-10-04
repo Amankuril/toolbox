@@ -108,6 +108,7 @@ const orderSchema = new Schema(
       providerPaymentId: String,
       paidAt: Date,
       failureReason: String,
+      currentPaymentId: { type: Schema.Types.ObjectId, ref: 'Payment' },
     },
     refunds: { type: [refundSchema], default: [] },
 
@@ -116,6 +117,7 @@ const orderSchema = new Schema(
     expiresAt: Date,
     cancelledAt: Date,
     cancelReason: { type: String, trim: true, maxlength: 500 },
+    idempotencyKey: { type: String },
   },
   baseOptions,
 );
@@ -126,6 +128,10 @@ orderSchema.index({ status: 1, createdAt: -1 });
 orderSchema.index(
   { 'payment.providerOrderId': 1 },
   { unique: true, partialFilterExpression: { 'payment.providerOrderId': { $type: 'string' } } },
+);
+orderSchema.index(
+  { user: 1, idempotencyKey: 1 },
+  { unique: true, partialFilterExpression: { idempotencyKey: { $type: 'string' } } },
 );
 orderSchema.index({ status: 1, expiresAt: 1 }, { partialFilterExpression: { status: 'pending_payment' } });
 
@@ -148,3 +154,6 @@ paymentEventSchema.index({ provider: 1, eventId: 1 }, { unique: true });
 paymentEventSchema.index({ createdAt: 1 }, { expireAfterSeconds: 60 * 60 * 24 * 90 });
 
 export const PaymentEvent = mongoose.models.PaymentEvent ?? mongoose.model('PaymentEvent', paymentEventSchema);
+
+export { Payment, PAYMENT_STATES, PAYMENT_TRANSITIONS, canTransitionPayment } from './payment.model.js';
+export { Refund, REFUND_STATUSES } from './refund.model.js';

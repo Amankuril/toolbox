@@ -59,42 +59,12 @@ function deriveStatus(order) {
 }
 
 function checkoutPayload(order, user) {
-  return {
-    provider: 'razorpay',
-    keyId: env.RAZORPAY_KEY_ID,
-    providerOrderId: order.payment.providerOrderId,
-    amount: order.amounts.total,
-    currency: CURRENCY,
-    orderNumber: order.orderNumber,
-    prefill: { name: user.name, contact: user.phone, email: user.email ?? undefined },
-  };
+  return paymentService.checkoutPayload(order, user, order.payment.providerOrderId);
 }
 
 /** Marks an online order paid. Idempotent: safe to call from both checkout verification and webhooks. */
 async function markPaid({ providerOrderId, paymentId }) {
-  const now = new Date();
-  const order = await Order.findOneAndUpdate(
-    { 'payment.providerOrderId': providerOrderId, status: 'pending_payment' },
-    {
-      $set: { status: 'placed', 'payment.status': 'paid', 'payment.providerPaymentId': paymentId, 'payment.paidAt': now },
-      $unset: { expiresAt: 1, 'payment.failureReason': 1 },
-    },
-    { returnDocument: 'after' },
-  );
-  if (order) {
-    await cartService.removeProducts(
-      order.user,
-      order.items.map((i) => i.product),
-    );
-    return order;
-  }
-
-  const existing = await Order.findOne({ 'payment.providerOrderId': providerOrderId });
-  if (!existing) throw ApiError.notFound('Order not found for this payment');
-  if (['paid', 'refunded', 'partially_refunded'].includes(existing.payment.status)) return existing;
-
-  if (existing.status === 'cancelled') return handleLatePayment(existing, paymentId);
-  return existing;
+  return paymentService.markPaid({ providerOrderId, paymentId, latePaymentHandler: handleLatePayment });
 }
 
 /** Payment landed after the order expired and released its stock: re-reserve, or refund in full. */
@@ -137,21 +107,35 @@ async function refundForCancellation(order, item) {
   const amount = remainingActive.length ? item.lineTotal : order.amounts.total - order.amounts.refunded;
   if (amount <= 0) return null;
 
-  const provider = paymentService.webhookProvider('razorpay');
-  if (!provider) throw ApiError.serviceUnavailable('Refunds are unavailable: payment gateway not configured');
-  return {
+  const refund = await paymentService.processRefund({
+    order,
+    itemId: item._id,
     amount,
-    ...(await provider.refund(order.payment.providerPaymentId, {
-      amount,
-      notes: { orderNumber: order.orderNumber, itemId: String(item._id) },
-    })),
+    reason: `Cancelled item ${item.name}`,
+    idempotencyKey: `cancel_refund_${order._id}_${item._id}`,
+  });
+  return {
+    amount: refund.amount,
+    refundId: refund.providerRefundId,
+    status: refund.status,
   };
 }
 
 export const orderService = {
   /* ─────────────────────────── Checkout ─────────────────────────── */
 
-  async checkout(user, { addressId, paymentMethod, notes, gstin, businessName }) {
+  async checkout(user, { addressId, paymentMethod, notes, gstin, businessName, idempotencyKey }) {
+    if (idempotencyKey) {
+      const existing = await Order.findOne({ user: user._id, idempotencyKey });
+      if (existing) {
+        let payment = null;
+        if (existing.payment.method === 'razorpay' && existing.status === 'pending_payment') {
+          payment = paymentService.checkoutPayload(existing, user, existing.payment.providerOrderId);
+        }
+        return { order: serializeOrder(existing), payment };
+      }
+    }
+
     const cart = await cartService.view(user._id);
     if (!cart.items.length) throw ApiError.unprocessable('Your cart is empty', { code: 'CART_EMPTY' });
     if (cart.hasIssues) {
@@ -225,6 +209,7 @@ export const orderService = {
         payment: { method: paymentMethod, status: 'pending', provider: provider?.name },
         status: paymentMethod === 'cod' ? 'placed' : 'pending_payment',
         expiresAt: paymentMethod === 'cod' ? undefined : new Date(Date.now() + env.ORDER_PAYMENT_WINDOW_MINUTES * 60_000),
+        idempotencyKey,
       });
     } catch (err) {
       await releaseStock(lines);
@@ -242,14 +227,8 @@ export const orderService = {
     }
 
     try {
-      const gatewayOrder = await provider.createOrder({
-        amount: total,
-        currency: CURRENCY,
-        receipt: order.orderNumber,
-        notes: { orderId: String(order._id), orderNumber: order.orderNumber },
-      });
-      order.payment.providerOrderId = gatewayOrder.providerOrderId;
-      await order.save();
+      const { checkoutPayload: payload } = await paymentService.createOrReusePaymentAttempt(order, user, { idempotencyKey });
+      return { order: serializeOrder(order), payment: payload };
     } catch (err) {
       await Order.updateOne(
         { _id: order._id },
@@ -259,23 +238,16 @@ export const orderService = {
       await quoteLifecycle.releaseForOrder(order);
       throw err;
     }
-
-    return { order: serializeOrder(order), payment: checkoutPayload(order, user) };
   },
 
   async verifyPayment(user, orderId, { providerOrderId, paymentId, signature }) {
-    const order = await Order.findOne({ _id: orderId, user: user._id });
-    if (!order) throw ApiError.notFound('Order not found');
-    if (order.payment.status === 'paid') return serializeOrder(order);
-
-    const provider = paymentService.webhookProvider('razorpay');
-    if (!provider) throw ApiError.serviceUnavailable('Payment gateway not configured');
-    if (providerOrderId !== order.payment.providerOrderId || !provider.verifyCheckoutSignature({ providerOrderId, paymentId, signature })) {
-      throw ApiError.badRequest('Payment verification failed. If money was deducted it will be confirmed automatically.', {
-        code: 'PAYMENT_VERIFICATION_FAILED',
-      });
-    }
-    return serializeOrder(await markPaid({ providerOrderId, paymentId }));
+    const verifiedOrder = await paymentService.verifyPayment(
+      user,
+      orderId,
+      { providerOrderId, paymentId, signature },
+      { latePaymentHandler: handleLatePayment },
+    );
+    return serializeOrder(verifiedOrder);
   },
 
   /** Re-opens checkout for an unpaid, unexpired order. */
@@ -285,63 +257,34 @@ export const orderService = {
     if (order.status !== 'pending_payment' || !order.payment.providerOrderId) {
       throw ApiError.conflict('This order is not awaiting payment', { code: 'NOT_AWAITING_PAYMENT' });
     }
-    if (order.expiresAt && order.expiresAt < new Date())
+    if (order.expiresAt && order.expiresAt < new Date()) {
       throw ApiError.conflict('The payment window has closed. Please place the order again.', { code: 'PAYMENT_WINDOW_CLOSED' });
-    return { order: serializeOrder(order), payment: checkoutPayload(order, user) };
+    }
+    const { checkoutPayload: payload } = await paymentService.createOrReusePaymentAttempt(order, user, { forceNew: false });
+    return { order: serializeOrder(order), payment: payload };
   },
 
   async recordPaymentFailure(user, orderId, reason) {
-    await Order.updateOne({ _id: orderId, user: user._id, status: 'pending_payment' }, { 'payment.failureReason': reason?.slice(0, 300) });
+    await paymentService.recordPaymentFailure(user, orderId, reason);
   },
 
   /* ─────────────────────────── Webhooks & jobs ─────────────────────────── */
 
   async handleRazorpayWebhook({ rawBody, signature, eventId }) {
-    const provider = paymentService.webhookProvider('razorpay');
-    if (!provider) throw ApiError.serviceUnavailable('Razorpay not configured');
-    if (!provider.verifyWebhookSignature(rawBody, signature))
-      throw ApiError.badRequest('Invalid webhook signature', { code: 'INVALID_SIGNATURE' });
-
-    const event = JSON.parse(rawBody.toString('utf8'));
-    const payment = event.payload?.payment?.entity;
-    const providerOrderId = payment?.order_id ?? event.payload?.order?.entity?.id;
-    const id = eventId || `${event.event}:${payment?.id ?? providerOrderId}`;
-
-    try {
-      await PaymentEvent.create({ provider: 'razorpay', eventId: id, type: event.event, providerOrderId, payload: event });
-    } catch (err) {
-      if (err?.code === 11000) return { duplicate: true };
-      throw err;
-    }
-
-    try {
-      if ((event.event === 'payment.captured' || event.event === 'order.paid') && providerOrderId) {
-        await markPaid({ providerOrderId, paymentId: payment?.id });
-      } else if (event.event === 'payment.failed' && providerOrderId) {
-        await Order.updateOne(
-          { 'payment.providerOrderId': providerOrderId, status: 'pending_payment' },
-          { 'payment.failureReason': payment?.error_description?.slice(0, 300) ?? 'Payment failed' },
-        );
-      }
-      await PaymentEvent.updateOne({ provider: 'razorpay', eventId: id }, { processedAt: new Date() });
-      return { processed: true };
-    } catch (err) {
-      // Drop the record so Razorpay's retry can process it again.
-      await PaymentEvent.deleteOne({ provider: 'razorpay', eventId: id });
-      throw err;
-    }
+    return paymentService.handleRazorpayWebhook({ rawBody, signature, eventId }, { latePaymentHandler: handleLatePayment });
   },
 
   /** Cancels online orders whose payment window elapsed and returns their stock. */
   async expireUnpaid(now = new Date()) {
-    const stale = await Order.find({ status: 'pending_payment', expiresAt: { $lte: now } })
-      .select('_id')
-      .limit(200)
-      .lean();
+    const stale = await Order.find({ status: 'pending_payment', expiresAt: { $lte: now } }).limit(200);
     let expired = 0;
-    for (const { _id } of stale) {
+    for (const order of stale) {
+      // Reconcile with Razorpay before cancelling to prevent zombie payment
+      const reconciled = await paymentService.reconcileOrderPayment(order, { latePaymentHandler: handleLatePayment });
+      if (reconciled) continue;
+
       const claimed = await Order.findOneAndUpdate(
-        { _id, status: 'pending_payment' },
+        { _id: order._id, status: 'pending_payment' },
         {
           status: 'cancelled',
           cancelledAt: now,
@@ -357,6 +300,23 @@ export const orderService = {
       }
     }
     return expired;
+  },
+
+  /** Periodically reconciles pending online orders with Razorpay server. */
+  async reconcilePendingPayments() {
+    const minAge = new Date(Date.now() - 3 * 60_000);
+    const pendingOrders = await Order.find({
+      status: 'pending_payment',
+      'payment.providerOrderId': { $exists: true, $ne: null },
+      createdAt: { $lte: minAge },
+    }).limit(50);
+
+    let reconciledCount = 0;
+    for (const order of pendingOrders) {
+      const ok = await paymentService.reconcileOrderPayment(order, { latePaymentHandler: handleLatePayment });
+      if (ok) reconciledCount += 1;
+    }
+    return reconciledCount;
   },
 
   /* ─────────────────────────── Fulfilment ─────────────────────────── */
