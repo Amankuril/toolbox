@@ -1,7 +1,7 @@
 /**
  * PM2 process file for the API.
  *   pm2 start deploy/ecosystem.config.cjs --env production
- *   pm2 reload toolbox-api          # zero-downtime deploy
+ *   pm2 reload toolshubs-api          # zero-downtime deploy
  *   pm2 save && pm2 startup         # survive reboots
  */
 const path = require('node:path')
@@ -9,7 +9,7 @@ const path = require('node:path')
 module.exports = {
   apps: [
     {
-      name: 'toolbox-api',
+      name: 'toolshubs-api',
       cwd: path.resolve(__dirname, '../backend'),
       script: 'src/server.js',
       node_args: '--env-file-if-exists=.env',
@@ -25,8 +25,8 @@ module.exports = {
       // pino already writes ISO timestamps; keep PM2 from adding its own.
       time: false,
       merge_logs: true,
-      out_file: '/var/log/toolbox/api.out.log',
-      error_file: '/var/log/toolbox/api.err.log',
+      out_file: '/var/log/toolshubs/api.out.log',
+      error_file: '/var/log/toolshubs/api.err.log',
       env_production: { NODE_ENV: 'production' },
     },
   ],

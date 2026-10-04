@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import { env } from '#config/env.js';
 import { ApiError } from '#core/errors/ApiError.js';
 
-const ISSUER = 'toolbox-api';
+const ISSUER = 'toolshubs-api';
 const ALGORITHM = 'HS256';
 
 /**

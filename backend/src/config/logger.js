@@ -3,7 +3,7 @@ import { env } from './env.js';
 
 export const logger = pino({
   level: env.isTest ? 'silent' : env.LOG_LEVEL,
-  base: { service: 'toolbox-api' },
+  base: { service: 'toolshubs-api' },
   timestamp: pino.stdTimeFunctions.isoTime,
   redact: {
     paths: [

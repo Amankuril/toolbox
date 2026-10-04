@@ -1,8 +1,8 @@
 {
-  "name": "toolbox-backend",
+  "name": "toolshubs-backend",
   "version": "1.0.0",
   "private": true,
-  "description": "Toolbox marketplace API (admin, vendor, user)",
+  "description": "ToolsHubs marketplace API (admin, vendor, user)",
   "type": "module",
   "main": "src/server.js",
   "engines": {

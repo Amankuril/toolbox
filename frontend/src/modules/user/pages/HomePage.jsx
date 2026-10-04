@@ -80,9 +80,14 @@ function BulkCallout() {
 
 function FallbackHero({ siteName }) {
   return (
-    <section className="flex flex-col justify-end rounded-md bg-[#f4f4f2] p-8 sm:p-12">
-      <p className="font-display text-sm font-semibold tracking-[0.14em] text-slate-500 uppercase">{siteName}</p>
-      <h1 className="mt-2 max-w-xl font-display text-4xl leading-[1.02] font-bold text-slate-900 sm:text-5xl">Tools, machinery and the parts that keep them running.</h1>
+    <section className="flex flex-col justify-end rounded-md bg-gradient-to-br from-emerald-50/60 to-[#f4f7f2] p-8 sm:p-12 relative overflow-hidden">
+      <div className="flex items-center gap-2.5 mb-2">
+        <img src="/toolboxlogo.jpeg" alt={siteName} className="size-8 rounded-lg object-contain bg-white shadow-xs p-0.5" />
+        <p className="font-display text-sm font-semibold tracking-[0.14em] text-primary uppercase">{siteName}</p>
+      </div>
+      <h1 className="mt-1 max-w-xl font-display text-4xl leading-[1.02] font-bold text-slate-900 sm:text-5xl">
+        Tools, machinery and parts for a greener tomorrow.
+      </h1>
       <div className="mt-6">
         <Button size="lg" asChild>
           <a href="#departments">Shop departments</a>
@@ -173,14 +178,14 @@ export default function HomePage() {
   const latest = useProducts({ sort: 'newest', limit: 12 })
   const brands = useProducts({ limit: 1 }).data?.meta?.facets?.brands
 
-  const siteName = settings?.branding.siteName ?? 'Toolbox'
+  const siteName = settings?.branding.siteName ?? 'ToolsHubs'
   const hero = banners.filter((b) => b.placement === 'home_hero')
   const offers = banners.filter((b) => b.placement === 'home_offer')
   const strip = banners.find((b) => b.placement === 'home_strip')
 
   return (
     <>
-      <title>{`${siteName} — Tools, Machinery & Spare Parts`}</title>
+      <title>{`${siteName} — Tools for a Greener Tomorrow`}</title>
 
       <div className="mx-auto grid max-w-7xl gap-4 px-4 pt-5 sm:px-6 lg:h-[340px] lg:grid-cols-[1fr_340px]">
         {bannersLoading ? (

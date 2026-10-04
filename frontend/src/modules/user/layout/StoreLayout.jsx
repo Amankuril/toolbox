@@ -93,7 +93,7 @@ function CartButton() {
 
 function Footer() {
   const { data: settings } = usePublicSettings()
-  const { siteName, tagline, supportEmail, supportPhone } = settings?.branding ?? { siteName: 'Toolbox' }
+  const { siteName, tagline, supportEmail, supportPhone } = settings?.branding ?? { siteName: 'ToolsHubs' }
   const { data: tree = [] } = useCategoryTree()
   const payments = settings?.payments
   const payWith = [payments?.razorpayEnabled && 'UPI, cards & net banking', payments?.codEnabled && 'Cash on delivery'].filter(Boolean)
@@ -190,7 +190,7 @@ function Footer() {
 export default function StoreLayout() {
   useSessionBootstrap('user')
   const { data: settings } = usePublicSettings()
-  const siteName = settings?.branding?.siteName ?? 'Toolbox'
+  const siteName = settings?.branding?.siteName ?? 'ToolsHubs'
   const [menuOpen, setMenuOpen] = useState(false)
   const status = useSession('user', (s) => s.status)
 

@@ -4,9 +4,9 @@ export const THEME_CACHE_KEY = 'tb:theme'
 export const RADIUS_PX = { none: 0, sm: 4, md: 8, lg: 12, xl: 16 }
 
 export const DEFAULT_THEMES = {
-  user: { primary: '#e8590c', secondary: '#1b2a41', accent: '#0f9d58', radius: 'md' },
-  vendor: { primary: '#2563eb', secondary: '#0f172a', accent: '#f59e0b', radius: 'md' },
-  admin: { primary: '#4f46e5', secondary: '#111827', accent: '#10b981', radius: 'md' },
+  user: { primary: '#15803d', secondary: '#0f291e', accent: '#f59e0b', radius: 'md' },
+  vendor: { primary: '#15803d', secondary: '#0d2319', accent: '#f59e0b', radius: 'md' },
+  admin: { primary: '#15803d', secondary: '#081a12', accent: '#f59e0b', radius: 'md' },
 }
 
 function channel(c) {

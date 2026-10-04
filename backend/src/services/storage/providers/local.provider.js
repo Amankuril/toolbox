@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 /**
- * Stores files on local disk. In production the directory is /var/www/toolbox/uploads and nginx
+ * Stores files on local disk. In production the directory is /var/www/toolshubs/uploads and nginx
  * serves `publicPath` straight from disk; in development Express serves it.
  */
 export function createLocalProvider({ rootDir, publicPath }) {

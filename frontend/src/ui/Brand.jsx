@@ -18,19 +18,18 @@ export function Logo({ to = '/', className, inverted = false, suffix }) {
   const logo = modules?.[module]?.logo
   const darkLogo = DARK_SURFACE[module] ?? false
   const plate = inverted !== darkLogo
+  const isCustomUploaded = Boolean(logo?.url && logo.url !== '/toolboxlogo.jpeg')
+
   return (
-    <Link to={to} className={cn('flex shrink-0 items-center gap-2', className)} aria-label={`${siteName} home`}>
-      {logo?.url ? (
+    <Link to={to} className={cn('flex shrink-0 items-center gap-2.5', className)} aria-label={`${siteName} home`}>
+      {isCustomUploaded ? (
         <span className={cn(plate && 'rounded-md px-2.5 py-1.5', plate && (darkLogo ? 'bg-secondary' : 'bg-white'))}>
           <img src={logo.url} alt={siteName} className="block h-8 w-auto max-w-40 object-contain" />
         </span>
       ) : (
         <>
-          <span className="grid size-8 place-items-center rounded-md bg-primary text-primary-fg">
-            <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-              <path d="M4 9h16v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9Z" />
-              <path d="M9 9V6.5A1.5 1.5 0 0 1 10.5 5h3A1.5 1.5 0 0 1 15 6.5V9M4 12h16M11 12v3h2v-3" />
-            </svg>
+          <span className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-lg bg-white p-0.5 shadow-xs ring-1 ring-black/10">
+            <img src="/toolboxlogo.jpeg" alt={siteName} className="size-full object-contain" />
           </span>
           <span className={cn('text-lg font-extrabold tracking-tight', inverted ? 'text-white' : 'text-slate-900')}>{siteName}</span>
         </>

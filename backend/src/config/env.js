@@ -83,7 +83,7 @@ const schema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     PORT: z.coerce.number().int().positive().default(5000),
-    APP_NAME: z.string().default('Toolbox'),
+    APP_NAME: z.string().default('ToolsHubs'),
     LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
     TRUST_PROXY: z.coerce.number().int().min(0).default(1),
 
@@ -130,7 +130,7 @@ const schema = z
     CLOUDINARY_CLOUD_NAME: z.string().optional(),
     CLOUDINARY_API_KEY: z.string().optional(),
     CLOUDINARY_API_SECRET: z.string().optional(),
-    CLOUDINARY_FOLDER: z.string().default('toolbox'),
+    CLOUDINARY_FOLDER: z.string().default('toolshubs'),
 
     LOCAL_UPLOAD_DIR: z.string().optional(),
     LOCAL_UPLOAD_PUBLIC_PATH: z.string().default('/uploads'),
@@ -175,7 +175,7 @@ export const env = Object.freeze({
   COOKIE_SECURE: raw.COOKIE_SECURE ?? isProduction,
   CORS_ORIGINS: raw.CORS_ORIGINS.length ? raw.CORS_ORIGINS : ['http://localhost:5173'],
   // In production local uploads live outside the app so nginx can serve them directly.
-  LOCAL_UPLOAD_DIR: path.resolve(raw.LOCAL_UPLOAD_DIR ?? (isProduction ? '/var/www/toolbox/uploads' : path.join(backendRoot, 'uploads'))),
+  LOCAL_UPLOAD_DIR: path.resolve(raw.LOCAL_UPLOAD_DIR ?? (isProduction ? '/var/www/toolshubs/uploads' : path.join(backendRoot, 'uploads'))),
   cloudinaryConfigured: Boolean(raw.CLOUDINARY_CLOUD_NAME && raw.CLOUDINARY_API_KEY && raw.CLOUDINARY_API_SECRET),
   razorpayConfigured: Boolean(raw.RAZORPAY_KEY_ID && raw.RAZORPAY_KEY_SECRET),
 });

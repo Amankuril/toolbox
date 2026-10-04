@@ -26,5 +26,5 @@ export function useModuleTheme(module) {
 
 export function useBranding() {
   const { data } = usePublicSettings()
-  return data?.branding ?? { siteName: 'Toolbox', tagline: '', modules: {} }
+  return data?.branding ?? { siteName: 'ToolsHubs', tagline: 'Tools for a greener tomorrow', modules: {} }
 }

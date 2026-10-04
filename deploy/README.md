@@ -1,4 +1,4 @@
-# Deploying Toolbox
+# Deploying ToolsHubs
 
 Single-server layout behind nginx. Scale out later by adding API instances (PM2 cluster or more hosts behind the same nginx); all shared state lives in MongoDB and Redis.
 
@@ -90,7 +90,7 @@ The config:
 ```bash
 git pull
 (cd backend && npm ci --omit=dev && npm run db:sync-indexes)
-pm2 reload toolbox-api            # rolling restart, no downtime
+pm2 reload toolshubs-api            # rolling restart, no downtime
 (cd frontend && npm ci && npm run build && rsync -a --delete dist/ /var/www/toolbox/frontend/)
 ```
 

@@ -8,7 +8,7 @@ function createClient(name) {
     maxRetriesPerRequest: 3,
     enableOfflineQueue: true,
     lazyConnect: true,
-    connectionName: `toolbox-${name}`,
+    connectionName: `toolshubs-${name}`,
   });
   client.on('error', (err) => logger.error({ err, client: name }, 'Redis error'));
   return client;

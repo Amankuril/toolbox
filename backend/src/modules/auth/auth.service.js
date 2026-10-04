@@ -11,7 +11,7 @@ import { accounts } from './accounts.js';
 import { sessionService } from './session.service.js';
 
 // Constant-time-ish response for unknown emails: always run one argon2 verify.
-const DUMMY_HASH = await argon2.hash('toolbox-timing-equaliser', { type: argon2.argon2id });
+const DUMMY_HASH = await argon2.hash('toolshubs-timing-equaliser', { type: argon2.argon2id });
 
 const MAX_ADMIN_FAILURES = 5;
 const adminFailures = createLimiter({ keyPrefix: 'admin-login-fail', points: MAX_ADMIN_FAILURES, duration: 15 * 60 });

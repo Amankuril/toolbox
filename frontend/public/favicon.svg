@@ -1,1 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#1b2a41"/><path d="M8 13h16v10a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2V13z" fill="#e8590c"/><path d="M12 13v-2.5A1.5 1.5 0 0 1 13.5 9h5a1.5 1.5 0 0 1 1.5 1.5V13" fill="none" stroke="#fff" stroke-width="2"/><rect x="7" y="12" width="18" height="4" rx="1" fill="#fff"/><rect x="14.5" y="14" width="3" height="4" rx=".75" fill="#1b2a41"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="16" fill="#0f291e"/>
+  <!-- Sun / dawn arc -->
+  <circle cx="44" cy="24" r="12" fill="#f59e0b"/>
+  <!-- Green rolling fields in emblem -->
+  <path d="M8 48 C 24 38, 40 40, 56 48 L 56 56 C 56 56, 40 56, 8 56 Z" fill="#15803d"/>
+  <path d="M12 52 C 28 44, 44 46, 54 52" stroke="#22c55e" stroke-width="2.5" fill="none"/>
+  <!-- Stylized leaf 'T' in ToolsHubs green & white -->
+  <path d="M18 16 L46 16 C 46 16, 42 24, 35 24 L35 48 L27 48 L27 24 C 20 24, 18 16, 18 16 Z" fill="#ffffff"/>
+  <!-- Leaf accent curve on the T -->
+  <path d="M35 16 C 45 16, 48 24, 46 28 C 42 28, 35 24, 35 16 Z" fill="#22c55e"/>
+</svg>

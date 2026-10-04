@@ -13,6 +13,7 @@ import { slugify } from '#core/utils/strings.js';
 import { Banner } from '#modules/banners/banner.model.js';
 import { Category } from '#modules/categories/category.model.js';
 import { Product } from '#modules/products/product.model.js';
+import { User } from '#modules/users/user.model.js';
 import { Vendor } from '#modules/vendors/vendor.model.js';
 import { storageService } from '#services/storage/storage.service.js';
 
@@ -114,7 +115,7 @@ if (!vendor) {
   vendor = await Vendor.create({
     phone: '+919999900001',
     contactName: 'Demo Seller',
-    email: 'demo-seller@toolbox.local',
+    email: 'demo-seller@toolshubs.local',
     status: 'approved',
     store: {
       name: 'Shakti Industrial Supplies',
@@ -125,6 +126,32 @@ if (!vendor) {
     address: { line1: 'Plot 22, MIDC Bhosari', city: 'Pune', state: 'Maharashtra', pincode: '411026' },
     onboarding: { completedSteps: ['business', 'address', 'bank', 'documents'], submittedAt: new Date() },
     review: { reviewedAt: new Date() },
+  });
+}
+
+let customer = await User.findOne({ phone: '+919999900002' });
+if (!customer) {
+  customer = await User.create({
+    phone: '+919999900002',
+    name: 'Demo Buyer',
+    email: 'demo-buyer@toolshubs.local',
+    accountType: 'business',
+    business: { name: 'Apex Agro & Industrial Works', gstin: '27AABCA1234A1Z5' },
+    status: 'active',
+    addresses: [
+      {
+        label: 'Office / Warehouse',
+        name: 'Demo Buyer',
+        phone: '+919999900002',
+        line1: 'Shop 14, APMC Market Yard',
+        line2: 'Market Yard Road',
+        landmark: 'Near Gate 2',
+        city: 'Pune',
+        state: 'Maharashtra',
+        pincode: '411037',
+        isDefault: true,
+      },
+    ],
   });
 }
 
@@ -446,7 +473,7 @@ console.log(`Products created: ${created}`);
 
 if (!(await Banner.exists({}))) {
   const heroes = [
-    ['Power tools for every job', 'Drills, grinders and saws from reviewed sellers', '#e8590c', '/c/power-tools'],
+    ['Power tools for every job', 'Drills, grinders and saws from reviewed sellers', '#15803d', '/c/power-tools'],
     ['Farm machinery, delivered', 'Tillers, sprayers and brush cutters from trusted sellers', '#0f9d58', '/c/agricultural-machinery'],
   ];
   for (const [i, [title, subtitle, color, link]] of heroes.entries()) {

@@ -62,6 +62,7 @@ const MODULES = [
 ]
 
 const PRESETS = [
+  { name: 'ToolsHubs Green', primary: '#15803d', secondary: '#0f291e', accent: '#f59e0b' },
   { name: 'Industrial orange', primary: '#e8590c', secondary: '#1b2a41', accent: '#0f9d58' },
   { name: 'Steel blue', primary: '#2563eb', secondary: '#0f172a', accent: '#f59e0b' },
   { name: 'Indigo', primary: '#4f46e5', secondary: '#111827', accent: '#10b981' },
@@ -325,18 +326,21 @@ function BrandingSettings({ branding, theme }) {
                       {brand.favicon[0] ? (
                         <img src={brand.favicon[0].url} alt="" className="size-3.5" />
                       ) : (
-                        <img src="/favicon.svg" alt="" className="size-3.5" />
+                        <img src="/toolboxlogo.jpeg" alt="" className="size-3.5 rounded-xs object-contain" />
                       )}
-                      <span className="truncate">{v.siteName || 'Toolbox'}</span>
+                      <span className="truncate">{v.siteName || 'ToolsHubs'}</span>
                     </span>
                   </div>
                   <div className="flex h-14 items-center px-4" style={{ background: m.value === 'user' ? '#ffffff' : (colors?.secondary ?? '#111827') }}>
                     {brand.logo[0] ? (
                       <img src={brand.logo[0].url} alt="" className="h-8 w-auto max-w-40 object-contain" />
                     ) : (
-                      <span className="text-sm font-bold" style={{ color: m.value === 'user' ? '#0f172a' : '#ffffff' }}>
-                        {v.siteName || 'Toolbox'}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <img src="/toolboxlogo.jpeg" alt="" className="size-7 rounded-sm object-contain bg-white shadow-xs" />
+                        <span className="text-sm font-bold" style={{ color: m.value === 'user' ? '#0f172a' : '#ffffff' }}>
+                          {v.siteName || 'ToolsHubs'}
+                        </span>
+                      </div>
                     )}
                   </div>
                 </div>
