@@ -217,7 +217,7 @@ export default function StoreLayout() {
       </div>
 
       <header className="sticky top-0 z-30 bg-white shadow-[0_1px_0_rgb(226_232_240)]">
-        <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:gap-6 sm:px-6 lg:py-4">
+        <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-2 sm:gap-5 sm:px-6 lg:py-2.5">
           <Button variant="ghost" size="icon" className="-ml-2 lg:hidden" aria-label="Open departments" onClick={() => setMenuOpen(true)}>
             <MenuIcon />
           </Button>
@@ -228,7 +228,7 @@ export default function StoreLayout() {
             <CartButton />
           </div>
         </div>
-        <div className="px-4 pb-3 md:hidden">
+        <div className="px-4 pb-2.5 md:hidden">
           <SearchBox compact />
         </div>
         <CategoryBar />

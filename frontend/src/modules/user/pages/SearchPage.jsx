@@ -32,13 +32,13 @@ export default function SearchPage() {
       : null
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+    <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 sm:py-4">
       <title>{`${q ? `${q} — Search` : title} | ${siteName}`}</title>
       <meta name="robots" content="noindex" />
       <ProductListing
         key={`${q}|${category}`}
         base={{ q: q || undefined, category }}
-        heading={<ListingHeader crumbs={[{ label: q ? 'Search' : title }]} eyebrow={q ? 'Search results for' : undefined} title={title} description={description} />}
+        heading={<ListingHeader compact crumbs={[{ label: q ? 'Search' : title }]} eyebrow={q ? 'Search results for' : undefined} title={title} description={description} />}
       />
     </div>
   )

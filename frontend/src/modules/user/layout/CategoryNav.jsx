@@ -36,14 +36,14 @@ export function CategoryBar() {
 
   return (
     <nav aria-label="Departments" className="relative hidden bg-secondary text-secondary-fg lg:block" onMouseLeave={closeSoon}>
-      <div className="mx-auto flex h-11 max-w-7xl items-stretch px-4 sm:px-6">
+      <div className="mx-auto flex h-9.5 max-w-7xl items-stretch px-4 sm:px-6">
         <button
           type="button"
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
           onMouseEnter={openSoon}
           className={cn(
-            '-ml-3 flex items-center gap-2 px-3 font-display text-[15px] font-semibold tracking-wide uppercase',
+            '-ml-3 flex items-center gap-2 px-3 font-display text-sm font-semibold tracking-wide uppercase',
             open ? 'bg-white text-slate-900' : 'hover:bg-white/10',
           )}
         >
@@ -54,7 +54,7 @@ export function CategoryBar() {
             <Link
               key={c._id}
               to={`/c/${c.slug}`}
-              className="flex shrink-0 items-center px-3 font-display text-[15px] font-medium tracking-wide whitespace-nowrap text-secondary-fg/85 uppercase hover:bg-white/10 hover:text-secondary-fg"
+              className="flex shrink-0 items-center px-3 font-display text-sm font-medium tracking-wide whitespace-nowrap text-secondary-fg/85 uppercase hover:bg-white/10 hover:text-secondary-fg"
             >
               {c.name}
             </Link>
@@ -63,13 +63,13 @@ export function CategoryBar() {
         <div className="flex shrink-0 items-stretch border-l border-white/15 pl-2">
           <Link
             to="/search?bulk=true"
-            className="flex items-center gap-1.5 px-3 font-display text-[15px] font-semibold tracking-wide text-secondary-fg uppercase hover:bg-white/10"
+            className="flex items-center gap-1.5 px-3 font-display text-sm font-semibold tracking-wide text-secondary-fg uppercase hover:bg-white/10"
           >
             <Layers className="size-4" /> Bulk deals
           </Link>
           <Link
             to="/#parts-finder"
-            className="flex items-center gap-1.5 px-3 font-display text-[15px] font-semibold tracking-wide text-secondary-fg uppercase hover:bg-white/10"
+            className="flex items-center gap-1.5 px-3 font-display text-sm font-semibold tracking-wide text-secondary-fg uppercase hover:bg-white/10"
           >
             <Wrench className="size-4" /> Parts finder
           </Link>

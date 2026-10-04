@@ -60,7 +60,7 @@ export function SearchBox({ className, autoFocus, compact = false }) {
 
   return (
     <div ref={wrapRef} className={cn('relative', className)}>
-      <form onSubmit={submit} role="search" className="flex h-12 overflow-hidden rounded-md border-2 border-secondary bg-white focus-within:border-primary">
+      <form onSubmit={submit} role="search" className="flex h-10 sm:h-10.5 overflow-hidden rounded-md border-2 border-secondary bg-white focus-within:border-primary">
         {!compact && tree.length > 0 && (
           <select
             value={scope}

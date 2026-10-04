@@ -68,13 +68,13 @@ export function ProductListing({ base = {}, heading }) {
   return (
     <div>
       {heading}
-      <div className="mt-6 flex gap-10">
-        <aside className="hidden w-60 shrink-0 lg:block" aria-label="Filters">
+      <div className="mt-3.5 flex gap-6 sm:mt-4 lg:gap-8">
+        <aside className="hidden w-56 shrink-0 lg:block" aria-label="Filters">
           <Filters f={f} setF={setF} facets={facets} />
         </aside>
 
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2">
             <p className="text-sm text-slate-600" aria-live="polite">
               {meta ? (
                 meta.total ? (
@@ -143,7 +143,7 @@ export function ProductListing({ base = {}, heading }) {
             </div>
           )}
 
-          <div className={cn('mt-6 transition-opacity', isFetching && !isLoading && 'opacity-60')}>
+          <div className={cn('mt-3.5 sm:mt-4 transition-opacity', isFetching && !isLoading && 'opacity-60')}>
             {!isLoading && !data?.items.length ? (
               <EmptyState
                 icon={SearchX}
