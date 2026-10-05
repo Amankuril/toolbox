@@ -143,3 +143,40 @@ describe('admin auth', () => {
     expect(res.body.error.code).toBe('INVALID_CREDENTIALS');
   });
 });
+
+describe('dummy OTP numbers', () => {
+  it('accepts 123456 for numbers configured in DUMMY_NUMBERS in any environment and skips cooldown', async () => {
+    const dummyPhone = '9777700001';
+    process.env.DUMMY_NUMBERS = '9777700001, +919777700002';
+
+    // 1. Send OTP should succeed with resendIn: 0
+    const send1 = await request(app).post(`${API}/auth/otp/send`).send({ phone: dummyPhone, audience: 'user' }).expect(200);
+    expect(send1.body.data.resendIn).toBe(0);
+
+    // 2. Can request OTP again immediately without being blocked by cooldown
+    await request(app).post(`${API}/auth/otp/send`).send({ phone: dummyPhone, audience: 'user' }).expect(200);
+
+    // 3. Incorrect OTP is rejected
+    const bad = await request(app).post(`${API}/auth/otp/verify`).send({ phone: dummyPhone, audience: 'user', otp: '999999' }).expect(400);
+    expect(bad.body.error.code).toBe('OTP_INVALID');
+
+    // 4. Dummy OTP 123456 is accepted successfully
+    const verify = await request(app)
+      .post(`${API}/auth/otp/verify`)
+      .send({ phone: `+91 ${dummyPhone}`, audience: 'user', otp: '123456' })
+      .expect(200);
+    expect(verify.body.data.status).toBe('onboarding_required');
+
+    // 5. Test with second dummy number with +91 format
+    const dummy2 = '9777700002';
+    await request(app).post(`${API}/auth/otp/send`).send({ phone: dummy2, audience: 'vendor' }).expect(200);
+    const verify2 = await request(app)
+      .post(`${API}/auth/otp/verify`)
+      .send({ phone: dummy2, audience: 'vendor', otp: '123456' })
+      .expect(200);
+    expect(verify2.body.data.status).toBe('onboarding_required');
+
+    delete process.env.DUMMY_NUMBERS;
+  });
+});
+

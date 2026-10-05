@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { env } from '#config/env.js';
+import { env, isDummyNumber } from '#config/env.js';
 import { redis } from '#config/redis.js';
 import { ApiError } from '#core/errors/ApiError.js';
 import { hmacSha256, safeEqual } from '#core/utils/crypto.js';
@@ -33,50 +33,72 @@ async function assertNotLocked(aud, phone) {
 export const otpService = {
   /**
    * Generates and sends an OTP. Enforces resend cooldown, hourly quota and lockout.
+   * For configured DUMMY_NUMBERS, accepts 123456 in all environments and skips SMS delivery.
    * @returns {{ expiresIn: number, resendIn: number }}
    */
   async send(aud, phone) {
-    await assertNotLocked(aud, phone);
+    if (isDummyNumber(phone)) {
+      await redis.del(keys.lock(aud, phone));
+    } else {
+      await assertNotLocked(aud, phone);
 
-    const cooldownTtl = await redis.ttl(keys.cooldown(aud, phone));
-    if (cooldownTtl > 0) {
-      throw ApiError.tooManyRequests(`Please wait ${cooldownTtl}s before requesting a new code.`, {
-        code: 'OTP_COOLDOWN',
-        details: { retryAfter: cooldownTtl },
-      });
+      const cooldownTtl = await redis.ttl(keys.cooldown(aud, phone));
+      if (cooldownTtl > 0) {
+        throw ApiError.tooManyRequests(`Please wait ${cooldownTtl}s before requesting a new code.`, {
+          code: 'OTP_COOLDOWN',
+          details: { retryAfter: cooldownTtl },
+        });
+      }
+
+      const sends = await redis.incr(keys.quota(phone));
+      if (sends === 1) await redis.expire(keys.quota(phone), 3600);
+      if (sends > env.OTP_MAX_SENDS_PER_HOUR) {
+        const ttl = await redis.ttl(keys.quota(phone));
+        throw ApiError.tooManyRequests('Too many codes requested for this number. Please try again later.', {
+          code: 'OTP_QUOTA_EXCEEDED',
+          details: { retryAfter: ttl },
+        });
+      }
     }
 
-    const sends = await redis.incr(keys.quota(phone));
-    if (sends === 1) await redis.expire(keys.quota(phone), 3600);
-    if (sends > env.OTP_MAX_SENDS_PER_HOUR) {
-      const ttl = await redis.ttl(keys.quota(phone));
-      throw ApiError.tooManyRequests('Too many codes requested for this number. Please try again later.', {
-        code: 'OTP_QUOTA_EXCEEDED',
-        details: { retryAfter: ttl },
-      });
-    }
-
-    const otp = generateOtp();
+    const otp = isDummyNumber(phone) ? '123456' : generateOtp();
     await redis
       .multi()
       .hset(keys.code(aud, phone), { hash: hashOtp(aud, phone, otp), attempts: 0 })
       .expire(keys.code(aud, phone), env.OTP_TTL_SECONDS)
-      .set(keys.cooldown(aud, phone), '1', 'EX', env.OTP_RESEND_COOLDOWN_SECONDS)
+      .set(keys.cooldown(aud, phone), '1', 'EX', isDummyNumber(phone) ? 1 : env.OTP_RESEND_COOLDOWN_SECONDS)
       .exec();
 
-    try {
-      await smsService.sendOtp(phone, otp);
-    } catch (err) {
-      // Let the user retry immediately if the gateway failed; don't burn their quota either.
-      await redis.multi().del(keys.code(aud, phone), keys.cooldown(aud, phone)).decr(keys.quota(phone)).exec();
-      throw err;
+    if (!isDummyNumber(phone)) {
+      try {
+        await smsService.sendOtp(phone, otp);
+      } catch (err) {
+        // Let the user retry immediately if the gateway failed; don't burn their quota either.
+        await redis.multi().del(keys.code(aud, phone), keys.cooldown(aud, phone)).decr(keys.quota(phone)).exec();
+        throw err;
+      }
     }
 
-    return { expiresIn: env.OTP_TTL_SECONDS, resendIn: env.OTP_RESEND_COOLDOWN_SECONDS };
+    return {
+      expiresIn: env.OTP_TTL_SECONDS,
+      resendIn: isDummyNumber(phone) ? 0 : env.OTP_RESEND_COOLDOWN_SECONDS,
+    };
   },
 
   /** Verifies and consumes an OTP. Throws on mismatch/expiry. */
   async verify(aud, phone, otp) {
+    if (isDummyNumber(phone)) {
+      await redis.del(keys.lock(aud, phone));
+      if (otp === '123456') {
+        await redis.del(keys.code(aud, phone));
+        return true;
+      }
+      throw ApiError.badRequest('Incorrect code. Please enter 123456.', {
+        code: 'OTP_INVALID',
+        details: { remainingAttempts: 5 },
+      });
+    }
+
     await assertNotLocked(aud, phone);
 
     const key = keys.code(aud, phone);

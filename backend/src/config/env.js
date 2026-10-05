@@ -113,6 +113,7 @@ const schema = z
     OTP_MAX_SENDS_PER_HOUR: z.coerce.number().int().positive().default(5),
     OTP_LOCK_MINUTES: z.coerce.number().int().positive().default(15),
     OTP_HMAC_SECRET: z.string().min(32, 'OTP_HMAC_SECRET must be at least 32 chars'),
+    DUMMY_NUMBERS: csv,
 
     SMS_PROVIDER: z.enum(['console', 'smsindiahub']).default('console'),
     SMSINDIAHUB_BASE_URL: z.url().default('https://cloud.smsindiahub.in/api/mt/SendSMS'),
@@ -179,3 +180,24 @@ export const env = Object.freeze({
   cloudinaryConfigured: Boolean(raw.CLOUDINARY_CLOUD_NAME && raw.CLOUDINARY_API_KEY && raw.CLOUDINARY_API_SECRET),
   razorpayConfigured: Boolean(raw.RAZORPAY_KEY_ID && raw.RAZORPAY_KEY_SECRET),
 });
+
+/** Normalises mobile phone digits to 10-digit format for matching. */
+export function normalizePhoneDigits(phone) {
+  if (!phone) return '';
+  const digits = String(phone).replace(/\D/g, '');
+  if (digits.length === 12 && digits.startsWith('91')) return digits.slice(2);
+  if (digits.length === 11 && digits.startsWith('0')) return digits.slice(1);
+  return digits;
+}
+
+/** Checks whether a phone number matches any configured dummy number. */
+export function isDummyNumber(phone) {
+  if (!phone) return false;
+  const digits = normalizePhoneDigits(phone);
+  if (!digits) return false;
+  const rawFromEnv = process.env.DUMMY_NUMBERS
+    ? process.env.DUMMY_NUMBERS.split(',').map((s) => s.trim()).filter(Boolean)
+    : (env.DUMMY_NUMBERS || []);
+  return rawFromEnv.some((n) => normalizePhoneDigits(n) === digits);
+}
+
