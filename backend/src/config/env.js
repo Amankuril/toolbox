@@ -167,6 +167,30 @@ if (!parsed.success) {
 const raw = parsed.data;
 const isProduction = raw.NODE_ENV === 'production';
 
+const rawUploadDir = raw.LOCAL_UPLOAD_DIR?.trim();
+const rawPublicPath = raw.LOCAL_UPLOAD_PUBLIC_PATH?.trim();
+
+// Detect if a server filesystem path (e.g. /var/www/...) was mistakenly passed in LOCAL_UPLOAD_PUBLIC_PATH
+const isFilesystemPath = (p) => Boolean(p && /^(\/var|\/root|\/home|\/usr|\/opt|\/srv|[a-zA-Z]:[/\\])/i.test(p));
+
+let localUploadDir;
+let localUploadPublicPath;
+
+if (rawUploadDir) {
+  localUploadDir = path.resolve(rawUploadDir);
+} else if (isFilesystemPath(rawPublicPath)) {
+  // Auto-correct: user provided the disk path in LOCAL_UPLOAD_PUBLIC_PATH
+  localUploadDir = path.resolve(rawPublicPath);
+} else {
+  localUploadDir = path.resolve(isProduction ? '/var/www/toolshubs/uploads' : path.join(backendRoot, 'uploads'));
+}
+
+if (rawPublicPath && !isFilesystemPath(rawPublicPath)) {
+  localUploadPublicPath = rawPublicPath.startsWith('/') ? rawPublicPath.replace(/\/+$/, '') || '/uploads' : `/${rawPublicPath}`;
+} else {
+  localUploadPublicPath = '/uploads';
+}
+
 export const env = Object.freeze({
   ...raw,
   isProduction,
@@ -175,8 +199,8 @@ export const env = Object.freeze({
   backendRoot,
   COOKIE_SECURE: raw.COOKIE_SECURE ?? isProduction,
   CORS_ORIGINS: raw.CORS_ORIGINS.length ? raw.CORS_ORIGINS : ['http://localhost:5173'],
-  // In production local uploads live outside the app so nginx can serve them directly.
-  LOCAL_UPLOAD_DIR: path.resolve(raw.LOCAL_UPLOAD_DIR ?? (isProduction ? '/var/www/toolshubs/uploads' : path.join(backendRoot, 'uploads'))),
+  LOCAL_UPLOAD_DIR: localUploadDir,
+  LOCAL_UPLOAD_PUBLIC_PATH: localUploadPublicPath,
   cloudinaryConfigured: Boolean(raw.CLOUDINARY_CLOUD_NAME && raw.CLOUDINARY_API_KEY && raw.CLOUDINARY_API_SECRET),
   razorpayConfigured: Boolean(raw.RAZORPAY_KEY_ID && raw.RAZORPAY_KEY_SECRET),
 });
