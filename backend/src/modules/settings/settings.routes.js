@@ -9,7 +9,7 @@ import { settingsService } from '#services/settings/settings.service.js';
 import { SETTING_KEYS } from './settings.schema.js';
 
 export const publicSettingsRoutes = Router().get('/', async (_req, res) => {
-  res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=600');
+  res.set('Cache-Control', 'no-cache, must-revalidate');
   ok(res, await settingsService.publicView());
 });
 

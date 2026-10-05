@@ -60,7 +60,7 @@ export function createApp() {
     app.use(
       env.LOCAL_UPLOAD_PUBLIC_PATH,
       helmet.crossOriginResourcePolicy({ policy: 'cross-origin' }),
-      express.static(env.LOCAL_UPLOAD_DIR, { index: false, dotfiles: 'deny', immutable: true, maxAge: '30d', fallthrough: false }),
+      express.static(env.LOCAL_UPLOAD_DIR, { index: false, dotfiles: 'deny', immutable: true, maxAge: '30d' }),
     );
   }
 

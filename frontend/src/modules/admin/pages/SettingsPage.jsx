@@ -22,6 +22,15 @@ function useSaveSettings(key, message = 'Settings saved') {
     mutationFn: (body) => adminApi.updateSettings(key, body),
     onSuccess: (data) => {
       qc.setQueryData(adminKeys.settings, data)
+      qc.setQueryData(publicSettingsKey, (old) => {
+        if (!old) return old
+        return {
+          ...old,
+          branding: data.branding ?? old.branding,
+          theme: data.theme ?? old.theme,
+          shipping: data.shipping ?? old.shipping,
+        }
+      })
       qc.invalidateQueries({ queryKey: publicSettingsKey })
       toast.success(message)
     },
