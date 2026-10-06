@@ -78,7 +78,7 @@ function CartButton() {
       <span className="relative">
         <ShoppingCart className="size-6 text-slate-800" strokeWidth={1.75} />
         {count > 0 && (
-          <span className="tabular absolute -top-2 -right-2 min-w-5 rounded-full bg-primary px-1 text-center text-[11px] leading-5 font-bold text-primary-fg">
+          <span className="tabular absolute -top-2 -right-2 min-w-5 rounded-full bg-accent px-1 text-center text-[11px] leading-5 font-bold text-accent-fg ring-2 ring-white">
             {count > 99 ? '99+' : count}
           </span>
         )}
@@ -99,7 +99,7 @@ function Footer() {
   const payWith = [payments?.razorpayEnabled && 'UPI, cards & net banking', payments?.codEnabled && 'Cash on delivery'].filter(Boolean)
 
   const col = 'flex flex-col gap-2.5 text-sm text-secondary-fg/70'
-  const head = 'mb-4 font-display text-sm font-semibold tracking-[0.12em] text-secondary-fg uppercase'
+  const head = 'code mb-4 text-xs tracking-[0.12em] text-accent uppercase'
   return (
     <footer className="mt-20 bg-secondary text-secondary-fg">
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:grid-cols-2 sm:px-6 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
@@ -110,7 +110,7 @@ function Footer() {
             <div className="mt-6 text-sm">
               <p className="text-secondary-fg/50">Customer support</p>
               {supportPhone && (
-                <a href={`tel:${supportPhone.replace(/\s/g, '')}`} className="mt-1 block font-display text-xl font-semibold hover:underline">
+                <a href={`tel:${supportPhone.replace(/\s/g, '')}`} className="mt-1 block font-display text-xl font-bold hover:underline">
                   {supportPhone}
                 </a>
               )}
@@ -200,23 +200,23 @@ export default function StoreLayout() {
         Skip to content
       </a>
 
-      <div className="hidden border-b border-slate-200 bg-slate-50 sm:block">
-        <div className="mx-auto flex h-8 max-w-7xl items-center justify-between gap-4 px-4 text-xs text-slate-600 sm:px-6">
+      <div className="hidden bg-secondary text-secondary-fg sm:block">
+        <div className="mx-auto flex h-8 max-w-7xl items-center justify-between gap-4 px-4 text-xs text-secondary-fg/75 sm:px-6">
           <p>
-            <span className="font-semibold text-slate-800">Buying for a business?</span> Price breaks on eligible items, and quotes for large orders.
+            <span className="font-semibold text-secondary-fg">Buying for a business?</span> Price breaks on eligible items, and quotes for large orders.
           </p>
           <nav aria-label="Utility" className="flex items-center gap-5">
-            <Link to="/account/orders" className="hover:text-slate-900 hover:underline">
+            <Link to="/account/orders" className="hover:text-secondary-fg hover:underline">
               Track order
             </Link>
-            <Link to="/vendor/login" className="font-medium text-slate-900 hover:underline">
+            <Link to="/vendor/login" className="font-semibold text-accent hover:underline">
               Sell on {siteName}
             </Link>
           </nav>
         </div>
       </div>
 
-      <header className="sticky top-0 z-30 bg-white shadow-[0_1px_0_rgb(226_232_240)]">
+      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-2 sm:gap-5 sm:px-6 lg:py-2.5">
           <Button variant="ghost" size="icon" className="-ml-2 lg:hidden" aria-label="Open departments" onClick={() => setMenuOpen(true)}>
             <MenuIcon />

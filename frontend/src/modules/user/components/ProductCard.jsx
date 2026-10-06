@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { cn } from '@/core/lib/cn'
 import { formatINR } from '@/core/lib/format'
 import { Thumb } from '@/ui/Brand'
+import { Sticker } from '@/ui/Badge'
 import { Button } from '@/ui/Button'
 import { Skeleton } from '@/ui/Card'
 import { useCart } from '../cart/useCart'
@@ -67,17 +68,13 @@ export function ProductCard({ product: p, className }) {
   return (
     <article className={cn('group relative flex flex-col bg-white', className)}>
       <Link to={`/p/${p.slug}`} className="flex flex-1 flex-col focus-visible:outline-offset-2">
-        <div className="relative aspect-square overflow-hidden rounded-md bg-[#f4f4f2] p-4">
+        <div className="relative aspect-square overflow-hidden rounded-md bg-slate-100 p-4">
           <Thumb
             src={p.image?.url}
             alt={p.image?.alt ?? p.name}
             className="size-full bg-transparent mix-blend-multiply transition-transform duration-300 group-hover:scale-[1.04]"
           />
-          {p.discountPercent >= 5 && (
-            <span className="absolute top-2 left-2 rounded-sm bg-white px-1.5 py-0.5 text-[11px] font-bold tracking-wide text-accent-ink shadow-xs">
-              −{p.discountPercent}%
-            </span>
-          )}
+          {p.discountPercent >= 5 && <Sticker className="absolute top-2 left-2">Save {p.discountPercent}%</Sticker>}
           {p.type === 'part' && (
             <span className="absolute top-2 right-2 rounded-sm bg-secondary px-1.5 py-0.5 text-[10px] font-semibold tracking-wider text-secondary-fg uppercase">
               Part
@@ -85,18 +82,18 @@ export function ProductCard({ product: p, className }) {
           )}
         </div>
         <div className="flex flex-1 flex-col pt-3">
-          {p.brand && <p className="text-[11px] font-semibold tracking-[0.08em] text-slate-500 uppercase">{p.brand}</p>}
+          {p.brand && <p className="text-[11px] font-bold tracking-[0.08em] text-slate-600 uppercase">{p.brand}</p>}
           <h3 className="mt-0.5 line-clamp-2 text-[15px] leading-snug font-medium text-slate-900 group-hover:underline group-hover:decoration-slate-300 group-hover:underline-offset-2">
             {p.name}
           </h3>
           {facts && <p className="mt-1 truncate text-xs text-slate-500">{facts}</p>}
           <div className="mt-auto pt-2">
             <p className="flex items-baseline gap-2">
-              <span className="font-display text-[1.375rem] leading-none font-bold text-slate-900">
+              <span className="price text-[1.375rem] leading-none text-slate-900">
                 {p.hasVariants && <span className="mr-1 text-xs font-normal text-slate-500">From</span>}
                 {formatINR(p.price)}
               </span>
-              {p.mrp > p.price && <span className="text-xs text-slate-400 line-through">{formatINR(p.mrp)}</span>}
+              {p.mrp > p.price && <span className="text-xs text-slate-500 line-through">{formatINR(p.mrp)}</span>}
             </p>
             <BulkHint bulk={p.bulk} unit={p.unit} className="mt-1" />
             <Availability product={p} className="mt-1.5" />
@@ -105,8 +102,8 @@ export function ProductCard({ product: p, className }) {
       </Link>
       <Button
         size="sm"
-        variant={inCart ? 'soft' : 'outline'}
-        className="mt-3 w-full border-slate-300 font-semibold"
+        variant={inCart ? 'soft' : 'strong'}
+        className="mt-3 w-full"
         disabled={!p.inStock}
         loading={busy}
         onClick={add}
@@ -123,7 +120,7 @@ export function ProductRow({ product: p }) {
   const { add, busy, inCart } = useAddToCart(p)
   return (
     <article className="group grid grid-cols-[96px_1fr] gap-4 border-b border-slate-200 py-4 sm:grid-cols-[120px_1fr_200px]">
-      <Link to={`/p/${p.slug}`} className="aspect-square overflow-hidden rounded-md bg-[#f4f4f2] p-2">
+      <Link to={`/p/${p.slug}`} className="aspect-square overflow-hidden rounded-md bg-slate-100 p-2">
         <Thumb src={p.image?.url} alt={p.name} className="size-full bg-transparent mix-blend-multiply" />
       </Link>
       <div className="min-w-0">

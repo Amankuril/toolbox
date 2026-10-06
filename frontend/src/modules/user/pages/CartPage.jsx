@@ -93,7 +93,7 @@ export default function CartPage() {
                 key={`${line.productId}:${line.variantId ?? ''}`}
                 className="grid grid-cols-[88px_1fr] gap-4 border-b border-slate-200 py-5 sm:grid-cols-[112px_1fr_auto]"
               >
-                <Link to={p ? `/p/${p.slug}` : '#'} className="aspect-square overflow-hidden rounded-md bg-[#f4f4f2] p-2">
+                <Link to={p ? `/p/${p.slug}` : '#'} className="aspect-square overflow-hidden rounded-md bg-slate-100 p-2">
                   <Thumb src={line.variant?.image?.url ?? p?.image?.url} alt={p?.name} className="size-full bg-transparent mix-blend-multiply" />
                 </Link>
                 <div className="min-w-0">

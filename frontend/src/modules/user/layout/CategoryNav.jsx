@@ -54,23 +54,17 @@ export function CategoryBar() {
             <Link
               key={c._id}
               to={`/c/${c.slug}`}
-              className="flex shrink-0 items-center px-3 font-display text-sm font-medium tracking-wide whitespace-nowrap text-secondary-fg/85 uppercase hover:bg-white/10 hover:text-secondary-fg"
+              className="flex shrink-0 items-center px-3 text-sm font-medium whitespace-nowrap text-secondary-fg/80 hover:bg-white/8 hover:text-secondary-fg"
             >
               {c.name}
             </Link>
           ))}
         </div>
         <div className="flex shrink-0 items-stretch border-l border-white/15 pl-2">
-          <Link
-            to="/search?bulk=true"
-            className="flex items-center gap-1.5 px-3 font-display text-sm font-semibold tracking-wide text-secondary-fg uppercase hover:bg-white/10"
-          >
+          <Link to="/search?bulk=true" className="flex items-center gap-1.5 px-3 text-sm font-semibold text-accent hover:bg-white/8">
             <Layers className="size-4" /> Bulk deals
           </Link>
-          <Link
-            to="/#parts-finder"
-            className="flex items-center gap-1.5 px-3 font-display text-sm font-semibold tracking-wide text-secondary-fg uppercase hover:bg-white/10"
-          >
+          <Link to="/#parts-finder" className="flex items-center gap-1.5 px-3 text-sm font-semibold text-accent hover:bg-white/8">
             <Wrench className="size-4" /> Parts finder
           </Link>
         </div>
@@ -104,7 +98,10 @@ export function CategoryBar() {
               <div className="max-h-[70vh] overflow-y-auto px-8 py-6">
                 <div className="mb-6 flex items-baseline justify-between gap-4 border-b border-slate-200 pb-3">
                   <h3 className="font-display text-2xl font-bold">{current.name}</h3>
-                  <Link to={`/c/${current.slug}`} className="text-sm font-semibold underline decoration-slate-300 underline-offset-4 hover:decoration-slate-900">
+                  <Link
+                    to={`/c/${current.slug}`}
+                    className="text-sm font-semibold underline decoration-slate-300 underline-offset-4 hover:decoration-slate-900"
+                  >
                     Shop all {current.name}
                   </Link>
                 </div>

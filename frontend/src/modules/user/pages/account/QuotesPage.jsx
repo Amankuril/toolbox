@@ -53,7 +53,7 @@ export default function MyQuotesPage() {
           {data.items.map((q) => (
             <li key={q._id}>
               <Link to={`/account/quotes/${q._id}`} className="flex items-center gap-4 py-4 hover:bg-slate-50 sm:px-2">
-                <Thumb src={q.product.image} className="size-16 shrink-0 rounded bg-[#f4f4f2]" />
+                <Thumb src={q.product.image} className="size-16 shrink-0 rounded bg-slate-100" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium text-slate-900">{q.product.name}</p>
                   <p className="mt-0.5 text-sm text-slate-600">

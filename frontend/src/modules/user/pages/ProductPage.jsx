@@ -69,7 +69,7 @@ function Gallery({ images, name }) {
               aria-label={`Show image ${i + 1}`}
               aria-current={i === index}
               className={cn(
-                'size-12 shrink-0 overflow-hidden rounded-md border-2 bg-[#f4f4f2] p-1 sm:size-14',
+                'size-12 shrink-0 overflow-hidden rounded-md border-2 bg-slate-100 p-1 sm:size-14',
                 i === index ? 'border-slate-900' : 'border-transparent hover:border-slate-300',
               )}
             >
@@ -78,7 +78,7 @@ function Gallery({ images, name }) {
           ))}
         </div>
       )}
-      <div className="flex-1 overflow-hidden rounded-lg border border-slate-200/60 bg-[#f4f4f2] p-4 sm:p-6 flex items-center justify-center">
+      <div className="flex-1 overflow-hidden rounded-lg border border-slate-200/60 bg-slate-100 p-4 sm:p-6 flex items-center justify-center">
         <Thumb
           src={current?.url}
           alt={current?.alt ?? name}
@@ -252,7 +252,7 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related } })
           )}
 
           {sellable.inStock && (
-            <div className="mt-3.5 rounded-lg bg-[#f6f6f4] p-3 sm:p-3.5 border border-slate-200/60">
+            <div className="mt-3.5 rounded-lg bg-slate-100 p-3 sm:p-3.5 border border-slate-200/60">
               <div className="flex flex-wrap items-center gap-3">
                 <QuantityStepper value={qty} onChange={setQty} min={min} max={max} />
                 <div className="min-w-0 flex-1 text-xs sm:text-sm">
@@ -338,7 +338,7 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related } })
 
           {p.vendor && (
             <Link to={`/store/${p.vendor.store.slug}`} className="mt-3.5 flex items-center gap-3 rounded-lg border border-slate-200 p-3 hover:border-slate-400">
-              <Thumb src={p.vendor.store.logo?.url} className="size-10 shrink-0 rounded bg-[#f4f4f2]" />
+              <Thumb src={p.vendor.store.logo?.url} className="size-10 shrink-0 rounded bg-slate-100" />
               <span className="min-w-0 flex-1">
                 <span className="block text-[11px] text-slate-500">Sold by</span>
                 <span className="flex items-center gap-1.5 text-sm font-semibold text-slate-900">

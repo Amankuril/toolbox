@@ -113,7 +113,7 @@ function Departments({ tree, loading }) {
           {tree.map((dept) => (
             <div key={dept._id} className="flex gap-4 bg-white p-5">
               <Link to={`/c/${dept.slug}`} className="shrink-0" tabIndex={-1} aria-hidden>
-                <Thumb src={dept.image?.url} alt="" className="size-20 rounded bg-[#f4f4f2]" fit="cover" />
+                <Thumb src={dept.image?.url} alt="" className="size-20 rounded bg-slate-100" fit="cover" />
               </Link>
               <div className="min-w-0">
                 <Link to={`/c/${dept.slug}`} className="font-display text-xl leading-tight font-bold text-slate-900 hover:underline">
@@ -238,7 +238,7 @@ export default function HomePage() {
 
       <Brands brands={brands} />
 
-      <section className="mt-20 border-y border-slate-200 bg-[#f6f6f4]">
+      <section className="mt-20 border-y border-slate-200 bg-slate-100">
         <div className="mx-auto grid max-w-7xl gap-px px-4 sm:grid-cols-2 sm:px-6 lg:grid-cols-4">
           {HOW_IT_WORKS.map((item, i) => (
             <div key={item.title} className={`py-8 lg:px-6 ${i > 0 ? 'lg:border-l lg:border-slate-200' : 'lg:pl-0'}`}>

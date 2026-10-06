@@ -60,13 +60,17 @@ export function SearchBox({ className, autoFocus, compact = false }) {
 
   return (
     <div ref={wrapRef} className={cn('relative', className)}>
-      <form onSubmit={submit} role="search" className="flex h-10 sm:h-10.5 overflow-hidden rounded-md border-2 border-secondary bg-white focus-within:border-primary">
+      <form
+        onSubmit={submit}
+        role="search"
+        className="flex h-11 overflow-hidden rounded-md border-[1.5px] border-slate-900 bg-white focus-within:ring-3 focus-within:ring-accent/40"
+      >
         {!compact && tree.length > 0 && (
           <select
             value={scope}
             onChange={(e) => setScope(e.target.value)}
             aria-label="Search in department"
-            className="hidden max-w-44 cursor-pointer truncate border-r border-slate-200 bg-slate-100 pr-2 pl-3 text-sm font-medium text-slate-700 outline-none lg:block"
+            className="hidden max-w-44 cursor-pointer truncate border-r border-slate-300 bg-slate-50 pr-2 pl-3 text-sm font-semibold text-slate-800 outline-none lg:block"
           >
             <option value="">All departments</option>
             {tree.map((c) => (
@@ -98,16 +102,20 @@ export function SearchBox({ className, autoFocus, compact = false }) {
           aria-expanded={showList}
           aria-controls={listId}
           aria-autocomplete="list"
-          className="min-w-0 flex-1 bg-transparent px-4 text-[15px] text-slate-900 outline-none placeholder:text-slate-400"
+          className="min-w-0 flex-1 bg-transparent px-4 text-[15px] text-slate-900 outline-none placeholder:text-slate-500"
         />
-        <button type="submit" className="flex shrink-0 items-center gap-2 bg-primary px-4 text-sm font-semibold text-primary-fg hover:bg-primary-hover lg:px-5">
+        <button type="submit" className="flex shrink-0 items-center gap-2 bg-accent px-4 text-sm font-bold text-accent-fg hover:brightness-[0.96] lg:px-5">
           <Search className="size-[18px]" />
           <span className="hidden lg:inline">Search</span>
         </button>
       </form>
 
       {showList && (
-        <ul id={listId} role="listbox" className="absolute inset-x-0 top-full z-40 mt-1 max-h-[70vh] overflow-y-auto rounded-md border border-slate-200 bg-white py-1 shadow-xl">
+        <ul
+          id={listId}
+          role="listbox"
+          className="absolute inset-x-0 top-full z-40 mt-1 max-h-[70vh] overflow-y-auto rounded-md border border-slate-200 bg-white py-1 shadow-xl"
+        >
           {options.map((o, i) => (
             <li key={o.key} role="option" aria-selected={i === cursor}>
               <button
@@ -121,7 +129,7 @@ export function SearchBox({ className, autoFocus, compact = false }) {
                     <FolderTree className="size-4" />
                   </span>
                 ) : (
-                  <Thumb src={o.image} className="size-9 shrink-0 rounded bg-[#f4f4f2]" />
+                  <Thumb src={o.image} className="size-9 shrink-0 rounded bg-slate-100" />
                 )}
                 <span className="min-w-0 flex-1 truncate text-slate-800">{o.label}</span>
                 {o.kind === 'category' ? (
@@ -133,7 +141,11 @@ export function SearchBox({ className, autoFocus, compact = false }) {
             </li>
           ))}
           <li className="border-t border-slate-100">
-            <button type="button" onClick={searchAll} className="flex w-full items-center justify-between px-3 py-2.5 text-left text-sm font-medium text-slate-900 hover:bg-slate-50">
+            <button
+              type="button"
+              onClick={searchAll}
+              className="flex w-full items-center justify-between px-3 py-2.5 text-left text-sm font-medium text-slate-900 hover:bg-slate-50"
+            >
               See all results for “{q.trim()}”
               <CornerDownLeft className="size-4 text-slate-400" />
             </button>
