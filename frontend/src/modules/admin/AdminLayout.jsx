@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Boxes, FileText, FolderTree, Image, KeyRound, LayoutDashboard, Package, Settings, ShieldCheck, ShoppingBag, Store, Users } from 'lucide-react'
+import { Boxes, FileText, FolderTree, Image, KeyRound, LayoutDashboard, Package, Settings, ShieldCheck, ShoppingBag, Star, Store, Users } from 'lucide-react'
 import { useNavigate } from 'react-router'
 import { signOutEverywhere } from '@/core/api/http'
 import { useSession } from '@/core/auth/session'
@@ -22,6 +22,7 @@ export default function AdminLayout() {
         { to: '/admin', end: true, label: 'Dashboard', icon: LayoutDashboard },
         { to: '/admin/orders', label: 'Orders', icon: ShoppingBag },
         { to: '/admin/quotes', label: 'Bulk quotes', icon: FileText },
+        { to: '/admin/reviews', label: 'Reviews', icon: Star },
       ],
     },
     {

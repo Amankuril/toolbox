@@ -8,6 +8,7 @@ import { Button } from '@/ui/Button'
 import { Skeleton } from '@/ui/Card'
 import { storeApi, storeKeys } from '../api'
 import { HeroCarousel } from '../components/HeroCarousel'
+import { ServiceStrip, StatsBand } from '../components/Highlights'
 import { ProductRail, SectionHeading } from '../components/ProductCard'
 import { useCategoryTree } from '../hooks'
 
@@ -31,14 +32,18 @@ function PartsFinder() {
   }, [location.hash])
 
   return (
-    <section ref={sectionRef} id="parts-finder" className="flex flex-col justify-between rounded-md bg-secondary p-6 text-secondary-fg">
-      <div>
-        <p className="font-display text-sm font-semibold tracking-[0.14em] text-secondary-fg/60 uppercase">Spare parts finder</p>
-        <h2 className="mt-2 font-display text-[1.9rem] leading-[1.05] font-bold">Find parts that fit your machine</h2>
-        <p className="mt-2 text-sm text-secondary-fg/70">Enter the model number on the machine’s rating plate.</p>
+    <section
+      ref={sectionRef}
+      id="parts-finder"
+      className="flex flex-col justify-between gap-4 rounded-md border-[1.5px] border-slate-900 bg-white p-5 sm:flex-row sm:items-center"
+    >
+      <div className="min-w-0">
+        <p className="eyebrow">Spare parts finder</p>
+        <h2 className="mt-1 text-xl leading-tight font-extrabold text-slate-900">Find parts that fit your machine</h2>
+        <p className="mt-1 text-sm text-slate-600">Enter the model number on the machine’s rating plate.</p>
       </div>
       <form
-        className="mt-6"
+        className="w-full sm:max-w-sm"
         onSubmit={(e) => {
           e.preventDefault()
           if (model.trim()) navigate(`/search?q=${encodeURIComponent(model.trim())}&type=part`)
@@ -47,14 +52,14 @@ function PartsFinder() {
         <label htmlFor="parts-model" className="sr-only">
           Machine model number
         </label>
-        <div className="flex overflow-hidden rounded-md bg-white">
+        <div className="flex h-11 overflow-hidden rounded-md border border-slate-300 bg-white focus-within:border-primary">
           <input
             id="parts-model"
             ref={inputRef}
             value={model}
             onChange={(e) => setModel(e.target.value)}
             placeholder="e.g. GSB 550, KS-128"
-            className="min-w-0 flex-1 px-3 py-3 text-[15px] text-slate-900 outline-none placeholder:text-slate-400"
+            className="code min-w-0 flex-1 px-3 text-[15px] text-slate-900 outline-none placeholder:text-slate-500"
           />
           <button type="submit" aria-label="Find parts" className="grid w-12 place-items-center bg-primary text-primary-fg hover:bg-primary-hover">
             <Search className="size-5" />
@@ -67,31 +72,48 @@ function PartsFinder() {
 
 function BulkCallout() {
   return (
-    <Link to="/search?bulk=true" className="group flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border border-slate-200 px-5 py-3.5 hover:border-slate-400">
-      <Layers className="size-5 shrink-0 text-accent-ink" strokeWidth={1.75} />
-      <span className="font-display text-lg leading-tight font-bold text-slate-900">Buying in bulk?</span>
-      <span className="min-w-0 flex-1 text-sm text-slate-600">Price breaks apply automatically in your cart. For larger orders, ask the seller for a quote.</span>
-      <span className="inline-flex items-center gap-1 text-sm font-semibold text-slate-900 group-hover:underline">
+    <Link to="/search?bulk=true" className="group flex flex-col justify-between gap-3 rounded-md bg-accent p-5 text-accent-fg">
+      <span className="flex items-center gap-2">
+        <Layers className="size-5 shrink-0" strokeWidth={1.9} />
+        <span className="text-xl leading-tight font-extrabold">Buying in bulk?</span>
+      </span>
+      <span className="text-sm">Price breaks apply automatically in your cart. For larger orders, ask the seller for a quote.</span>
+      <span className="inline-flex items-center gap-1 text-sm font-bold group-hover:underline">
         Shop bulk deals <ArrowRight className="size-4" />
       </span>
     </Link>
   )
 }
 
-function FallbackHero({ siteName }) {
+/** No hero banners yet: the same editorial panel, with department photos as the plate. */
+function FallbackHero({ siteName, tagline, tree }) {
+  const tiles = tree.filter((d) => d.image?.url).slice(0, 4)
   return (
-    <section className="flex flex-col justify-end rounded-md bg-gradient-to-br from-emerald-50/60 to-[#f4f7f2] p-8 sm:p-12 relative overflow-hidden">
-      <div className="flex items-center gap-2.5 mb-2">
-        <img src="/toolboxlogo.jpeg" alt={siteName} className="size-8 rounded-lg object-contain bg-white shadow-xs p-0.5" />
-        <p className="font-display text-sm font-semibold tracking-[0.14em] text-primary uppercase">{siteName}</p>
+    <section className="grid gap-4 lg:min-h-[400px] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.08fr)]">
+      <div className="flex flex-col justify-between gap-8 rounded-md bg-secondary p-7 text-secondary-fg sm:p-10 lg:p-11">
+        <div className="flex flex-col gap-4">
+          <span className="code text-xs tracking-widest text-accent uppercase">{siteName}</span>
+          <h1 className="font-display text-[2.4rem] leading-[0.98] font-extrabold tracking-[-0.03em] [font-stretch:110%] sm:text-[3.1rem] lg:text-[3.4rem]">
+            Tools, machinery and spare parts from reviewed sellers.
+          </h1>
+          {tagline && <p className="max-w-md text-[1.0625rem] leading-relaxed text-secondary-fg/75">{tagline}</p>}
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <a href="#departments" className="inline-flex h-12 items-center gap-2 rounded-md bg-accent px-5 font-bold text-accent-fg hover:brightness-[0.96]">
+            Shop departments <ArrowRight className="size-4" />
+          </a>
+          <Link to="/search?bulk=true" className="inline-flex h-12 items-center rounded-md border-[1.5px] border-white/35 px-5 font-semibold hover:border-white/70">
+            Bulk &amp; quotes
+          </Link>
+        </div>
       </div>
-      <h1 className="mt-1 max-w-xl font-display text-4xl leading-[1.02] font-bold text-slate-900 sm:text-5xl">
-        Tools, machinery and parts for a greener tomorrow.
-      </h1>
-      <div className="mt-6">
-        <Button size="lg" asChild>
-          <a href="#departments">Shop departments</a>
-        </Button>
+      <div className="grid grid-cols-2 gap-4">
+        {(tiles.length ? tiles : tree.slice(0, 4)).map((d) => (
+          <Link key={d._id} to={`/c/${d.slug}`} className="group relative overflow-hidden rounded-md bg-slate-100">
+            <Thumb src={d.image?.url} alt="" fit="cover" className="aspect-square size-full transition-transform duration-500 group-hover:scale-[1.03]" />
+            <span className="absolute inset-x-3 bottom-3 rounded-sm bg-white px-2.5 py-1.5 text-sm font-bold text-slate-900">{d.name}</span>
+          </Link>
+        ))}
       </div>
     </section>
   )
@@ -187,17 +209,18 @@ export default function HomePage() {
     <>
       <title>{`${siteName} — Tools for a Greener Tomorrow`}</title>
 
-      <div className="mx-auto grid max-w-7xl gap-4 px-4 pt-5 sm:px-6 lg:h-[340px] lg:grid-cols-[1fr_340px]">
-        {bannersLoading ? (
-          <Skeleton className="aspect-[16/5] w-full rounded-md lg:aspect-auto lg:h-full" />
+      <div className="mx-auto max-w-7xl px-4 pt-5 sm:px-6">
+        {bannersLoading || treeLoading ? (
+          <Skeleton className="h-[400px] w-full rounded-md" />
         ) : hero.length ? (
-          <HeroCarousel banners={hero} fill />
+          <HeroCarousel banners={hero} />
         ) : (
-          <FallbackHero siteName={siteName} />
+          <FallbackHero siteName={siteName} tagline={settings?.branding?.tagline} tree={tree} />
         )}
-        <PartsFinder />
       </div>
-      <div className="mx-auto mt-4 max-w-7xl px-4 sm:px-6">
+      <ServiceStrip className="mt-4" />
+      <div className="mx-auto mt-4 grid max-w-7xl gap-4 px-4 sm:px-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <PartsFinder />
         <BulkCallout />
       </div>
 
@@ -237,6 +260,8 @@ export default function HomePage() {
       ))}
 
       <Brands brands={brands} />
+
+      <StatsBand siteName={siteName} className="mt-16" />
 
       <section className="mt-20 border-y border-slate-200 bg-slate-100">
         <div className="mx-auto grid max-w-7xl gap-px px-4 sm:grid-cols-2 sm:px-6 lg:grid-cols-4">

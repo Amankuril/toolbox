@@ -16,6 +16,7 @@ export const adminKeys = {
   product: (id) => ['admin', 'product', id],
   orders: (p) => ['admin', 'orders', p],
   quotes: (p) => ['admin', 'quotes', p],
+  reviews: (p) => ['admin', 'reviews', p],
   quote: (id) => ['admin', 'quote', id],
   order: (id) => ['admin', 'order', id],
   shipments: (orderId) => ['admin', 'shipments', orderId],
@@ -75,6 +76,8 @@ export const adminApi = {
   shippingHealth: () => one(a.get('/shipping/health')),
 
   quotes: (params) => list(a.get('/quotes', { params })),
+  reviews: (params) => list(a.get('/reviews', { params })),
+  moderateReview: (id, body) => one(a.patch(`/reviews/${id}`, body)),
   quote: (id) => one(a.get(`/quotes/${id}`)),
 
   banners: () => one(a.get('/banners')),

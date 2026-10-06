@@ -20,6 +20,10 @@ import { Breadcrumbs } from '../components/Breadcrumbs'
 import { BulkPricingTable } from '../components/BulkPricingTable'
 import { ProductCard, ProductRail, SectionHeading } from '../components/ProductCard'
 import { QuoteRequestDialog } from '../components/QuoteRequestDialog'
+import { ServiceTiles } from '../components/Highlights'
+import { Reviews } from '../components/Reviews'
+import { RatingInline } from '../components/Stars'
+import { useRecentlyViewed, useTrackView } from '../cart/recentlyViewed'
 import { unitPlural, unitShort } from '@/core/lib/units'
 
 export default function ProductPage() {
@@ -95,10 +99,13 @@ const SECTIONS = [
   ['specs', 'Specifications'],
   ['parts', 'Spare parts'],
   ['fits', 'Fits'],
-  ['related', 'Related'],
+  ['reviews', 'Reviews'],
+  ['related', 'Similar'],
 ]
 
-function ProductView({ data: { product: p, breadcrumbs, spareParts, related } }) {
+function ProductView({ data: { product: p, breadcrumbs, spareParts, related, fromSeller = [] } }) {
+  useTrackView(p._id)
+  const recent = useRecentlyViewed(p._id)
   const { siteName } = useBranding()
   const cart = useCart()
   const navigate = useNavigate()
@@ -147,6 +154,7 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related } })
     if (id === 'parts') return spareParts.length > 0
     if (id === 'fits') return p.type === 'part' && (p.compatibleWith.length > 0 || p.compatibleModels.length > 0)
     if (id === 'related') return related.length > 0
+    if (id === 'reviews') return true
     return Boolean(p.description)
   })
 
@@ -203,6 +211,11 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related } })
             {p.modelNumber && <span>MODEL {p.modelNumber}</span>}
             {p.sku && !p.hasVariants && <span>SKU {p.sku}</span>}
           </p>
+          {p.rating && (
+            <a href="#reviews" className="mt-2 inline-flex hover:underline">
+              <RatingInline rating={p.rating} size={15} className="text-sm" />
+            </a>
+          )}
 
           <div className="mt-3.5 border-t border-slate-200 pt-3">
             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -337,6 +350,7 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related } })
               <span className="text-slate-700">Add your GSTIN at checkout for business billing</span>
             </li>
           </ul>
+          <ServiceTiles className="mt-4" />
 
           {p.vendor && (
             <Link to={`/store/${p.vendor.store.slug}`} className="mt-3.5 flex items-center gap-3 rounded-lg border border-slate-200 p-3 hover:border-slate-400">
@@ -411,6 +425,8 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related } })
         )}
       </div>
 
+      <Reviews product={p} />
+
       {spareParts.length > 0 && (
         <section id="parts" className="mt-10 scroll-mt-28">
           <SectionHeading title={`Spare parts for this ${PRODUCT_TYPE_LABEL[p.type].toLowerCase()}`} subtitle="Matched by sellers to this exact product" />
@@ -434,7 +450,16 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related } })
       )}
 
       <div id="related" className="-mx-4 scroll-mt-28 sm:-mx-6">
-        <ProductRail className="mt-10" title="You may also need" products={related} />
+        <ProductRail className="mt-12" title="Similar products" subtitle="From the same category" products={related} />
+        {fromSeller.length > 0 && (
+          <ProductRail
+            className="mt-12"
+            title={`More from ${p.vendor?.store?.name ?? 'this seller'}`}
+            products={fromSeller}
+            viewAll={p.vendor?.store?.slug ? `/store/${p.vendor.store.slug}` : undefined}
+          />
+        )}
+        {recent.length > 0 && <ProductRail className="mt-12" title="Recently viewed" products={recent} />}
       </div>
 
       {sellable.inStock && (

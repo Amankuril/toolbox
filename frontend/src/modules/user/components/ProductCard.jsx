@@ -6,6 +6,7 @@ import { cn } from '@/core/lib/cn'
 import { formatINR } from '@/core/lib/format'
 import { Thumb } from '@/ui/Brand'
 import { Sticker } from '@/ui/Badge'
+import { RatingInline } from './Stars'
 import { Button } from '@/ui/Button'
 import { Skeleton } from '@/ui/Card'
 import { useCart } from '../cart/useCart'
@@ -87,6 +88,7 @@ export function ProductCard({ product: p, className }) {
             {p.name}
           </h3>
           {facts && <p className="mt-1 truncate text-xs text-slate-500">{facts}</p>}
+          <RatingInline rating={p.rating} className="mt-1.5" />
           <div className="mt-auto pt-2">
             <p className="flex items-baseline gap-2">
               <span className="price text-[1.375rem] leading-none text-slate-900">

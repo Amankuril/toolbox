@@ -9,6 +9,9 @@ export const storeKeys = {
   product: (slug) => ['public', 'product', slug],
   suggest: (q) => ['public', 'suggest', q],
   banners: ['public', 'banners'],
+  stats: ['public', 'stats'],
+  reviews: (productId, p) => ['public', 'reviews', productId, p],
+  myReview: (productId) => ['user', 'review', productId],
   store: (slug) => ['public', 'store', slug],
   user: ['user'],
   me: ['user', 'me'],
@@ -29,6 +32,8 @@ export const storeApi = {
   product: (slug) => one(publicApi.get(`/public/products/${slug}`)),
   suggest: (q) => one(publicApi.get('/public/products/suggest', { params: { q } })),
   banners: () => one(publicApi.get('/public/banners')),
+  stats: () => one(publicApi.get('/public/stats')),
+  reviews: (productId, params) => publicApi.get(`/public/products/${productId}/reviews`, { params }).then((r) => ({ ...r.data.data, meta: r.data.meta })),
   store: (slug) => one(publicApi.get(`/public/stores/${slug}`)),
 }
 
@@ -55,6 +60,9 @@ export const userApi = {
   retryPayment: (id) => one(u.post(`/orders/${id}/payment/retry`)),
   paymentFailed: (id, reason) => one(u.post(`/orders/${id}/payment/failed`, { reason })),
   tracking: (id) => one(u.get(`/orders/${id}/tracking`)),
+  myReview: (productId) => one(u.get(`/products/${productId}/review`)),
+  saveReview: (productId, body) => one(u.put(`/products/${productId}/review`, body)),
+  deleteReview: (productId) => u.delete(`/products/${productId}/review`),
   cancelItem: (id, itemId, reason) => one(u.post(`/orders/${id}/items/${itemId}/cancel`, { reason })),
 
   quotes: (params) => list(u.get('/quotes', { params })),
