@@ -49,7 +49,7 @@ npm 12 blocks dependency install scripts by default. `argon2` and `sharp` ship p
 - **Back up `DATA_ENCRYPTION_KEY`.** Vendor bank account numbers can't be decrypted without it.
 - `SMS_PROVIDER=smsindiahub` with your API key, sender ID, route, DLT `ENTITY_ID`, `OTP_TEMPLATE_ID`, and `SMSINDIAHUB_OTP_TEMPLATE`. The template text must match the DLT-approved template exactly. The server refuses to start in production with the `console` provider.
 - `LOCAL_UPLOAD_DIR` defaults to `/var/www/toolbox/uploads` in production.
-- Optional: `CLOUDINARY_*` (needed before the admin can switch storage to Cloudinary) and `RAZORPAY_*` (needed before online payments can be enabled).
+- Optional: `CLOUDINARY_*` (needed before the admin can switch storage to Cloudinary), `RAZORPAY_*` (needed before online payments can be enabled) and `SHIPMOZO_PUBLIC_KEY` / `SHIPMOZO_PRIVATE_KEY` (needed before Shipmozo shipping can be enabled).
 
 ## 4. Frontend
 
@@ -82,6 +82,7 @@ The config:
 ## 6. Third-party setup
 
 - **Razorpay:** create a webhook to `https://example.com/api/v1/webhooks/razorpay` with the events `payment.captured`, `payment.failed` and `order.paid`. Put its secret in `RAZORPAY_WEBHOOK_SECRET`. Enable auto-capture in the dashboard. Then turn on **Admin → Settings → Payments**.
+- **Shipmozo:** copy the public/private keys from the Shipmozo panel profile into `SHIPMOZO_PUBLIC_KEY` / `SHIPMOZO_PRIVATE_KEY` (server only; `SHIPMOZO_BASE_URL` must not end with `/`). If you want automatic courier assignment, configure **Settings → Auto assign** in the Shipmozo panel first. Then enable **Admin → Settings → Shipping → Shipmozo** and use *Test connection*. Shipmozo's guide documents no webhooks, so tracking is polled every 10 minutes by the API's job runner.
 - **SMSIndiaHub:** register the OTP template on DLT and copy the template ID and PE ID into `.env`.
 - **Cloudinary:** add the credentials, then flip **Admin → Settings → Storage**. Existing local images keep working, because every file remembers where it was stored.
 

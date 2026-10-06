@@ -14,6 +14,7 @@ import '#modules/orders/order.model.js';
 import '#modules/products/product.model.js';
 import '#modules/quotes/quote.model.js';
 import '#modules/settings/setting.model.js';
+import '#modules/shipping/shipment.model.js';
 import '#modules/users/user.model.js';
 import '#modules/vendors/vendor.model.js';
 
