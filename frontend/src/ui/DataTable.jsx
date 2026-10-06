@@ -16,9 +16,9 @@ export function DataTable({ columns, rows, loading, empty, onRowClick, rowKey = 
     <div className="overflow-x-auto">
       <table className="w-full min-w-[640px] text-left text-sm">
         <thead>
-          <tr className="border-b border-slate-200 bg-slate-50/80">
+          <tr className="border-b border-slate-300">
             {columns.map((c) => (
-              <th key={c.key} scope="col" className={cn('px-4 py-2.5 text-xs font-semibold tracking-wide text-slate-500 uppercase', c.className)}>
+              <th key={c.key} scope="col" className={cn('px-4 py-3 text-[0.7rem] font-semibold tracking-[0.07em] text-slate-600 uppercase', c.className)}>
                 {c.header}
               </th>
             ))}
@@ -39,10 +39,10 @@ export function DataTable({ columns, rows, loading, empty, onRowClick, rowKey = 
                 <tr
                   key={rowKey(row)}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
-                  className={cn('align-middle transition-colors', onRowClick && 'cursor-pointer hover:bg-slate-50')}
+                  className={cn('align-middle transition-colors', onRowClick && 'cursor-pointer hover:bg-slate-50/70')}
                 >
                   {columns.map((c) => (
-                    <td key={c.key} className={cn('px-4 py-3', c.className)}>
+                    <td key={c.key} className={cn('px-4 py-3.5', c.className)}>
                       {c.cell(row)}
                     </td>
                   ))}

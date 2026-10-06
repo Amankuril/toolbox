@@ -16,12 +16,30 @@ export function Badge({ tone = 'neutral', className, children, dot = false }) {
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap ring-1 ring-inset',
+        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap ring-1 ring-inset',
         tones[tone],
         className,
       )}
     >
       {dot && <span className="size-1.5 rounded-full bg-current" aria-hidden />}
+      {children}
+    </span>
+  )
+}
+
+/**
+ * Price fact, printed like a shelf sticker: "SAVE 22%", "BULK ₹7,299 at 10+".
+ * `tone="accent"` is hi-vis yellow on ink text; `ink` is the reverse.
+ */
+export function Sticker({ tone = 'accent', className, children }) {
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center rounded-sm px-2 py-0.5 font-display text-xs font-extrabold tracking-wide whitespace-nowrap uppercase',
+        tone === 'accent' ? 'bg-accent text-accent-fg' : 'bg-slate-900 text-accent',
+        className,
+      )}
+    >
       {children}
     </span>
   )

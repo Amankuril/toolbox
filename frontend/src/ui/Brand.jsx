@@ -28,17 +28,17 @@ export function Logo({ to = '/', className, inverted = false, suffix }) {
         </span>
       ) : (
         <>
-          <span className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-lg bg-white p-0.5 shadow-xs ring-1 ring-black/10">
+          <span className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-md bg-white p-0.5 ring-1 ring-black/10">
             <img src="/toolboxlogo.jpeg" alt={siteName} className="size-full object-contain" />
           </span>
-          <span className={cn('text-lg font-extrabold tracking-tight', inverted ? 'text-white' : 'text-slate-900')}>{siteName}</span>
+          <span className={cn('font-display text-[1.375rem] font-extrabold tracking-tight', inverted ? 'text-white' : 'text-slate-900')}>{siteName}</span>
         </>
       )}
       {suffix && (
         <span
           className={cn(
-            'rounded px-1.5 py-0.5 text-[11px] font-semibold tracking-wide uppercase',
-            inverted ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-600',
+            'code rounded-sm px-1.5 py-0.5 text-[10.5px] font-medium tracking-wider uppercase',
+            inverted ? 'bg-accent text-accent-fg' : 'border border-slate-300 text-slate-600',
           )}
         >
           {suffix}
@@ -54,11 +54,11 @@ export function Price({ price, mrp, size = 'md', className, showTaxNote = false 
   const sizes = { sm: 'text-sm', md: 'text-base', lg: 'text-2xl', xl: 'text-3xl' }
   return (
     <div className={cn('flex flex-wrap items-baseline gap-x-2 gap-y-0.5', className)}>
-      <span className={cn('tabular font-bold text-slate-900', sizes[size])}>{formatINR(price)}</span>
+      <span className={cn('price text-slate-900', sizes[size])}>{formatINR(price)}</span>
       {discount > 0 && (
         <>
-          <span className={cn('tabular text-slate-400 line-through', size === 'sm' ? 'text-xs' : 'text-sm')}>{formatINR(mrp)}</span>
-          <span className={cn('font-semibold text-accent-ink', size === 'sm' ? 'text-xs' : 'text-sm')}>{discount}% off</span>
+          <span className={cn('tabular text-slate-500 line-through', size === 'sm' ? 'text-xs' : 'text-sm')}>{formatINR(mrp)}</span>
+          <span className="rounded-sm bg-accent px-1.5 py-px font-display text-[0.7rem] font-extrabold text-accent-fg uppercase">Save {discount}%</span>
         </>
       )}
       {showTaxNote && <span className="basis-full text-xs text-slate-500">Inclusive of all taxes</span>}
@@ -71,7 +71,7 @@ export function Thumb({ src, alt = '', className, fit = 'contain' }) {
   return src ? (
     <img src={src} alt={alt} loading="lazy" decoding="async" className={cn('bg-white', fit === 'cover' ? 'object-cover' : 'object-contain', className)} />
   ) : (
-    <div className={cn('grid place-items-center bg-slate-100 text-slate-300', className)} aria-hidden>
+    <div className={cn('grid place-items-center bg-slate-200/60 text-slate-400', className)} aria-hidden>
       <svg viewBox="0 0 24 24" className="size-1/3 max-h-10 max-w-10" fill="none" stroke="currentColor" strokeWidth="1.5">
         <rect x="3" y="4" width="18" height="16" rx="2" />
         <circle cx="9" cy="10" r="2" />

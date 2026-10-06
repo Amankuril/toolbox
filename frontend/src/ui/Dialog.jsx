@@ -4,9 +4,9 @@ import { useState } from 'react'
 import { cn } from '@/core/lib/cn'
 import { Button } from './Button'
 
-const overlay = 'fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-[2px]'
+const overlay = 'fixed inset-0 z-50 bg-slate-950/50'
 const panel =
-  'fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border border-slate-200 bg-white shadow-2xl focus:outline-none'
+  'fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-lg border border-slate-300 bg-white shadow-2xl focus:outline-none'
 
 const widths = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' }
 
@@ -22,7 +22,7 @@ export function Dialog({ open, onOpenChange, trigger, title, description, childr
         <RDialog.Content className={cn(panel, widths[size], className)}>
           <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
             <div>
-              <RDialog.Title className="text-base font-semibold text-slate-900">{title}</RDialog.Title>
+              <RDialog.Title className="font-display text-lg font-bold text-slate-900">{title}</RDialog.Title>
               {description ? (
                 <RDialog.Description className="mt-0.5 text-sm text-slate-500">{description}</RDialog.Description>
               ) : (
