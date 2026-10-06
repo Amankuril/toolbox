@@ -24,7 +24,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "sms:test": "node --env-file-if-exists=.env scripts/test-sms.js"
   },
   "dependencies": {
     "argon2": "^0.45.1",

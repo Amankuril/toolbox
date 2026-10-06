@@ -11,8 +11,7 @@ function buildProvider() {
         apiKey: env.SMSINDIAHUB_API_KEY,
         senderId: env.SMSINDIAHUB_SENDER_ID,
         channel: env.SMSINDIAHUB_CHANNEL,
-        route: env.SMSINDIAHUB_ROUTE,
-        entityId: env.SMSINDIAHUB_ENTITY_ID,
+        username: env.SMSINDIAHUB_USERNAME,
       });
     case 'console':
     default:

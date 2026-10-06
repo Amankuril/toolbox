@@ -116,12 +116,13 @@ const schema = z
     DUMMY_NUMBERS: csv,
 
     SMS_PROVIDER: z.enum(['console', 'smsindiahub']).default('console'),
-    SMSINDIAHUB_BASE_URL: z.url().default('https://cloud.smsindiahub.in/api/mt/SendSMS'),
+    SMSINDIAHUB_BASE_URL: z.url().default('https://cloud.smsindiahub.in/vendorsms/pushsms.aspx'),
     SMSINDIAHUB_API_KEY: z.string().optional(),
     SMSINDIAHUB_SENDER_ID: z.string().optional(),
+    // Gateway id ("gwid"); 2 = transactional.
     SMSINDIAHUB_CHANNEL: z.string().default('2'),
-    SMSINDIAHUB_ROUTE: z.string().optional(),
-    SMSINDIAHUB_ENTITY_ID: z.string().optional(),
+    // Panel login name; only needed if SMSIndiaHub asks for "uname" on your account.
+    SMSINDIAHUB_USERNAME: z.string().optional(),
     SMSINDIAHUB_OTP_TEMPLATE_ID: z.string().optional(),
     // Must match the DLT-approved template character for character. Placeholders: {otp} {minutes} {app}
     SMSINDIAHUB_OTP_TEMPLATE: z
@@ -155,6 +156,13 @@ const schema = z
     SHIPMOZO_TIMEOUT_MS: z.coerce.number().int().positive().default(15_000),
   })
   .superRefine((env, ctx) => {
+    if (env.SMS_PROVIDER === 'smsindiahub' && (!env.SMSINDIAHUB_API_KEY || !env.SMSINDIAHUB_SENDER_ID)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['SMSINDIAHUB_API_KEY'],
+        message: 'SMSINDIAHUB_API_KEY and SMSINDIAHUB_SENDER_ID are required when SMS_PROVIDER=smsindiahub',
+      });
+    }
     if (env.NODE_ENV !== 'production') return;
     if (env.SMS_PROVIDER === 'console') {
       ctx.addIssue({ code: 'custom', path: ['SMS_PROVIDER'], message: 'console SMS provider is not allowed in production' });
@@ -232,8 +240,9 @@ export function isDummyNumber(phone) {
   const digits = normalizePhoneDigits(phone);
   if (!digits) return false;
   const rawFromEnv = process.env.DUMMY_NUMBERS
-    ? process.env.DUMMY_NUMBERS.split(',').map((s) => s.trim()).filter(Boolean)
-    : (env.DUMMY_NUMBERS || []);
+    ? process.env.DUMMY_NUMBERS.split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : env.DUMMY_NUMBERS || [];
   return rawFromEnv.some((n) => normalizePhoneDigits(n) === digits);
 }
-
