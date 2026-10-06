@@ -9,6 +9,7 @@ export const ADMIN_SECTIONS = [
   { key: 'dashboard', label: 'Dashboard', help: 'Sales and order figures' },
   { key: 'orders', label: 'Orders & shipping', help: 'Orders, fulfilment, shipments, labels and returns' },
   { key: 'products', label: 'Products', help: 'Listings, moderation and bulk upload' },
+  { key: 'store', label: 'Our store', help: "The platform's own store: its products, orders, shipping and store settings" },
   { key: 'vendors', label: 'Vendors', help: 'Seller applications, approvals and bank details' },
   { key: 'customers', label: 'Customers', help: 'Customer accounts and blocking' },
   { key: 'categories', label: 'Categories', help: 'Category tree and proposals' },

@@ -32,7 +32,7 @@ export const dashboardService = {
 
     const [users, vendors, products, pendingCategories, orders, revenue, recent, daily] = await Promise.all([
       User.countDocuments(),
-      Vendor.aggregate(groupStatus),
+      Vendor.aggregate([{ $match: { isPlatform: { $ne: true } } }, ...groupStatus]),
       Product.aggregate(groupStatus),
       Category.countDocuments({ status: 'pending' }),
       Order.aggregate(groupStatus),

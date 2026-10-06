@@ -52,5 +52,6 @@ export function serializePublicVendor(vendor) {
     city: vendor.address?.city ?? null,
     state: vendor.address?.state ?? null,
     memberSince: vendor.createdAt,
+    official: Boolean(vendor.isPlatform),
   };
 }

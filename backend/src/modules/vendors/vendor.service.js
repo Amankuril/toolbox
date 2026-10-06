@@ -130,7 +130,8 @@ export const vendorService = {
   /* ─────────────── Admin ─────────────── */
 
   async adminList({ page, limit, status, q }) {
-    const filter = {};
+    // The platform's own store is managed under Admin → Our store, not as a seller.
+    const filter = { isPlatform: { $ne: true } };
     if (status) filter.status = status;
     if (q) {
       const rx = new RegExp(escapeRegex(q), 'i');
@@ -156,13 +157,13 @@ export const vendorService = {
 
   async adminGet(id) {
     const vendor = await Vendor.findById(id).lean();
-    if (!vendor) throw ApiError.notFound('Vendor not found');
+    if (!vendor || vendor.isPlatform) throw ApiError.notFound('Vendor not found');
     return { ...serializeVendor(vendor), productStats: await productStats(vendor._id) };
   },
 
   async adminReview(id, { action, note }, admin) {
     const vendor = await Vendor.findById(id);
-    if (!vendor) throw ApiError.notFound('Vendor not found');
+    if (!vendor || vendor.isPlatform) throw ApiError.notFound('Vendor not found');
     if (vendor.status !== 'pending_review')
       throw ApiError.conflict('Only submitted applications can be reviewed', { code: 'INVALID_STATUS' });
 
@@ -175,7 +176,7 @@ export const vendorService = {
 
   async adminSuspend(id, { note }, admin) {
     const vendor = await Vendor.findById(id);
-    if (!vendor) throw ApiError.notFound('Vendor not found');
+    if (!vendor || vendor.isPlatform) throw ApiError.notFound('Vendor not found');
     if (vendor.status === 'suspended') throw ApiError.conflict('Vendor is already suspended');
 
     vendor.status = 'suspended';
@@ -187,7 +188,7 @@ export const vendorService = {
 
   async adminReinstate(id, admin) {
     const vendor = await Vendor.findById(id);
-    if (!vendor) throw ApiError.notFound('Vendor not found');
+    if (!vendor || vendor.isPlatform) throw ApiError.notFound('Vendor not found');
     if (vendor.status !== 'suspended') throw ApiError.conflict('Only suspended vendors can be reinstated');
 
     // Vendors suspended before ever submitting go back to onboarding rather than straight to approved.

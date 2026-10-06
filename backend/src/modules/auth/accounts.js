@@ -23,6 +23,9 @@ export const accounts = {
     model: Vendor,
     serialize: serializeVendor,
     assertCanSignIn(vendor) {
+      if (vendor.isPlatform) {
+        throw ApiError.forbidden('This store is managed from the admin panel.', { code: 'PLATFORM_STORE' });
+      }
       if (vendor.status === 'suspended') {
         throw ApiError.forbidden('Your seller account is suspended. Please contact support.', { code: 'ACCOUNT_SUSPENDED' });
       }

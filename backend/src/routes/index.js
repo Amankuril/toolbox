@@ -12,6 +12,8 @@ import authRoutes from '#modules/auth/auth.routes.js';
 import { adminBannerRoutes, publicBannerRoutes } from '#modules/banners/banner.routes.js';
 import { cartRoutes } from '#modules/cart/cart.routes.js';
 import { wishlistRoutes } from '#modules/wishlist/wishlist.routes.js';
+import { actAsStore } from '#modules/store/store.service.js';
+import { storeSettingsRoutes } from '#modules/store/store.routes.js';
 import { adminCategoryRoutes, publicCategoryRoutes, vendorCategoryRoutes } from '#modules/categories/category.routes.js';
 import { dashboardService } from '#modules/dashboard/dashboard.service.js';
 import { adminMediaRouter, mediaUploadRouter } from '#modules/media/media.routes.js';
@@ -87,6 +89,18 @@ export function buildRoutes() {
     .use('/media', mediaUploadRouter());
   api.use('/vendor', vendorApi);
 
+  // The platform's own store: the seller routes, run as the house store by admins with "store" access.
+  const storeApi = Router()
+    .use(storeSettingsRoutes)
+    .get('/dashboard', async (req, res) => ok(res, await dashboardService.vendor(req.auth.id)))
+    .use('/categories', vendorCategoryRoutes)
+    .use('/products', vendorProductRoutes)
+    .use('/product-imports', vendorProductImportRoutes)
+    .use('/orders', vendorOrderRoutes)
+    .use('/quotes', vendorQuoteRoutes)
+    .use(vendorShippingRoutes)
+    .use('/media', mediaUploadRouter());
+
   // Every admin section is guarded: reads need view access, changes need manage (see admins/permissions.js).
   const adminApi = Router()
     .use(authenticate('admin'))
@@ -107,6 +121,7 @@ export function buildRoutes() {
     // browsing and deleting the library is its own permission.
     .use('/media', requireSection('media', { writeMethods: ['DELETE'] }), adminMediaRouter())
     .use('/settings', requireSection('settings'), adminSettingsRoutes)
+    .use('/store', requireSection('store'), actAsStore, storeApi)
     .use(adminShippingRoutes);
   api.use('/admin', adminApi);
 

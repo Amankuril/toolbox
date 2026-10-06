@@ -182,9 +182,9 @@ export const cartService = {
     const view = await this.view(userId);
     // Store names let the cart group lines the way orders are split: one parcel per seller.
     const vendorIds = [...new Set(view.items.map((i) => i.vendor && String(i.vendor)).filter(Boolean))];
-    const vendors = vendorIds.length ? await Vendor.find({ _id: { $in: vendorIds } }, 'store.name store.slug address.city').lean() : [];
+    const vendors = vendorIds.length ? await Vendor.find({ _id: { $in: vendorIds } }, 'store.name store.slug address.city isPlatform').lean() : [];
     const sellers = Object.fromEntries(
-      vendors.map((v) => [String(v._id), { name: v.store?.name ?? 'Seller', slug: v.store?.slug ?? null, city: v.address?.city ?? null }]),
+      vendors.map((v) => [String(v._id), { name: v.store?.name ?? 'Seller', slug: v.store?.slug ?? null, city: v.address?.city ?? null, official: Boolean(v.isPlatform) }]),
     );
     return { ...view, sellers, items: view.items.map(({ _product, _quote, _sellable, ...rest }) => rest) };
   },

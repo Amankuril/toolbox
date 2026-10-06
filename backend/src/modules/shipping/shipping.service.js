@@ -96,6 +96,9 @@ async function ensureWarehouse(provider, vendorId) {
   if (!vendor) throw ApiError.notFound('Vendor not found');
   if (vendor.shipping?.warehouseId) return vendor.shipping.warehouseId;
   if (!vendor.address?.pincode) throw ApiError.unprocessable('This seller has no pickup address yet', { code: 'VENDOR_NO_ADDRESS' });
+  if (!/^\+91\d{10}$/.test(vendor.phone)) {
+    throw ApiError.unprocessable('Add a pickup phone number for this store before booking shipments', { code: 'VENDOR_NO_PHONE' });
+  }
 
   // address_title must be unique; Shipmozo hands back the existing id for a reused title, so retries are safe.
   const { warehouseId } = await provider.createWarehouse({

@@ -26,6 +26,8 @@ const documentSchema = new Schema(
 const vendorSchema = new Schema(
   {
     phone: { type: String, required: true, unique: true, trim: true },
+    // The marketplace's own store, run by admins from the admin panel (see modules/store). Never signs in.
+    isPlatform: { type: Boolean },
     contactName: { type: String, required: true, trim: true, maxlength: 120 },
     email: { type: String, required: true, trim: true, lowercase: true },
     // Set when the email was proven by a sign-in code; cleared if the email changes.
@@ -85,6 +87,7 @@ const vendorSchema = new Schema(
 
 vendorSchema.index({ 'store.slug': 1 }, { unique: true, partialFilterExpression: { 'store.slug': { $type: 'string' } } });
 vendorSchema.index({ status: 1, createdAt: -1 });
+vendorSchema.index({ isPlatform: 1 }, { unique: true, partialFilterExpression: { isPlatform: true } });
 // Not unique: older sellers may share an email. Email sign-in refuses ambiguous matches,
 // and new registrations/profile edits can't reuse another seller's email.
 vendorSchema.index({ email: 1 });

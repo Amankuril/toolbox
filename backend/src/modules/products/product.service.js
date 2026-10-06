@@ -148,6 +148,12 @@ function commonFilter({ q, type, category, status }) {
   return filter;
 }
 
+/** The platform's own store publishes straight away; other sellers follow the moderation setting. */
+async function autoApproves(vendor) {
+  if (vendor.isPlatform) return true;
+  return (await settingsService.get('moderation')).autoApproveProducts;
+}
+
 export const productService = {
   /* ─────────────────────────── Vendor ─────────────────────────── */
 
@@ -163,7 +169,7 @@ export const productService = {
     });
 
     if (input.publish) {
-      const { autoApproveProducts } = await settingsService.get('moderation');
+      const autoApproveProducts = await autoApproves(vendor);
       if (autoApproveProducts) markActive(product);
       else product.status = 'pending';
     }
@@ -183,7 +189,7 @@ export const productService = {
     const reviewedChange = REVIEWED_FIELDS.some((f) => f in changes && toComparable(before[f]) !== toComparable(changes[f]));
     product.set(changes);
 
-    const { autoApproveProducts } = await settingsService.get('moderation');
+    const autoApproveProducts = await autoApproves(vendor);
     if (input.publish && ['draft', 'rejected'].includes(product.status)) {
       if (autoApproveProducts) markActive(product);
       else product.status = 'pending';
@@ -443,7 +449,7 @@ export const productService = {
 
   async publicBySlug(slug) {
     const product = await Product.findOne({ slug, ...VISIBLE })
-      .populate('vendor', 'store address.city address.state createdAt')
+      .populate('vendor', 'store address.city address.state createdAt isPlatform')
       .populate({ path: 'compatibleWith', match: VISIBLE, select: CARD_FIELDS })
       .lean();
     if (!product) throw ApiError.notFound('Product not found');

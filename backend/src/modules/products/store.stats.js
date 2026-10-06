@@ -19,7 +19,7 @@ export async function storeStats() {
   if (cache && Date.now() - cache.at < TTL_MS) return cache.value;
   const [products, sellers, customers] = await Promise.all([
     Product.countDocuments(VISIBLE),
-    Vendor.countDocuments({ status: 'approved' }),
+    Vendor.countDocuments({ status: 'approved', isPlatform: { $ne: true } }),
     User.countDocuments({ status: 'active' }),
   ]);
   const raw = { products, sellers, customers };
