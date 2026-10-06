@@ -355,8 +355,8 @@ describe('settings & theme', () => {
       .send({ vendor: { primary: '#0EA5E9' } })
       .expect(200);
     const pub = (await request(app).get(`${API}/public/settings`).expect(200)).body.data;
-    expect(pub.theme.vendor).toMatchObject({ primary: '#0ea5e9', secondary: '#0d2319' });
-    expect(pub.theme.user.primary).toBe('#15803d');
+    expect(pub.theme.vendor).toMatchObject({ primary: '#0ea5e9', secondary: '#10241a' });
+    expect(pub.theme.user.primary).toBe('#1e5b38');
     expect(pub).not.toHaveProperty('moderation');
 
     await request(app)
