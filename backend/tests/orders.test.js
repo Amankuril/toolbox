@@ -61,6 +61,7 @@ beforeAll(async () => {
         category: cat._id,
         pricing: { mrp: 800_000, price: 649_900, gstRate: 18 },
         inventory: { stock: 5, moq: 1, maxOrderQty: 3 },
+        hsnCode: '8424',
         publish: true,
       })
       .expect(201)

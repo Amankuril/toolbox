@@ -88,7 +88,7 @@ export const dashboardService = {
 
     const [products, lowStock, itemStatuses, revenue, daily, recent, quotes] = await Promise.all([
       Product.aggregate([{ $match: { vendor: id } }, ...groupStatus]),
-      Product.find({ vendor: id, status: 'active', 'inventory.stock': { $lte: 5 } })
+      Product.find({ vendor: id, status: 'active', 'inventory.trackQuantity': { $ne: false }, 'inventory.stock': { $lte: 5 } })
         .sort({ 'inventory.stock': 1 })
         .limit(6)
         .select('name slug images inventory.stock')

@@ -24,7 +24,7 @@ const ymd = (date) => new Date(date).toISOString().slice(0, 10);
 
 function productDetail(items) {
   return items.map((i) => ({
-    name: i.name.slice(0, 200),
+    name: (i.variant?.title ? `${i.name} (${i.variant.title})` : i.name).slice(0, 200),
     sku_number: i.sku ?? '',
     quantity: i.quantity,
     discount: '',

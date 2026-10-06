@@ -5,6 +5,8 @@ export const MAX_CART_ITEMS = 50;
 const cartItemSchema = new Schema(
   {
     product: { type: Schema.Types.ObjectId, ref: 'Product', required: true },
+    // Set for products with variants; one line per (product, variant).
+    variant: { type: Schema.Types.ObjectId },
     quantity: { type: Number, required: true, min: 1 },
     // Set when the line comes from an accepted quote: quantity and unit price are locked to it.
     quote: { type: Schema.Types.ObjectId, ref: 'Quote' },

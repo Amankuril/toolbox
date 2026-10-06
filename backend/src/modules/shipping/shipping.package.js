@@ -11,16 +11,20 @@ const MAX_SIDE_CM = 500;
  * @param {{ weightGrams: number, lengthCm: number, widthCm: number, heightCm: number }} fallback
  */
 export async function computePackage(lines, fallback) {
-  const products = await Product.find({ _id: { $in: lines.map((l) => l.product) } }, 'shipping').lean();
-  const byId = new Map(products.map((p) => [String(p._id), p.shipping ?? {}]));
+  const products = await Product.find({ _id: { $in: lines.map((l) => l.product) } }, 'shipping variants._id variants.weightKg').lean();
+  const byId = new Map(products.map((p) => [String(p._id), p]));
 
   let weightGrams = 0;
   let lengthCm = 0;
   let widthCm = 0;
   let heightCm = 0;
   for (const line of lines) {
-    const s = byId.get(String(line.product)) ?? {};
-    const unitGrams = s.weightKg > 0 ? s.weightKg * 1000 : fallback.weightGrams;
+    const product = byId.get(String(line.product));
+    const s = product?.shipping ?? {};
+    // A variant's own weight wins over the product's.
+    const variantWeight = product?.variants?.find((v) => String(v._id) === String(line.variant?.id))?.weightKg;
+    const weightKg = variantWeight > 0 ? variantWeight : s.weightKg;
+    const unitGrams = weightKg > 0 ? weightKg * 1000 : fallback.weightGrams;
     weightGrams += unitGrams * line.quantity;
     lengthCm = Math.max(lengthCm, s.lengthCm > 0 ? s.lengthCm : fallback.lengthCm);
     widthCm = Math.max(widthCm, s.widthCm > 0 ? s.widthCm : fallback.widthCm);

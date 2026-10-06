@@ -56,7 +56,8 @@ beforeAll(async () => {
   vendor = await approvedVendor(app, admin.accessToken, { phone: '9300000001' });
   await setModeration({ autoApproveProducts: true });
 
-  const cat = (await request(app).post(`${API}/admin/categories`).set(bearer(admin.accessToken)).send({ name: 'Power Tools' }).expect(201)).body.data;
+  const cat = (await request(app).post(`${API}/admin/categories`).set(bearer(admin.accessToken)).send({ name: 'Power Tools' }).expect(201))
+    .body.data;
   product = (
     await request(app)
       .post(`${API}/vendor/products`)
@@ -67,6 +68,7 @@ beforeAll(async () => {
         category: cat._id,
         pricing: { mrp: 600_000, price: 499_900, gstRate: 18 },
         inventory: { stock: 10, moq: 1, maxOrderQty: 5 },
+        hsnCode: '8424',
         publish: true,
       })
       .expect(201)
@@ -175,10 +177,7 @@ describe('Checkout Idempotency & Payment Attempts', () => {
     expect(failedPayment.failureReason).toBe('Card declined by issuing bank');
 
     // User retries payment
-    const retryRes = await request(app)
-      .post(`${API}/user/orders/${order._id}/payment/retry`)
-      .set(user())
-      .expect(200);
+    const retryRes = await request(app).post(`${API}/user/orders/${order._id}/payment/retry`).set(user()).expect(200);
 
     expect(retryRes.body.data.payment.providerOrderId).toBeDefined();
 

@@ -1,5 +1,6 @@
 import { ApiError } from '#core/errors/ApiError.js';
 import { gstFromInclusive } from '#core/utils/money.js';
+import { resolveSellable } from '#modules/products/inventory.js';
 import { priceForQuantity } from '#modules/products/pricing.js';
 import { Product } from '#modules/products/product.model.js';
 import { VISIBLE } from '#modules/products/product.service.js';
@@ -10,7 +11,18 @@ import { settingsService } from '#services/settings/settings.service.js';
 import { Cart, MAX_CART_ITEMS } from './cart.model.js';
 
 const PRICING_FIELDS =
-  'name slug type brand modelNumber condition images pricing inventory hsnCode sku vendor isFeatured status vendorApproved bulkPricing specifications shipping';
+  'name slug type brand modelNumber condition images pricing inventory hsnCode sku vendor isFeatured status vendorApproved bulkPricing specifications shipping variantOptions variants';
+
+/** Matches a cart line; `variant: null` also matches lines saved before variants existed. */
+const lineMatch = (productId, variantId) => ({ product: productId, variant: variantId ?? null });
+
+function sellableOrNull(product, variantId) {
+  try {
+    return product ? resolveSellable(product, variantId) : null;
+  } catch {
+    return null;
+  }
+}
 
 export function shippingFee(subtotal, { flatFee, freeAbove }) {
   if (!flatFee || subtotal === 0) return 0;
@@ -18,15 +30,16 @@ export function shippingFee(subtotal, { flatFee, freeAbove }) {
   return flatFee;
 }
 
-/** Upper bound a customer can order right now for a product. */
-const maxOrderable = (p) => Math.min(p.inventory.stock, p.inventory.maxOrderQty ?? Number.MAX_SAFE_INTEGER);
+const MAX_QTY = 100_000;
+/** Upper bound a customer can order right now (stock, or unlimited when untracked, capped by max per order). */
+const maxOrderable = (p, sellable) => Math.min(sellable.available, p.inventory.maxOrderQty ?? MAX_QTY, MAX_QTY);
 
 /** Quoted lines were negotiated for their quantity, so only stock limits them (not MOQ / max per order). */
-function lineIssue(product, quantity, { quoted = false } = {}) {
-  if (!product || product.status !== VISIBLE.status || !product.vendorApproved) return 'unavailable';
-  if (product.inventory.stock <= 0) return 'out_of_stock';
+function lineIssue(product, sellable, quantity, { quoted = false } = {}) {
+  if (!product || !sellable || product.status !== VISIBLE.status || !product.vendorApproved) return 'unavailable';
+  if (sellable.available <= 0) return 'out_of_stock';
   if (!quoted && quantity < product.inventory.moq) return 'below_moq';
-  if (quantity > (quoted ? product.inventory.stock : maxOrderable(product))) return 'exceeds_stock';
+  if (quantity > (quoted ? sellable.available : maxOrderable(product, sellable))) return 'exceeds_stock';
   return null;
 }
 
@@ -41,12 +54,13 @@ function quoteUsable(quote, { userId, productId, quantity }) {
   );
 }
 
-async function assertOrderable(productId, quantity) {
+async function assertOrderable(productId, quantity, variantId) {
   const product = await Product.findOne({ _id: productId, ...VISIBLE })
     .select(PRICING_FIELDS)
     .lean();
   if (!product) throw ApiError.notFound('This product is no longer available', { code: 'PRODUCT_UNAVAILABLE' });
-  const issue = lineIssue(product, quantity);
+  const sellable = resolveSellable(product, variantId);
+  const issue = lineIssue(product, sellable, quantity);
   if (issue === 'out_of_stock') throw ApiError.conflict(`${product.name} is out of stock`, { code: 'OUT_OF_STOCK' });
   if (issue === 'below_moq') {
     throw ApiError.unprocessable(`Minimum order quantity is ${product.inventory.moq}`, {
@@ -55,7 +69,7 @@ async function assertOrderable(productId, quantity) {
     });
   }
   if (issue === 'exceeds_stock') {
-    const max = maxOrderable(product);
+    const max = maxOrderable(product, sellable);
     throw ApiError.unprocessable(`You can order at most ${max} of this item`, { code: 'EXCEEDS_STOCK', details: { max } });
   }
   return product;
@@ -83,16 +97,20 @@ export const cartService = {
     const productsById = new Map(products.map((p) => [String(p._id), p]));
     const quotesById = new Map(quotes.map((q) => [String(q._id), q]));
 
-    const items = entries.map(({ product: productId, quantity, quote: quoteId }) => {
+    const items = entries.map(({ product: productId, variant: variantId, quantity, quote: quoteId }) => {
       const product = productsById.get(String(productId));
+      const sellable = sellableOrNull(product, variantId);
       const quote = quoteId ? quotesById.get(String(quoteId)) : null;
-      const basePrice = product?.pricing.price ?? 0;
+      const basePrice = sellable?.price ?? product?.pricing.price ?? 0;
 
       let issue;
       let pricing;
       if (quoteId) {
         if (quote?.status === 'ordered') issue = 'quote_in_order';
-        else issue = quoteUsable(quote, { userId, productId, quantity }) ? lineIssue(product, quantity, { quoted: true }) : 'quote_expired';
+        else
+          issue = quoteUsable(quote, { userId, productId, quantity })
+            ? lineIssue(product, sellable, quantity, { quoted: true })
+            : 'quote_expired';
         pricing = {
           source: 'quote',
           unitPrice: quote?.offer?.unitPrice ?? basePrice,
@@ -101,28 +119,37 @@ export const cartService = {
           quote: quote ? { _id: quote._id, number: quote.number, validUntil: quote.offer?.validUntil ?? null } : null,
         };
       } else {
-        issue = lineIssue(product, quantity);
-        const p = product ? priceForQuantity(product, quantity, buyer) : { unitPrice: 0, tier: null, next: null };
+        issue = lineIssue(product, sellable, quantity);
+        // Variants have their own price and no bulk tiers.
+        const p = sellable?.variant
+          ? { unitPrice: sellable.price, tier: null, next: null }
+          : product
+            ? priceForQuantity(product, quantity, buyer)
+            : { unitPrice: 0, tier: null, next: null };
         pricing = { source: p.tier ? 'bulk' : 'base', unitPrice: p.unitPrice, tier: p.tier, next: p.next, quote: null };
       }
 
       const { unitPrice } = pricing;
       return {
         productId,
+        variantId: variantId ?? null,
+        variant: sellable?.variant ? { _id: sellable.variant._id, title: sellable.title, image: sellable.variant.image ?? null } : null,
+        sku: sellable?.sku ?? null,
         product: product ? serializeProductCard(product) : null,
         vendor: product?.vendor ?? null,
         quantity,
         quantityLocked: Boolean(quoteId),
         unitPrice,
         baseUnitPrice: basePrice,
-        unitMrp: product?.pricing.mrp ?? 0,
+        unitMrp: sellable?.mrp ?? product?.pricing.mrp ?? 0,
         gstRate: product?.pricing.gstRate ?? 0,
         lineTotal: unitPrice * quantity,
         bulkSavings: Math.max(0, (basePrice - unitPrice) * quantity),
         pricing: { source: pricing.source, tier: pricing.tier, next: pricing.next, quote: pricing.quote },
-        maxQuantity: product ? (quoteId ? product.inventory.stock : maxOrderable(product)) : 0,
+        maxQuantity: product && sellable ? Math.min(MAX_QTY, quoteId ? sellable.available : maxOrderable(product, sellable)) : 0,
         issue,
         _product: product,
+        _sellable: sellable,
         _quote: quote,
       };
     });
@@ -152,26 +179,30 @@ export const cartService = {
   /** Public representation (drops the internal documents). */
   async get(userId) {
     const view = await this.view(userId);
-    return { ...view, items: view.items.map(({ _product, _quote, ...rest }) => rest) };
+    return { ...view, items: view.items.map(({ _product, _quote, _sellable, ...rest }) => rest) };
   },
 
-  async setItem(userId, productId, quantity) {
+  async setItem(userId, productId, quantity, variantId) {
     const quoted = await Cart.exists({ user: userId, items: { $elemMatch: { product: productId, quote: { $exists: true } } } });
     if (quoted) {
       throw ApiError.conflict('This item is in your cart at a quoted price. Remove it first to buy at the listed price.', {
         code: 'QUOTED_ITEM_IN_CART',
       });
     }
-    await assertOrderable(productId, quantity);
+    await assertOrderable(productId, quantity, variantId);
+    const match = lineMatch(productId, variantId);
     const updated = await Cart.findOneAndUpdate(
-      { user: userId, 'items.product': productId },
+      { user: userId, items: { $elemMatch: match } },
       { $set: { 'items.$.quantity': quantity } },
       { returnDocument: 'after' },
     );
     if (!updated) {
       const cart = await ensureCart(userId);
       if (cart.items.length >= MAX_CART_ITEMS) throw ApiError.unprocessable(`Your cart can hold up to ${MAX_CART_ITEMS} different items`);
-      await Cart.updateOne({ user: userId, 'items.product': { $ne: productId } }, { $push: { items: { product: productId, quantity } } });
+      await Cart.updateOne(
+        { user: userId, items: { $not: { $elemMatch: match } } },
+        { $push: { items: { product: productId, ...(variantId ? { variant: variantId } : {}), quantity } } },
+      );
     }
     return this.get(userId);
   },
@@ -186,20 +217,21 @@ export const cartService = {
     return this.get(userId);
   },
 
-  async removeItem(userId, productId) {
-    await Cart.updateOne({ user: userId }, { $pull: { items: { product: productId } } });
+  async removeItem(userId, productId, variantId) {
+    await Cart.updateOne({ user: userId }, { $pull: { items: lineMatch(productId, variantId) } });
     return this.get(userId);
   },
 
   /** Merges a guest (localStorage) cart after sign-in. Invalid lines are skipped, not fatal. */
   async merge(userId, lines) {
-    for (const { productId, quantity } of lines.slice(0, MAX_CART_ITEMS)) {
+    for (const { productId, variantId, quantity } of lines.slice(0, MAX_CART_ITEMS)) {
       const product = await Product.findOne({ _id: productId, ...VISIBLE })
         .select(PRICING_FIELDS)
         .lean();
-      if (!product || product.inventory.stock <= 0) continue;
-      const qty = Math.max(product.inventory.moq, Math.min(quantity, maxOrderable(product)));
-      await this.setItem(userId, productId, qty).catch(() => {});
+      const sellable = sellableOrNull(product, variantId);
+      if (!sellable || sellable.available <= 0) continue;
+      const qty = Math.max(product.inventory.moq, Math.min(quantity, maxOrderable(product, sellable)));
+      await this.setItem(userId, productId, qty, variantId).catch(() => {});
     }
     return this.get(userId);
   },

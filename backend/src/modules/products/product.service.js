@@ -8,6 +8,7 @@ import { Vendor } from '#modules/vendors/vendor.model.js';
 import { serializePublicVendor } from '#modules/vendors/vendor.serializer.js';
 import { settingsService } from '#services/settings/settings.service.js';
 import { Product } from './product.model.js';
+import { assertValidVariants, hasVariants, isTracked, syncInventory } from './inventory.js';
 import { assertValidBulkPricing } from './pricing.js';
 import { CARD_FIELDS, serializeProduct, serializeProductCard, serializePublicProduct } from './product.serializer.js';
 
@@ -18,6 +19,7 @@ const SIMPLE_FIELDS = [
   'type',
   'name',
   'sku',
+  'barcode',
   'brand',
   'modelNumber',
   'shortDescription',
@@ -25,6 +27,7 @@ const SIMPLE_FIELDS = [
   'pricing',
   'hsnCode',
   'inventory',
+  'variantOptions',
   'bulkPricing',
   'quotes',
   'specifications',
@@ -70,7 +73,29 @@ async function buildChanges(input, actor, selfId) {
   if (input.category !== undefined) Object.assign(changes, await categoryService.assertUsableForProduct(input.category, actor));
   if (input.images !== undefined) changes.images = await mediaService.resolve(input.images, actor);
   if (input.compatibleWith !== undefined) changes.compatibleWith = await assertCompatibleTargets(input.compatibleWith, selfId);
+  if (input.variants !== undefined) {
+    // Variant ids are kept from the input so cart lines pointing at them stay valid.
+    const resolved = await mediaService.resolve(
+      input.variants.filter((v) => v.image).map((v) => v.image),
+      actor,
+    );
+    let next = 0;
+    changes.variants = input.variants.map(({ image, ...v }) => (image ? { ...v, image: resolved[next++] } : v));
+  }
   return changes;
+}
+
+/** Cross-field rules, derived fields and auto SKUs; runs before every product save. */
+function prepareForSave(product) {
+  assertValidVariants(product);
+  syncInventory(product);
+  assertValidBulkPricing(product);
+  if (['pending', 'active'].includes(product.status) && !product.hsnCode) {
+    throw ApiError.unprocessable('Add the HSN/SAC code before publishing', {
+      code: 'HSN_REQUIRED',
+      details: [{ path: 'hsnCode', message: 'HSN/SAC code is required' }],
+    });
+  }
 }
 
 function assertSkuFree(err) {
@@ -143,7 +168,7 @@ export const productService = {
       else product.status = 'pending';
     }
 
-    assertValidBulkPricing(product);
+    prepareForSave(product);
     await product.save().catch(assertSkuFree);
     return serializeProduct(product.toObject());
   },
@@ -166,16 +191,25 @@ export const productService = {
       product.status = 'pending';
     }
 
-    assertValidBulkPricing(product);
+    prepareForSave(product);
     await product.save().catch(assertSkuFree);
     return serializeProduct(product.toObject());
   },
 
   /** Quick inline edit from the product table; price/stock changes never need review. */
-  async vendorQuickUpdate(vendor, id, { stock, price, mrp }) {
+  async vendorQuickUpdate(vendor, id, { stock, available, price, mrp }) {
     const product = await Product.findOne({ _id: id, vendor: vendor._id, status: { $ne: 'archived' } });
     if (!product) throw ApiError.notFound('Product not found');
-    product.inventory.stock = stock;
+    if (available !== undefined) product.inventory.available = available;
+    if ((stock !== undefined || price !== undefined || mrp !== undefined) && hasVariants(product)) {
+      throw ApiError.unprocessable('This product has variants. Edit the product to change variant prices and stock.', {
+        code: 'HAS_VARIANTS',
+      });
+    }
+    if (stock !== undefined) {
+      if (!isTracked(product)) throw ApiError.unprocessable('Quantity is not tracked for this product', { code: 'NOT_TRACKED' });
+      product.inventory.stock = stock;
+    }
     if (mrp !== undefined) product.pricing.mrp = mrp;
     if (price !== undefined) product.pricing.price = price;
     if (product.pricing.price > product.pricing.mrp) throw ApiError.unprocessable('Selling price cannot be more than MRP');
@@ -296,7 +330,7 @@ export const productService = {
       else product.status = input.status;
     }
 
-    assertValidBulkPricing(product);
+    prepareForSave(product);
     await product.save().catch(assertSkuFree);
     return serializeProduct(product.toObject());
   },
@@ -337,7 +371,14 @@ export const productService = {
     if (ids?.length) match._id = { $in: ids.map((id) => new mongoose.Types.ObjectId(id)) };
     if (type) match.type = type;
     if (condition) match.condition = condition;
-    if (inStock) match['inventory.stock'] = { $gt: 0 };
+    if (inStock) {
+      match['inventory.available'] = { $ne: false };
+      match.$or = [
+        { 'inventory.trackQuantity': false, $or: [{ 'variants.0': { $exists: false } }, { 'variants.available': true }] },
+        { 'inventory.trackQuantity': { $ne: false }, 'variants.0': { $exists: false }, 'inventory.stock': { $gt: 0 } },
+        { 'inventory.trackQuantity': { $ne: false }, variants: { $elemMatch: { available: { $ne: false }, stock: { $gt: 0 } } } },
+      ];
+    }
     if (featured) match.isFeatured = true;
     if (bulk) match['bulkPricing.tiers.0'] = { $exists: true };
 

@@ -1,6 +1,28 @@
+import { availableQty, hasVariants, isInStock, isTracked, lowStockCount, variantTitle } from './inventory.js';
 import { bulkSummary, quoteThreshold } from './pricing.js';
 
-export const CARD_FIELDS = 'name slug type brand modelNumber condition images pricing inventory isFeatured vendor bulkPricing specifications shipping';
+export const CARD_FIELDS =
+  'name slug type brand modelNumber condition images pricing inventory isFeatured vendor bulkPricing specifications shipping variantOptions variants';
+
+/** Finite stock, or null when quantity isn't tracked (unlimited while available). */
+const finite = (n) => (Number.isFinite(n) ? n : null);
+
+/** Buyer-facing variant: what to show and whether it can be bought. */
+function publicVariant(p, v) {
+  const qty = availableQty(p, v);
+  return {
+    _id: v._id,
+    options: v.options,
+    title: variantTitle(p, v),
+    price: v.price,
+    mrp: v.mrp,
+    discountPercent: discount(v.mrp, v.price),
+    image: v.image ?? null,
+    inStock: qty > 0,
+    stock: finite(qty),
+    lowStock: lowStockCount(p, v),
+  };
+}
 
 const discount = (mrp, price) => (mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 0);
 
@@ -18,8 +40,12 @@ export function serializeProductCard(p) {
     price: p.pricing.price,
     mrp: p.pricing.mrp,
     discountPercent: discount(p.pricing.mrp, p.pricing.price),
-    inStock: (p.inventory?.stock ?? 0) > 0,
-    stock: p.inventory?.stock ?? 0,
+    inStock: isInStock(p),
+    stock: hasVariants(p) ? null : finite(availableQty(p)),
+    lowStock: hasVariants(p) ? null : lowStockCount(p),
+    hasVariants: hasVariants(p),
+    variantOptions: (p.variantOptions ?? []).map(({ name, values }) => ({ name, values })),
+    variants: (p.variants ?? []).map((v) => publicVariant(p, v)),
     moq: p.inventory?.moq ?? 1,
     maxOrderQty: p.inventory?.maxOrderQty ?? null,
     unit: p.inventory?.unit ?? 'piece',
@@ -44,6 +70,7 @@ export function serializeProduct(p) {
     name: p.name,
     slug: p.slug,
     sku: p.sku ?? null,
+    barcode: p.barcode ?? null,
     brand: p.brand ?? null,
     modelNumber: p.modelNumber ?? null,
     shortDescription: p.shortDescription ?? null,
@@ -51,7 +78,27 @@ export function serializeProduct(p) {
     images: p.images ?? [],
     pricing: { ...p.pricing, discountPercent: discount(p.pricing.mrp, p.pricing.price) },
     hsnCode: p.hsnCode ?? null,
-    inventory: p.inventory,
+    inventory: {
+      ...p.inventory,
+      trackQuantity: isTracked(p),
+      available: p.inventory?.available !== false,
+      lowStockAlert: Boolean(p.inventory?.lowStockAlert),
+      lowStockThreshold: p.inventory?.lowStockThreshold ?? 5,
+    },
+    variantOptions: (p.variantOptions ?? []).map(({ name, values }) => ({ name, values })),
+    variants: (p.variants ?? []).map((v) => ({
+      _id: v._id,
+      options: v.options,
+      title: variantTitle(p, v),
+      price: v.price,
+      mrp: v.mrp,
+      sku: v.sku ?? null,
+      barcode: v.barcode ?? null,
+      stock: v.stock ?? 0,
+      available: v.available !== false,
+      weightKg: v.weightKg ?? null,
+      image: v.image ?? null,
+    })),
     bulkPricing: { tiers: p.bulkPricing?.tiers ?? [], businessOnly: Boolean(p.bulkPricing?.businessOnly) },
     quotes: { enabled: p.quotes?.enabled ?? true, minQty: p.quotes?.minQty ?? null, threshold: quoteThreshold(p) },
     specifications: p.specifications ?? [],
@@ -74,6 +121,20 @@ export function serializeProduct(p) {
 
 /** Storefront product page: no moderation or internal flags. */
 export function serializePublicProduct(p) {
-  const { moderation: _m, vendorApproved: _v, status: _s, categoryPath: _c, ...rest } = serializeProduct(p);
-  return { ...rest, inStock: (p.inventory?.stock ?? 0) > 0 };
+  const { moderation: _m, vendorApproved: _v, status: _s, categoryPath: _c, barcode: _b, ...rest } = serializeProduct(p);
+  const simpleQty = hasVariants(p) ? 0 : availableQty(p);
+  return {
+    ...rest,
+    // Internal counts/codes stay private; buyers get availability, plus a count only when it's low.
+    inventory: {
+      moq: p.inventory?.moq ?? 1,
+      maxOrderQty: p.inventory?.maxOrderQty ?? null,
+      unit: p.inventory?.unit ?? 'piece',
+      stock: hasVariants(p) ? null : finite(simpleQty),
+    },
+    variants: (p.variants ?? []).map((v) => publicVariant(p, v)),
+    inStock: isInStock(p),
+    lowStock: hasVariants(p) ? null : lowStockCount(p),
+    hasVariants: hasVariants(p),
+  };
 }

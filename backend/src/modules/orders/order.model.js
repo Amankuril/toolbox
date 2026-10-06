@@ -33,6 +33,13 @@ const orderItemSchema = new Schema({
   name: { type: String, required: true },
   slug: String,
   sku: String,
+  // Chosen variant at purchase time, e.g. "XL / Red".
+  variant: {
+    id: Schema.Types.ObjectId,
+    title: String,
+  },
+  // False when the product didn't track quantity, so nothing was reserved or needs releasing.
+  stockTracked: { type: Boolean, default: true },
   image: String,
   type: String,
   hsnCode: String,
@@ -129,10 +136,7 @@ orderSchema.index(
   { 'payment.providerOrderId': 1 },
   { unique: true, partialFilterExpression: { 'payment.providerOrderId': { $type: 'string' } } },
 );
-orderSchema.index(
-  { user: 1, idempotencyKey: 1 },
-  { unique: true, partialFilterExpression: { idempotencyKey: { $type: 'string' } } },
-);
+orderSchema.index({ user: 1, idempotencyKey: 1 }, { unique: true, partialFilterExpression: { idempotencyKey: { $type: 'string' } } });
 orderSchema.index({ status: 1, expiresAt: 1 }, { partialFilterExpression: { status: 'pending_payment' } });
 
 export const Order = mongoose.models.Order ?? mongoose.model('Order', orderSchema);

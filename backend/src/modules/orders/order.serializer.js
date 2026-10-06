@@ -6,6 +6,7 @@ function serializeItem(i) {
     name: i.name,
     slug: i.slug,
     sku: i.sku ?? null,
+    variant: i.variant?.id ? { id: i.variant.id, title: i.variant.title } : null,
     image: i.image ?? null,
     type: i.type,
     hsnCode: i.hsnCode ?? null,

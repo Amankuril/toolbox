@@ -17,6 +17,10 @@ export const PRODUCT_STATUSES = ['draft', 'pending', 'active', 'rejected', 'inac
 export const MAX_PRODUCT_IMAGES = 10;
 /** Quantity price breaks on top of the base selling price (Amazon Business allows 5 as well). */
 export const MAX_BULK_TIERS = 5;
+/** Variant options (Size, Colour…) and the combinations they produce, Shopify-style. */
+export const MAX_VARIANT_OPTIONS = 3;
+export const MAX_OPTION_VALUES = 20;
+export const MAX_VARIANTS = 100;
 
 const specSchema = new Schema(
   {
@@ -35,6 +39,27 @@ const bulkTierSchema = new Schema(
   { _id: false },
 );
 
+const variantOptionSchema = new Schema(
+  {
+    name: { type: String, required: true, trim: true, maxlength: 40 },
+    values: { type: [{ type: String, trim: true, maxlength: 60 }], default: [] },
+  },
+  { _id: false },
+);
+
+/** One sellable combination, e.g. Size "XL" + Colour "Red". `options` follows variantOptions order. */
+const variantSchema = new Schema({
+  options: { type: [{ type: String, trim: true, maxlength: 60 }], required: true },
+  price: { type: Number, required: true, min: 0 },
+  mrp: { type: Number, required: true, min: 0 },
+  sku: { type: String, trim: true, maxlength: 64 },
+  barcode: { type: String, trim: true, maxlength: 14 },
+  stock: { type: Number, default: 0, min: 0 },
+  available: { type: Boolean, default: true },
+  weightKg: { type: Number, min: 0 },
+  image: imageSchema,
+});
+
 const productSchema = new Schema(
   {
     vendor: { type: Schema.Types.ObjectId, ref: 'Vendor', required: true },
@@ -49,6 +74,8 @@ const productSchema = new Schema(
     name: { type: String, required: true, trim: true, maxlength: 200 },
     slug: { type: String, required: true, unique: true, trim: true, lowercase: true },
     sku: { type: String, trim: true, maxlength: 64 },
+    // GTIN family: UPC (12), EAN (8/13), GTIN-14, ISBN (10/13).
+    barcode: { type: String, trim: true, maxlength: 14 },
     brand: { type: String, trim: true, maxlength: 80 },
     modelNumber: { type: String, trim: true, maxlength: 80 },
     shortDescription: { type: String, trim: true, maxlength: 500 },
@@ -68,11 +95,22 @@ const productSchema = new Schema(
     hsnCode: { type: String, trim: true, maxlength: 8 },
 
     inventory: {
+      // Off: no count is kept; `available` alone decides whether it can be bought.
+      trackQuantity: { type: Boolean, default: true },
+      // Vendor's on/off switch from the product list; off makes it unavailable whatever the stock.
+      available: { type: Boolean, default: true },
+      // With variants this is the sum of variant stock (kept in sync on save).
       stock: { type: Number, default: 0, min: 0 },
+      // Show buyers "Only N left" when tracked stock is at or below the threshold.
+      lowStockAlert: { type: Boolean, default: false },
+      lowStockThreshold: { type: Number, default: 5, min: 1 },
       moq: { type: Number, default: 1, min: 1 },
       maxOrderQty: { type: Number, min: 1 },
       unit: { type: String, enum: PRODUCT_UNITS, default: 'piece' },
     },
+
+    variantOptions: { type: [variantOptionSchema], default: [] },
+    variants: { type: [variantSchema], default: [] },
 
     // Quantity discounts: the deepest tier the cart quantity reaches sets the unit price.
     bulkPricing: {

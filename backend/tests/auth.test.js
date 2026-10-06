@@ -179,4 +179,3 @@ describe('dummy OTP numbers', () => {
     delete process.env.DUMMY_NUMBERS;
   });
 });
-

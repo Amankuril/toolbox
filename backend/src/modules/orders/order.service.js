@@ -25,14 +25,44 @@ function newOrderNumber() {
   return `TB${ymd}-${crypto.randomBytes(4).toString('hex').toUpperCase().slice(0, 6)}`;
 }
 
-/** Atomically decrements stock line by line; rolls back what it took if any line fails. */
+/** Stock filter/update for one line: the variant's counter (plus the product total) or the product's. */
+function stockOps(line) {
+  const variantId = line.variant?.id;
+  if (variantId) {
+    return {
+      filter: (qty) => ({ variants: { $elemMatch: { _id: variantId, available: { $ne: false }, stock: { $gte: qty } } } }),
+      update: (delta) => ({ $inc: { 'variants.$[v].stock': delta, 'inventory.stock': delta } }),
+      options: { arrayFilters: [{ 'v._id': variantId }] },
+    };
+  }
+  return {
+    filter: (qty) => ({ 'inventory.stock': { $gte: qty } }),
+    update: (delta) => ({ $inc: { 'inventory.stock': delta } }),
+    options: {},
+  };
+}
+
+/** Atomically decrements stock line by line; rolls back what it took if any line fails. Untracked lines only need availability. */
 async function reserveStock(lines) {
   const taken = [];
   for (const line of lines) {
-    const res = await Product.updateOne(
-      { _id: line.product, ...VISIBLE, 'inventory.stock': { $gte: line.quantity } },
-      { $inc: { 'inventory.stock': -line.quantity } },
-    );
+    const ops = stockOps(line);
+    const filter = { _id: line.product, ...VISIBLE, 'inventory.available': { $ne: false } };
+    const variantId = line.variant?.id;
+    const res =
+      line.stockTracked === false
+        ? {
+            modifiedCount: await Product.countDocuments({
+              ...filter,
+              'inventory.trackQuantity': false,
+              ...(variantId ? { variants: { $elemMatch: { _id: variantId, available: { $ne: false } } } } : {}),
+            }),
+          }
+        : await Product.updateOne(
+            { ...filter, 'inventory.trackQuantity': { $ne: false }, ...ops.filter(line.quantity) },
+            ops.update(-line.quantity),
+            ops.options,
+          );
     if (!res.modifiedCount) {
       await releaseStock(taken);
       throw ApiError.conflict(`${line.name} just went out of stock. Please review your cart.`, {
@@ -45,11 +75,18 @@ async function reserveStock(lines) {
 }
 
 async function releaseStock(lines) {
-  if (!lines.length) return;
+  const tracked = lines.filter((l) => l.stockTracked !== false);
+  if (!tracked.length) return;
   await Product.bulkWrite(
-    lines.map((l) => ({ updateOne: { filter: { _id: l.product }, update: { $inc: { 'inventory.stock': l.quantity } } } })),
+    tracked.map((l) => {
+      const ops = stockOps(l);
+      return { updateOne: { filter: { _id: l.product }, update: ops.update(l.quantity), ...ops.options } };
+    }),
   );
 }
+
+/** What reserve/release need from an order item. */
+const stockLine = (i) => ({ product: i.product, variant: i.variant, quantity: i.quantity, stockTracked: i.stockTracked, name: i.name });
 
 function deriveStatus(order) {
   if (order.status === 'pending_payment') return order.status;
@@ -71,7 +108,7 @@ async function markPaid({ providerOrderId, paymentId }) {
 
 /** Payment landed after the order expired and released its stock: re-reserve, or refund in full. */
 async function handleLatePayment(order, paymentId) {
-  const lines = order.items.map((i) => ({ product: i.product, quantity: i.quantity, name: i.name }));
+  const lines = order.items.map(stockLine);
   try {
     await reserveStock(lines);
     order.status = 'placed';
@@ -162,26 +199,30 @@ export const orderService = {
       provider = await paymentService.requireOnlineProvider();
     }
 
-    const lines = cart.items.map(({ _product: p, _quote: q, quantity, lineTotal, unitPrice, baseUnitPrice, unitMrp, gstRate, pricing }) => ({
-      product: p._id,
-      vendor: p.vendor,
-      name: p.name,
-      slug: p.slug,
-      sku: p.sku,
-      image: p.images?.[0]?.url,
-      type: p.type,
-      hsnCode: p.hsnCode,
-      unitPrice,
-      basePrice: baseUnitPrice,
-      unitMrp,
-      pricing: { source: pricing.source, tierMinQty: pricing.tier?.minQty, quote: q?._id },
-      gstRate,
-      quantity,
-      lineTotal,
-      taxAmount: gstFromInclusive(lineTotal, gstRate),
-      status: 'pending',
-      history: [{ status: 'pending', by: { kind: 'user', id: user._id } }],
-    }));
+    const lines = cart.items.map(
+      ({ _product: p, _quote: q, _sellable: sv, quantity, lineTotal, unitPrice, baseUnitPrice, unitMrp, gstRate, pricing }) => ({
+        product: p._id,
+        vendor: p.vendor,
+        name: p.name,
+        slug: p.slug,
+        sku: sv.sku,
+        ...(sv.variant ? { variant: { id: sv.variant._id, title: sv.title } } : {}),
+        stockTracked: p.inventory?.trackQuantity !== false,
+        image: sv.image,
+        type: p.type,
+        hsnCode: p.hsnCode,
+        unitPrice,
+        basePrice: baseUnitPrice,
+        unitMrp,
+        pricing: { source: pricing.source, tierMinQty: pricing.tier?.minQty, quote: q?._id },
+        gstRate,
+        quantity,
+        lineTotal,
+        taxAmount: gstFromInclusive(lineTotal, gstRate),
+        status: 'pending',
+        history: [{ status: 'pending', by: { kind: 'user', id: user._id } }],
+      }),
+    );
 
     await reserveStock(lines);
 
@@ -297,7 +338,7 @@ export const orderService = {
         },
       ).lean();
       if (claimed) {
-        await releaseStock(claimed.items.map((i) => ({ product: i.product, quantity: i.quantity })));
+        await releaseStock(claimed.items.map(stockLine));
         await quoteLifecycle.releaseForOrder(claimed);
         expired += 1;
       }
@@ -350,9 +391,17 @@ export const orderService = {
 
     // Once a parcel is booked with the courier, the line can only be cancelled after the shipment is.
     if (changingStatus && status === 'cancelled' && actor.kind !== 'system') {
-      const booked = await Shipment.exists({ order: order._id, vendor: item.vendor, type: 'forward', active: true, status: { $ne: 'pending' } });
+      const booked = await Shipment.exists({
+        order: order._id,
+        vendor: item.vendor,
+        type: 'forward',
+        active: true,
+        status: { $ne: 'pending' },
+      });
       if (booked) {
-        throw ApiError.conflict('This item has already been handed to the courier. Cancel the shipment first.', { code: 'SHIPMENT_IN_PROGRESS' });
+        throw ApiError.conflict('This item has already been handed to the courier. Cancel the shipment first.', {
+          code: 'SHIPMENT_IN_PROGRESS',
+        });
       }
     }
 
@@ -383,7 +432,7 @@ export const orderService = {
     }
 
     await order.save();
-    if (changingStatus && status === 'cancelled') await releaseStock([{ product: item.product, quantity: item.quantity }]);
+    if (changingStatus && status === 'cancelled') await releaseStock([stockLine(item)]);
     return order;
   },
 

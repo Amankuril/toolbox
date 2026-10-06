@@ -190,6 +190,7 @@ beforeAll(async () => {
         pricing: { mrp: 500_000, price: 400_000, gstRate: 18 },
         inventory: { stock: 100, moq: 1, maxOrderQty: 10 },
         shipping: { weightKg: 4.5, lengthCm: 40, widthCm: 30, heightCm: 20 },
+        hsnCode: '8424',
         publish: true,
       })
       .expect(201)

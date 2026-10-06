@@ -195,6 +195,7 @@ describe('catalogue', () => {
         pricing: { mrp: 450_000, price: 389_900, gstRate: 18 },
         inventory: { stock: 12, moq: 1, unit: 'piece' },
         specifications: [{ label: 'Power', value: '500 W' }],
+        hsnCode: '8424',
         publish: true,
       })
       .expect(201);
@@ -249,6 +250,7 @@ describe('catalogue', () => {
         inventory: { stock: 40, moq: 2, unit: 'set' },
         compatibleWith: [machine._id],
         compatibleModels: ['GSB 500 RE'],
+        hsnCode: '8424',
         publish: true,
       })
       .expect(201);

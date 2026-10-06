@@ -8,7 +8,18 @@ import { quoteLifecycle } from '#modules/quotes/quote.lifecycle.js';
 import { settingsService } from '#services/settings/settings.service.js';
 import { createRazorpayProvider } from '#services/payment/providers/razorpay.provider.js';
 import { paymentService } from '#services/payment/payment.service.js';
-import { API, approvedVendor, bearer, createAdmin, otpSignIn, setModeration, startTestApp, stopTestApp, testImage, upload } from './helpers.js';
+import {
+  API,
+  approvedVendor,
+  bearer,
+  createAdmin,
+  otpSignIn,
+  setModeration,
+  startTestApp,
+  stopTestApp,
+  testImage,
+  upload,
+} from './helpers.js';
 
 let app;
 let admin;
@@ -29,6 +40,7 @@ const baseProduct = (overrides = {}) => ({
   category: category._id,
   pricing: { mrp: 2_000, price: 1_500, gstRate: 18 },
   inventory: { stock: 2_000, moq: 5, unit: 'piece' },
+  hsnCode: '8424',
   publish: true,
   ...overrides,
 });
@@ -47,7 +59,8 @@ beforeAll(async () => {
   admin = await createAdmin(app);
   vendor = await approvedVendor(app, admin.accessToken, { phone: '9300000001' });
   await setModeration({ autoApproveProducts: true });
-  category = (await request(app).post(`${API}/admin/categories`).set(bearer(admin.accessToken)).send({ name: 'Fasteners' }).expect(201)).body.data;
+  category = (await request(app).post(`${API}/admin/categories`).set(bearer(admin.accessToken)).send({ name: 'Fasteners' }).expect(201))
+    .body.data;
   shopper = await otpSignIn(app, { phone: '9300000010', audience: 'user', register: { name: 'Individual Buyer' } });
   business = await otpSignIn(app, {
     phone: '9300000011',
@@ -108,7 +121,10 @@ describe('bulk pricing tiers', () => {
     expect(card.bulk).toMatchObject({ fromPrice: 1_200, startsAt: 50, businessOnly: false });
 
     let cart = (await request(app).put(`${API}/user/cart/items/${product._id}`).set(s()).send({ quantity: 40 }).expect(200)).body.data;
-    expect(cart.items[0]).toMatchObject({ unitPrice: 1_500, pricing: { source: 'base', next: { minQty: 50, price: 1_350, unitsNeeded: 10 } } });
+    expect(cart.items[0]).toMatchObject({
+      unitPrice: 1_500,
+      pricing: { source: 'base', next: { minQty: 50, price: 1_350, unitsNeeded: 10 } },
+    });
 
     cart = (await request(app).put(`${API}/user/cart/items/${product._id}`).set(s()).send({ quantity: 120 }).expect(200)).body.data;
     expect(cart.items[0]).toMatchObject({ unitPrice: 1_350, bulkSavings: 150 * 120, pricing: { source: 'bulk', tier: { minQty: 50 } } });
@@ -131,7 +147,10 @@ describe('bulk pricing tiers', () => {
     ).body.data;
 
     const individual = (await request(app).put(`${API}/user/cart/items/${p._id}`).set(s()).send({ quantity: 25 }).expect(200)).body.data;
-    expect(individual.items.find((i) => i.productId === p._id)).toMatchObject({ unitPrice: 1_500, pricing: { source: 'base', next: null } });
+    expect(individual.items.find((i) => i.productId === p._id)).toMatchObject({
+      unitPrice: 1_500,
+      pricing: { source: 'base', next: null },
+    });
 
     const biz = (await request(app).put(`${API}/user/cart/items/${p._id}`).set(b()).send({ quantity: 25 }).expect(200)).body.data;
     expect(biz.items[0]).toMatchObject({ unitPrice: 1_100, pricing: { source: 'bulk' } });
@@ -140,7 +159,11 @@ describe('bulk pricing tiers', () => {
   });
 
   it('blocks a quick price cut that would put the base price under a tier', async () => {
-    const res = await request(app).patch(`${API}/vendor/products/${product._id}/stock`).set(v()).send({ stock: 1_000, price: 1_300 }).expect(422);
+    const res = await request(app)
+      .patch(`${API}/vendor/products/${product._id}/stock`)
+      .set(v())
+      .send({ stock: 1_000, price: 1_300 })
+      .expect(422);
     expect(res.body.error.code).toBe('INVALID_BULK_PRICING');
   });
 });
@@ -149,19 +172,33 @@ describe('request for quote', () => {
   let quote;
 
   it('enforces the quote threshold and one open request per product', async () => {
-    const small = await request(app).post(`${API}/user/quotes`).set(b()).send({ productId: product._id, quantity: 100, pincode: '360003' }).expect(422);
+    const small = await request(app)
+      .post(`${API}/user/quotes`)
+      .set(b())
+      .send({ productId: product._id, quantity: 100, pincode: '360003' })
+      .expect(422);
     expect(small.body.error.code).toBe('BELOW_QUOTE_THRESHOLD'); // threshold defaults to the top tier (200)
 
     quote = (
       await request(app)
         .post(`${API}/user/quotes`)
         .set(b())
-        .send({ productId: product._id, quantity: 5_000, targetUnitPrice: 1_000, pincode: '360003', note: 'Monthly requirement for our plant' })
+        .send({
+          productId: product._id,
+          quantity: 5_000,
+          targetUnitPrice: 1_000,
+          pincode: '360003',
+          note: 'Monthly requirement for our plant',
+        })
         .expect(201)
     ).body.data;
     expect(quote).toMatchObject({ status: 'requested', quantity: 5_000, product: { name: 'Hex Bolt M10 x 50 (Zinc)', basePrice: 1_500 } });
 
-    const dup = await request(app).post(`${API}/user/quotes`).set(b()).send({ productId: product._id, quantity: 6_000, pincode: '360003' }).expect(409);
+    const dup = await request(app)
+      .post(`${API}/user/quotes`)
+      .set(b())
+      .send({ productId: product._id, quantity: 6_000, pincode: '360003' })
+      .expect(409);
     expect(dup.body.error.code).toBe('QUOTE_ALREADY_OPEN');
   });
 
@@ -171,7 +208,13 @@ describe('request for quote', () => {
     expect(list.data[0].buyer).toEqual({ name: 'Plant Buyer', accountType: 'business', businessName: 'Rajkot Castings', gstin: null });
     expect(JSON.stringify(list.data[0])).not.toContain('9300000011');
 
-    const offered = (await request(app).post(`${API}/vendor/quotes/${quote._id}/offer`).set(v()).send({ unitPrice: 1_050, validDays: 7, note: 'Includes freight' }).expect(200)).body.data;
+    const offered = (
+      await request(app)
+        .post(`${API}/vendor/quotes/${quote._id}/offer`)
+        .set(v())
+        .send({ unitPrice: 1_050, validDays: 7, note: 'Includes freight' })
+        .expect(200)
+    ).body.data;
     expect(offered).toMatchObject({ status: 'quoted', offer: { unitPrice: 1_050, revision: 0 } });
   });
 
@@ -185,7 +228,9 @@ describe('request for quote', () => {
     expect(locked.body.error.code).toBe('QUOTED_ITEM_IN_CART');
 
     const address = await addAddress(business.accessToken);
-    const { order } = (await request(app).post(`${API}/user/orders/checkout`).set(b()).send({ addressId: address, paymentMethod: 'cod' }).expect(201)).body.data;
+    const { order } = (
+      await request(app).post(`${API}/user/orders/checkout`).set(b()).send({ addressId: address, paymentMethod: 'cod' }).expect(201)
+    ).body.data;
     expect(order.items[0]).toMatchObject({ unitPrice: 1_050, quantity: 5_000, pricing: { source: 'quote' } });
     expect((await Quote.findById(quote._id).lean()).status).toBe('ordered');
   });
@@ -197,11 +242,19 @@ describe('request for quote', () => {
     });
     await settingsService.update('payments', { razorpayEnabled: true, codMaxOrderValue: 0 }, { kind: 'system' });
 
-    const q = (await request(app).post(`${API}/user/quotes`).set(b()).send({ productId: product._id, quantity: 1_000, pincode: '360003' }).expect(201)).body.data;
+    const q = (
+      await request(app)
+        .post(`${API}/user/quotes`)
+        .set(b())
+        .send({ productId: product._id, quantity: 1_000, pincode: '360003' })
+        .expect(201)
+    ).body.data;
     await request(app).post(`${API}/vendor/quotes/${q._id}/offer`).set(v()).send({ unitPrice: 1_100, validDays: 3 }).expect(200);
     await request(app).post(`${API}/user/quotes/${q._id}/accept`).set(b()).expect(200);
     const address = (await request(app).get(`${API}/user/addresses`).set(b())).body.data[0]._id;
-    const { order } = (await request(app).post(`${API}/user/orders/checkout`).set(b()).send({ addressId: address, paymentMethod: 'razorpay' }).expect(201)).body.data;
+    const { order } = (
+      await request(app).post(`${API}/user/orders/checkout`).set(b()).send({ addressId: address, paymentMethod: 'razorpay' }).expect(201)
+    ).body.data;
     expect((await Quote.findById(q._id).lean()).status).toBe('ordered');
 
     // While the order waits for payment, the cart line can't be re-used.
@@ -223,8 +276,16 @@ describe('request for quote', () => {
     cart = (await request(app).get(`${API}/user/cart`).set(b())).body.data;
     expect(cart.items.some((i) => i.pricing.quote)).toBe(false);
 
-    const req2 = (await request(app).post(`${API}/user/quotes`).set(s()).send({ productId: product._id, quantity: 300, pincode: '360003' }).expect(201)).body.data;
-    const declined = (await request(app).post(`${API}/vendor/quotes/${req2._id}/decline`).set(v()).send({ reason: 'Cannot supply in this lead time' }).expect(200)).body.data;
+    const req2 = (
+      await request(app).post(`${API}/user/quotes`).set(s()).send({ productId: product._id, quantity: 300, pincode: '360003' }).expect(201)
+    ).body.data;
+    const declined = (
+      await request(app)
+        .post(`${API}/vendor/quotes/${req2._id}/decline`)
+        .set(v())
+        .send({ reason: 'Cannot supply in this lead time' })
+        .expect(200)
+    ).body.data;
     expect(declined).toMatchObject({ status: 'declined', declineReason: 'Cannot supply in this lead time' });
     await request(app).post(`${API}/user/quotes/${req2._id}/accept`).set(s()).expect(409);
 
@@ -236,9 +297,11 @@ describe('request for quote', () => {
 describe('per-module branding', () => {
   it('stores a logo and a square favicon for each module separately', async () => {
     const a = bearer(admin.accessToken);
-    const [favicon] = (await upload(app, admin.accessToken, 'favicons', [await testImage({ width: 600, height: 300 })]).expect(201)).body.data;
+    const [favicon] = (await upload(app, admin.accessToken, 'favicons', [await testImage({ width: 600, height: 300 })]).expect(201)).body
+      .data;
     expect(favicon).toMatchObject({ width: 256, height: 256 });
-    const [logo] = (await upload(app, admin.accessToken, 'branding', [await testImage({ width: 1200, height: 300 })]).expect(201)).body.data;
+    const [logo] = (await upload(app, admin.accessToken, 'branding', [await testImage({ width: 1200, height: 300 })]).expect(201)).body
+      .data;
 
     await request(app)
       .put(`${API}/admin/settings/branding`)
