@@ -43,9 +43,9 @@ export const SETTINGS = {
   theme: {
     schema: z.object({ user: moduleTheme, vendor: moduleTheme, admin: moduleTheme }),
     defaults: {
-      user: { primary: '#15803d', secondary: '#0f291e', accent: '#f59e0b', radius: 'md' },
-      vendor: { primary: '#15803d', secondary: '#0d2319', accent: '#f59e0b', radius: 'md' },
-      admin: { primary: '#15803d', secondary: '#081a12', accent: '#f59e0b', radius: 'md' },
+      user: { primary: '#1e5b38', secondary: '#10241a', accent: '#f5c518', radius: 'md' },
+      vendor: { primary: '#1e5b38', secondary: '#10241a', accent: '#f5c518', radius: 'md' },
+      admin: { primary: '#1e5b38', secondary: '#0c1a13', accent: '#f5c518', radius: 'md' },
     },
   },
 

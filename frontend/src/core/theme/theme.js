@@ -1,12 +1,12 @@
 import { safeStorage } from '@/core/lib/storage'
 
 export const THEME_CACHE_KEY = 'tb:theme'
-export const RADIUS_PX = { none: 0, sm: 4, md: 8, lg: 12, xl: 16 }
+export const RADIUS_PX = { none: 0, sm: 4, md: 6, lg: 10, xl: 14 }
 
 export const DEFAULT_THEMES = {
-  user: { primary: '#15803d', secondary: '#0f291e', accent: '#f59e0b', radius: 'md' },
-  vendor: { primary: '#15803d', secondary: '#0d2319', accent: '#f59e0b', radius: 'md' },
-  admin: { primary: '#15803d', secondary: '#081a12', accent: '#f59e0b', radius: 'md' },
+  user: { primary: '#1e5b38', secondary: '#10241a', accent: '#f5c518', radius: 'md' },
+  vendor: { primary: '#1e5b38', secondary: '#10241a', accent: '#f5c518', radius: 'md' },
+  admin: { primary: '#1e5b38', secondary: '#0c1a13', accent: '#f5c518', radius: 'md' },
 }
 
 function channel(c) {
