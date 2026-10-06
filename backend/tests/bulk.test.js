@@ -260,6 +260,8 @@ describe('request for quote', () => {
     // While the order waits for payment, the cart line can't be re-used.
     const cart = (await request(app).get(`${API}/user/cart`).set(b())).body.data;
     expect(cart.items.find((i) => i.pricing.quote?._id === q._id).issue).toBe('quote_in_order');
+    // Each line's seller is named, so the cart can group lines into parcels.
+    expect(cart.sellers[cart.items[0].vendor].name).toBeTruthy();
 
     await Order.updateOne({ _id: order._id }, { expiresAt: new Date(Date.now() - 1000) });
     await orderService.expireUnpaid();

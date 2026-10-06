@@ -5,7 +5,7 @@ import { create } from 'zustand'
 import { errorMessage } from '@/core/api/errors'
 import { useSession } from '@/core/auth/session'
 import { safeStorage } from '@/core/lib/storage'
-import { storeKeys, userApi } from '../api'
+import { storeApi, storeKeys, userApi } from '../api'
 
 const GUEST_KEY = 'tb:guest-wishlist'
 // Matches the storefront's ids lookup limit, so a guest's whole list can be shown in one request.
@@ -58,11 +58,11 @@ export function useWishlist() {
   const set = useMemo(() => new Set(ids), [ids])
 
   const toggle = useCallback(
-    (product) => {
+    (product, { silent = false } = {}) => {
       const add = !set.has(product._id)
       if (signedIn) mutation.mutate({ productId: product._id, add })
       else toggleGuest(product._id)
-      if (add) toast.success('Saved to wishlist', { description: product.name })
+      if (add && !silent) toast.success('Saved to wishlist', { description: product.name })
       return add
     },
     [set, signedIn, mutation, toggleGuest],
@@ -82,4 +82,25 @@ export async function mergeGuestWishlist(queryClient) {
   } catch {
     // Non-fatal: the list stays local and is retried on the next sign-in.
   }
+}
+
+/** The saved products themselves (account list when signed in, live product cards for a guest's ids). */
+export function useWishlistProducts({ enabled = true } = {}) {
+  const wishlist = useWishlist()
+  const guestIds = wishlist.signedIn ? '' : wishlist.ids.join(',')
+  const account = useQuery({ queryKey: storeKeys.wishlist, queryFn: userApi.wishlist, enabled: enabled && wishlist.signedIn })
+  const guest = useQuery({
+    queryKey: ['public', 'wishlist-products', guestIds],
+    queryFn: () => storeApi.products({ ids: guestIds, limit: 60 }),
+    enabled: enabled && !wishlist.signedIn && guestIds.length > 0,
+    placeholderData: (prev) => prev,
+  })
+  const rows = wishlist.signedIn
+    ? (account.data ?? []).filter((r) => wishlist.has(r.product._id))
+    : wishlist.ids
+        .map((id) => (guest.data?.items ?? []).find((p) => p._id === id))
+        .filter(Boolean)
+        .map((product) => ({ product, available: true }))
+  const isLoading = wishlist.signedIn ? account.isLoading : guestIds.length > 0 && guest.isLoading
+  return { wishlist, rows, isLoading }
 }

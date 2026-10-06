@@ -1,35 +1,16 @@
-import { useQuery } from '@tanstack/react-query'
 import { Heart, Trash2 } from 'lucide-react'
 import { Link } from 'react-router'
 import { useBranding } from '@/core/settings/usePublicSettings'
 import { Thumb } from '@/ui/Brand'
 import { Button } from '@/ui/Button'
 import { EmptyState } from '@/ui/Card'
-import { storeApi, storeKeys, userApi } from '../api'
 import { ProductCard, ProductCardSkeleton } from '../components/ProductCard'
-import { useWishlist } from '../wishlist/useWishlist'
+import { useWishlistProducts } from '../wishlist/useWishlist'
 
 /** Saved products. Signed-in lists come from the account; guests see their local list with a nudge to sign in. */
 export default function WishlistPage() {
   const { siteName } = useBranding()
-  const wishlist = useWishlist()
-  const guestIds = wishlist.signedIn ? '' : wishlist.ids.join(',')
-
-  const account = useQuery({ queryKey: storeKeys.wishlist, queryFn: userApi.wishlist, enabled: wishlist.signedIn })
-  const guest = useQuery({
-    queryKey: ['public', 'wishlist-products', guestIds],
-    queryFn: () => storeApi.products({ ids: guestIds, limit: 60 }),
-    enabled: !wishlist.signedIn && guestIds.length > 0,
-    placeholderData: (prev) => prev,
-  })
-
-  const rows = wishlist.signedIn
-    ? (account.data ?? []).filter((r) => wishlist.has(r.product._id))
-    : wishlist.ids
-        .map((id) => (guest.data?.items ?? []).find((p) => p._id === id))
-        .filter(Boolean)
-        .map((product) => ({ product, available: true }))
-  const loading = wishlist.signedIn ? account.isLoading : guestIds.length > 0 && guest.isLoading
+  const { wishlist, rows, isLoading: loading } = useWishlistProducts()
   const live = rows.filter((r) => r.available)
   const gone = rows.filter((r) => !r.available)
 

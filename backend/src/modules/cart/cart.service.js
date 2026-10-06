@@ -7,6 +7,7 @@ import { VISIBLE } from '#modules/products/product.service.js';
 import { serializeProductCard } from '#modules/products/product.serializer.js';
 import { Quote } from '#modules/quotes/quote.model.js';
 import { User } from '#modules/users/user.model.js';
+import { Vendor } from '#modules/vendors/vendor.model.js';
 import { settingsService } from '#services/settings/settings.service.js';
 import { Cart, MAX_CART_ITEMS } from './cart.model.js';
 
@@ -179,7 +180,13 @@ export const cartService = {
   /** Public representation (drops the internal documents). */
   async get(userId) {
     const view = await this.view(userId);
-    return { ...view, items: view.items.map(({ _product, _quote, _sellable, ...rest }) => rest) };
+    // Store names let the cart group lines the way orders are split: one parcel per seller.
+    const vendorIds = [...new Set(view.items.map((i) => i.vendor && String(i.vendor)).filter(Boolean))];
+    const vendors = vendorIds.length ? await Vendor.find({ _id: { $in: vendorIds } }, 'store.name store.slug address.city').lean() : [];
+    const sellers = Object.fromEntries(
+      vendors.map((v) => [String(v._id), { name: v.store?.name ?? 'Seller', slug: v.store?.slug ?? null, city: v.address?.city ?? null }]),
+    );
+    return { ...view, sellers, items: view.items.map(({ _product, _quote, _sellable, ...rest }) => rest) };
   },
 
   async setItem(userId, productId, quantity, variantId) {
