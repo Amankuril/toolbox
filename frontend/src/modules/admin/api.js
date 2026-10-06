@@ -1,7 +1,14 @@
+import { queryClient } from '@/app/queryClient'
 import { api, list, one } from '@/core/api/http'
 import { createImportApi } from '@/modules/shared/productImportApi'
 
 const a = api.admin
+
+// A "no permission" reply means this admin's access changed: re-read it so the sidebar catches up.
+a.interceptors.response.use(undefined, (error) => {
+  if (error.response?.data?.error?.code === 'PERMISSION_DENIED') queryClient.invalidateQueries({ queryKey: ['admin', 'me'] })
+  return Promise.reject(error)
+})
 
 export const adminKeys = {
   all: ['admin'],

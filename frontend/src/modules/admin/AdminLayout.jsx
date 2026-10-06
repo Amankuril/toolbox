@@ -1,6 +1,8 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Boxes, FileText, FolderTree, Image, KeyRound, LayoutDashboard, Package, Settings, ShieldCheck, ShoppingBag, Star, Store, Users } from 'lucide-react'
-import { useNavigate } from 'react-router'
+import { useEffect, useRef } from 'react'
+import { useLocation, useNavigate } from 'react-router'
+import { useSession } from '@/core/auth/session'
 import { signOutEverywhere } from '@/core/api/http'
 import { Logo } from '@/ui/Brand'
 import { PanelShell } from '@/ui/PanelShell'
@@ -11,6 +13,19 @@ export default function AdminLayout() {
   const { account, isSuper, can } = useAdminAccess()
   const navigate = useNavigate()
   const qc = useQueryClient()
+  const sessionId = useSession('admin', (s) => s.account?._id)
+  const lastId = useRef(sessionId)
+  useEffect(() => {
+    if (sessionId && lastId.current && lastId.current !== sessionId) {
+      qc.removeQueries({ queryKey: adminKeys.all, predicate: (q) => q.queryKey[1] !== 'me' })
+    }
+    lastId.current = sessionId
+  }, [sessionId, qc])
+  // Every page change re-checks access, so new permissions appear on the next click.
+  const { pathname } = useLocation()
+  useEffect(() => {
+    qc.invalidateQueries({ queryKey: adminKeys.me })
+  }, [pathname, qc])
   const { data: stats } = useQuery({ queryKey: adminKeys.dashboard, queryFn: adminApi.dashboard, staleTime: 60_000, enabled: can('dashboard') })
   const pending = stats?.pendingApprovals ?? {}
   // Only sections this admin can open; empty groups disappear.

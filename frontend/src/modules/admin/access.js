@@ -19,13 +19,25 @@ export const SECTIONS = [
 const RANK = { none: 0, view: 1, manage: 2 }
 
 /**
- * What the signed-in admin may do. Re-read from the server on focus, so permission changes
- * made by a super admin show up without signing out (the server enforces them regardless).
+ * What the signed-in admin may do. Re-read from the server on every page change (AdminLayout),
+ * on focus, every 30s and after any "no permission" reply, so a super admin's changes show up without signing out (the server
+ * enforces them regardless). The cached copy is keyed by admin id, so signing in as someone
+ * else on the same browser can never show the previous admin's access.
  */
 export function useAdminAccess() {
   const session = useSession('admin', (s) => s.account)
-  const { data: me } = useQuery({ queryKey: adminKeys.me, queryFn: adminApi.me, staleTime: 30_000, refetchOnWindowFocus: true })
-  const account = me ?? session
+  const id = session?._id
+  const { data: me } = useQuery({
+    queryKey: [...adminKeys.me, id],
+    queryFn: adminApi.me,
+    enabled: Boolean(id),
+    staleTime: 10_000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: 'always',
+    // Picks up a super admin's change even if this admin just sits on one page.
+    refetchInterval: 30_000,
+  })
+  const account = me && me._id === id ? me : session
   const permissions = account?.permissions ?? {}
   const isSuper = account?.adminRole === 'super_admin'
   const can = (section, level = 'view') => isSuper || RANK[permissions[section] ?? (account?.fullAccess ? 'manage' : 'none')] >= RANK[level]
