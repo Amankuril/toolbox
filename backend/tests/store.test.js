@@ -117,6 +117,30 @@ describe('platform store', () => {
     expect(accepted.items[0].status).toBe('confirmed');
   });
 
+  it('has every seller tool: dashboard, categories, bulk upload, export, quotes and shipments', async () => {
+    for (const path of [
+      '/dashboard',
+      '/categories',
+      '/products/compatibility-search?q=gen',
+      '/product-imports',
+      '/product-imports/columns',
+      '/product-imports/template?format=xlsx',
+      '/product-imports/categories.csv',
+      '/product-imports/export?format=csv',
+      '/quotes',
+    ]) {
+      await request(app).get(`${API}/admin/store${path}`).set(R()).expect(200);
+    }
+    const [order] = (await request(app).get(`${API}/admin/store/orders`).set(R()).expect(200)).body.data;
+    await request(app).get(`${API}/admin/store/orders/${order._id}`).set(R()).expect(200);
+    await request(app).get(`${API}/admin/store/orders/${order._id}/shipments`).set(R()).expect(200);
+    // A category the store adds goes live at once (other sellers' proposals still wait for review).
+    const cat = (
+      await request(app).post(`${API}/admin/store/categories`).set(R()).send({ name: 'Inverters', parent: category._id }).expect(201)
+    ).body.data;
+    expect(cat.status).toBe('active');
+  });
+
   it('sub-admins need the "Our store" permission; view-only can look but not change', async () => {
     const none = await staff('catalog@toolbox.test', { products: 'manage' });
     expect((await request(app).get(`${API}/admin/store/products`).set(none).expect(403)).body.error.code).toBe('PERMISSION_DENIED');

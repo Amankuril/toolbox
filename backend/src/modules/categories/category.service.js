@@ -3,6 +3,7 @@ import { ApiError } from '#core/errors/ApiError.js';
 import { escapeRegex, uniqueSlug } from '#core/utils/strings.js';
 import { mediaService } from '#modules/media/media.service.js';
 import { Product } from '#modules/products/product.model.js';
+import { Vendor } from '#modules/vendors/vendor.model.js';
 import { settingsService } from '#services/settings/settings.service.js';
 import { Category, MAX_CATEGORY_LEVEL } from './category.model.js';
 
@@ -104,8 +105,9 @@ export const categoryService = {
 
     let status = 'active';
     if (actor.kind === 'vendor') {
+      // Admins run the platform store, so its categories need no approval.
       const { autoApproveCategories } = await settingsService.get('moderation');
-      status = autoApproveCategories ? 'active' : 'pending';
+      status = autoApproveCategories || (await Vendor.exists({ _id: actor.id, isPlatform: true })) ? 'active' : 'pending';
     } else if (input.status) {
       status = input.status;
     }

@@ -13,12 +13,13 @@ import { Sheet } from './Dialog'
  * @param {{ brand: any, nav: { to: string, label: string, icon: any, end?: boolean, badge?: number }[][], user: { name: string, subtitle?: string },
  *   menuItems?: any[], onSignOut: () => void, banner?: any }} props
  */
-export function PanelShell({ brand, nav, user, menuItems = [], onSignOut, banner, children }) {
+export function PanelShell({ brand, nav, user, menuItems = [], onSignOut, banner, switcher, children }) {
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()
 
   const sidebar = (
     <nav className="flex flex-col gap-6 px-3 py-4" aria-label="Main">
+      {switcher}
       {nav.map((group, gi) => (
         <div key={gi} className="flex flex-col gap-0.5">
           {group.title && <p className="code px-3 pb-1.5 text-[11px] tracking-[0.12em] text-secondary-fg/45 uppercase">{group.title}</p>}

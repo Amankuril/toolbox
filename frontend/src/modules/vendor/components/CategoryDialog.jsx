@@ -60,15 +60,21 @@ export function CategoryDialog({ open, onOpenChange, category, defaultParent, on
     <Dialog
       open={open}
       onOpenChange={(o) => (o || setV(null), onOpenChange(o))}
-      title={isEdit ? 'Edit category' : 'Propose a category'}
-      description={isEdit ? undefined : "Can't find the right category? Suggest one. Our team reviews it before it appears in the store."}
+      title={isEdit ? 'Edit category' : seller.isStore ? 'Add a category' : 'Propose a category'}
+      description={
+        isEdit
+          ? undefined
+          : seller.isStore
+            ? 'It goes live in the catalogue straight away.'
+            : "Can't find the right category? Suggest one. Our team reviews it before it appears in the store."
+      }
       footer={
         <>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
           <Button loading={save.isPending} disabled={!values.name.trim()} onClick={() => save.mutate()}>
-            {isEdit ? 'Save & resubmit' : 'Propose category'}
+            {isEdit ? 'Save & resubmit' : seller.isStore ? 'Add category' : 'Propose category'}
           </Button>
         </>
       }
@@ -103,7 +109,15 @@ export function CategoryDialog({ open, onOpenChange, category, defaultParent, on
         </Field>
         <div>
           <p className="mb-1.5 text-sm font-medium text-slate-800">Image (optional)</p>
-          <ImageUploader audience={seller.audience} uploadPath={seller.uploadPath} folder="categories" max={1} value={values.image} onChange={(image) => set({ image })} compact />
+          <ImageUploader
+            audience={seller.audience}
+            uploadPath={seller.uploadPath}
+            folder="categories"
+            max={1}
+            value={values.image}
+            onChange={(image) => set({ image })}
+            compact
+          />
         </div>
         {apiError && !Object.keys(apiError.fields).length && <Alert tone="danger">{apiError.message}</Alert>}
       </div>

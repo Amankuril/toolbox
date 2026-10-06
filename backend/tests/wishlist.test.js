@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Product } from '#modules/products/product.model.js';
@@ -60,10 +61,8 @@ describe('wishlist', () => {
     await Product.updateOne({ _id: drill._id }, { status: 'inactive' });
     const list = (await request(app).get(`${API}/user/wishlist`).set(U()).expect(200)).body.data;
     expect(list[0]).toMatchObject({ available: false });
-    await request(app)
-      .put(`${API}/user/wishlist/${grinder._id.replace(/.$/, (c) => (c === '0' ? '1' : '0'))}`)
-      .set(U())
-      .expect(404);
+    // A fresh id is guaranteed unknown (tweaking a real id can land on the other product's id).
+    await request(app).put(`${API}/user/wishlist/${new mongoose.Types.ObjectId()}`).set(U()).expect(404);
     await Product.updateOne({ _id: drill._id }, { status: 'active' });
   });
 

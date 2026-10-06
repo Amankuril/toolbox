@@ -378,7 +378,7 @@ function ProductForm({ product }) {
                 className="sm:col-span-2"
                 labelAction={
                   <button type="button" onClick={() => setProposeOpen(true)} className="text-xs font-medium text-primary hover:underline">
-                    Can&apos;t find it? Propose one
+                    Can&apos;t find it? {seller.isStore ? 'Add one' : 'Propose one'}
                   </button>
                 }
               >

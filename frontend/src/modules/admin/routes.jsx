@@ -50,6 +50,7 @@ export const adminRoutes = {
                     { path: 'orders/:id', ...page(() => import('@/modules/vendor/pages/OrderDetailPage')) },
                     { path: 'quotes', ...page(() => import('@/modules/vendor/pages/QuotesPage')) },
                     { path: 'quotes/:id', ...page(() => import('@/modules/vendor/pages/QuoteDetailPage')) },
+                    { path: 'categories', ...page(() => import('@/modules/vendor/pages/CategoriesPage')) },
                     { path: 'settings', ...page(() => import('./store/StoreSettingsPage')) },
                   ],
                 },

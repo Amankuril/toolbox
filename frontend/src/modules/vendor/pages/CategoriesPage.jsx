@@ -13,11 +13,12 @@ import { DataTable } from '@/ui/DataTable'
 import { ConfirmDialog } from '@/ui/Dialog'
 import { PageHeader } from '@/ui/PageHeader'
 import { Tooltip } from '@/ui/Controls'
-import { vendorApi, vendorKeys } from '../api'
+import { useSeller } from '../seller'
 import { CategoryDialog } from '../components/CategoryDialog'
 import { useVendorCategories } from '../components/categoryOptions'
 
 export default function VendorCategoriesPage() {
+  const seller = useSeller()
   const qc = useQueryClient()
   const { data = [], isLoading } = useVendorCategories()
   const [dialog, setDialog] = useState(null) // { category?, parent? }
@@ -28,8 +29,8 @@ export default function VendorCategoriesPage() {
   const tree = useMemo(() => buildTree(data.filter((c) => c.status === 'active')), [data])
 
   const remove = useMutation({
-    mutationFn: (id) => vendorApi.deleteCategory(id),
-    onSuccess: () => (qc.invalidateQueries({ queryKey: vendorKeys.categories }), toast.success('Category removed')),
+    mutationFn: (id) => seller.api.deleteCategory(id),
+    onSuccess: () => (qc.invalidateQueries({ queryKey: seller.keys.categories }), toast.success('Category removed')),
     onError: (err) => toast.error(errorMessage(err)),
   })
 
@@ -37,21 +38,36 @@ export default function VendorCategoriesPage() {
     <>
       <PageHeader
         title="Categories"
-        description="Every product belongs to a category. Use the shared catalogue or propose new categories."
+        description={
+          seller.isStore
+            ? 'Every product belongs to a category. Use the shared catalogue or add a new one; it goes live straight away.'
+            : 'Every product belongs to a category. Use the shared catalogue or propose new categories.'
+        }
         actions={
           <Button onClick={() => setDialog({})}>
-            <FolderPlus /> Propose category
+            <FolderPlus /> {seller.isStore ? 'Add category' : 'Propose category'}
           </Button>
         }
       />
 
       <div className="grid gap-6 xl:grid-cols-2">
         <Card>
-          <CardHeader title="Your proposals" description="Pending categories can be used for your products right away; they show on the store once approved." />
+          <CardHeader
+            title={seller.isStore ? 'Added by the store' : 'Your proposals'}
+            description={
+              seller.isStore
+                ? 'Categories created from the store. Edit or reorder them under Admin → Categories.'
+                : 'Pending categories can be used for your products right away; they show on the store once approved.'
+            }
+          />
           <DataTable
             loading={isLoading}
             rows={mine}
-            empty={{ title: 'No proposals yet', description: 'Propose a category when nothing in the catalogue fits your product.' }}
+            empty={
+              seller.isStore
+                ? { title: 'None added yet', description: 'Add a category when nothing in the catalogue fits your product.' }
+                : { title: 'No proposals yet', description: 'Propose a category when nothing in the catalogue fits your product.' }
+            }
             columns={[
               {
                 key: 'name',
