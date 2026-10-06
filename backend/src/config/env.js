@@ -178,15 +178,9 @@ const schema = z
         message: 'SMSINDIAHUB_API_KEY and SMSINDIAHUB_SENDER_ID are required when SMS_PROVIDER=smsindiahub',
       });
     }
-    if (env.MAIL_PROVIDER === 'smtp' && (!env.SMTP_USER || !env.SMTP_PASS)) {
-      ctx.addIssue({ code: 'custom', path: ['SMTP_USER'], message: 'SMTP_USER and SMTP_PASS are required when MAIL_PROVIDER=smtp' });
-    }
     if (env.NODE_ENV !== 'production') return;
     if (env.SMS_PROVIDER === 'console') {
       ctx.addIssue({ code: 'custom', path: ['SMS_PROVIDER'], message: 'console SMS provider is not allowed in production' });
-    }
-    if (env.MAIL_PROVIDER === 'console') {
-      ctx.addIssue({ code: 'custom', path: ['MAIL_PROVIDER'], message: 'console mail provider is not allowed in production' });
     }
     if (env.CORS_ORIGINS.length === 0) {
       ctx.addIssue({ code: 'custom', path: ['CORS_ORIGINS'], message: 'CORS_ORIGINS is required in production' });
