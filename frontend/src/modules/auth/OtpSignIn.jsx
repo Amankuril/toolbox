@@ -1,13 +1,15 @@
 import { useMutation } from '@tanstack/react-query'
-import { ArrowRight, PencilLine, ShieldCheck } from 'lucide-react'
+import { ArrowRight, Mail, PencilLine, ShieldCheck, Smartphone } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { one, publicApi } from '@/core/api/http'
 import { parseApiError } from '@/core/api/errors'
 import { sessions } from '@/core/auth/session'
 import { formatPhone } from '@/core/lib/format'
-import { phone10 } from '@/core/lib/validators'
+import { email as emailSchema, phone10 } from '@/core/lib/validators'
 import { Button } from '@/ui/Button'
 import { Alert } from '@/ui/Card'
+import { SegmentedControl } from '@/ui/Controls'
+import { Input } from '@/ui/Field'
 import { OtpInput, PhoneInput } from '@/ui/inputs'
 
 function useCountdown() {
@@ -27,30 +29,60 @@ function useCountdown() {
   ]
 }
 
+const CHANNELS = [
+  {
+    value: 'phone',
+    label: (
+      <span className="inline-flex items-center gap-1.5">
+        <Smartphone className="size-4" /> Mobile
+      </span>
+    ),
+  },
+  {
+    value: 'email',
+    label: (
+      <span className="inline-flex items-center gap-1.5">
+        <Mail className="size-4" /> Email
+      </span>
+    ),
+  },
+]
+
 /**
- * Mobile OTP sign-in used by customers and vendors.
- * Existing number → signed in (onAuthenticated). New number → onOnboarding({ onboardingToken, phone }).
+ * One-time-code sign-in for customers and vendors, by mobile number or email.
+ * Existing account → signed in (onAuthenticated). New → onOnboarding({ onboardingToken, phone?, email? }).
  *
- * @param {{ audience: 'user'|'vendor', onAuthenticated: (account) => void, onOnboarding: (v: { onboardingToken: string, phone: string }) => void }} props
+ * @param {{ audience: 'user'|'vendor', onAuthenticated: (account) => void,
+ *   onOnboarding: (v: { onboardingToken: string, phone?: string, email?: string }) => void }} props
  */
 export function OtpSignIn({ audience, onAuthenticated, onOnboarding }) {
-  const [step, setStep] = useState('phone')
+  const [channel, setChannel] = useState('phone')
+  const [step, setStep] = useState('target')
   const [phone, setPhone] = useState('')
+  const [email, setEmail] = useState('')
   const [otp, setOtp] = useState('')
   const [error, setError] = useState(null)
+  const [errorCode, setErrorCode] = useState(null)
   const [resendIn, startCountdown] = useCountdown()
+  const target = channel === 'phone' ? { phone } : { email }
+  const fail = (err) => {
+    const e = parseApiError(err)
+    setError(e.message)
+    setErrorCode(e.code)
+    return e
+  }
+  const clearError = () => (setError(null), setErrorCode(null))
 
   const send = useMutation({
-    mutationFn: () => one(publicApi.post('/auth/otp/send', { phone, audience })),
+    mutationFn: () => one(publicApi.post('/auth/otp/send', { ...target, audience })),
     onSuccess: (data) => {
-      setError(null)
+      clearError()
       setOtp('')
       setStep('otp')
       startCountdown(data.resendIn)
     },
     onError: (err) => {
-      const e = parseApiError(err)
-      setError(e.message)
+      const e = fail(err)
       // Cooldown from a previous send: go to the code step anyway so they can type the code they got.
       if (e.code === 'OTP_COOLDOWN') {
         setStep('otp')
@@ -60,47 +92,74 @@ export function OtpSignIn({ audience, onAuthenticated, onOnboarding }) {
   })
 
   const verify = useMutation({
-    mutationFn: (code) => one(publicApi.post('/auth/otp/verify', { phone, audience, otp: code })),
+    mutationFn: (code) => one(publicApi.post('/auth/otp/verify', { ...target, audience, otp: code })),
     onSuccess: (data) => {
       if (data.status === 'authenticated') {
         sessions[audience].getState().signIn(data)
         onAuthenticated(data.account)
       } else {
-        onOnboarding({ onboardingToken: data.onboardingToken, phone: data.phone })
+        onOnboarding({ onboardingToken: data.onboardingToken, ...(data.phone ? { phone: data.phone } : { email: data.email }) })
       }
     },
     onError: (err) => {
-      setError(parseApiError(err).message)
+      fail(err)
       setOtp('')
     },
   })
 
-  const submitPhone = (e) => {
+  const submitTarget = (e) => {
     e.preventDefault()
-    const parsed = phone10.safeParse(phone)
+    const parsed = (channel === 'phone' ? phone10 : emailSchema).safeParse(channel === 'phone' ? phone : email)
     if (!parsed.success) {
       setError(parsed.error.issues[0].message)
       return
     }
-    setPhone(parsed.data)
+    if (channel === 'phone') setPhone(parsed.data)
+    else setEmail(parsed.data)
     send.mutate()
   }
 
-  if (step === 'phone') {
+  const switchTo = (next) => {
+    setChannel(next)
+    setStep('target')
+    setOtp('')
+    clearError()
+  }
+
+  if (step === 'target') {
+    const ready = channel === 'phone' ? phone.length === 10 : email.includes('@')
     return (
-      <form onSubmit={submitPhone} className="flex flex-col gap-4" noValidate>
+      <form onSubmit={submitTarget} className="flex flex-col gap-4" noValidate>
+        <SegmentedControl value={channel} onChange={switchTo} options={CHANNELS} className="self-start" />
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="otp-phone" className="text-sm font-medium text-slate-800">
-            Mobile number
+          <label htmlFor="otp-target" className="text-sm font-medium text-slate-800">
+            {channel === 'phone' ? 'Mobile number' : 'Email address'}
           </label>
-          <PhoneInput id="otp-phone" value={phone} onChange={(v) => (setPhone(v), setError(null))} autoFocus aria-invalid={Boolean(error) || undefined} />
+          {channel === 'phone' ? (
+            <PhoneInput id="otp-target" value={phone} onChange={(v) => (setPhone(v), clearError())} autoFocus aria-invalid={Boolean(error) || undefined} />
+          ) : (
+            <Input
+              id="otp-target"
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              autoFocus
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => (setEmail(e.target.value), clearError())}
+              aria-invalid={Boolean(error) || undefined}
+            />
+          )}
         </div>
         {error && <Alert tone="danger">{error}</Alert>}
-        <Button type="submit" size="lg" loading={send.isPending} disabled={phone.length !== 10}>
-          Get OTP <ArrowRight />
+        <Button type="submit" size="lg" loading={send.isPending} disabled={!ready}>
+          Get code <ArrowRight />
         </Button>
         <p className="flex items-center justify-center gap-1.5 text-xs text-slate-500">
-          <ShieldCheck className="size-3.5" /> We&apos;ll text a 6-digit code. Standard SMS rates may apply.
+          <ShieldCheck className="size-3.5" />{' '}
+          {channel === 'phone'
+            ? 'We’ll text a 6-digit code. Standard SMS rates may apply.'
+            : 'We’ll email you a 6-digit code. Check your spam folder if it doesn’t arrive.'}
         </p>
       </form>
     )
@@ -116,10 +175,10 @@ export function OtpSignIn({ audience, onAuthenticated, onOnboarding }) {
       noValidate
     >
       <div className="text-sm text-slate-600">
-        Enter the code sent to <span className="font-semibold text-slate-900">{formatPhone(`+91${phone}`)}</span>
+        Enter the code sent to <span className="font-semibold text-slate-900">{channel === 'phone' ? formatPhone(`+91${phone}`) : email}</span>
         <button
           type="button"
-          onClick={() => (setStep('phone'), setError(null))}
+          onClick={() => (setStep('target'), clearError())}
           className="ml-2 inline-flex items-center gap-1 font-medium text-primary hover:underline"
         >
           <PencilLine className="size-3.5" /> Change
@@ -127,12 +186,25 @@ export function OtpSignIn({ audience, onAuthenticated, onOnboarding }) {
       </div>
       <OtpInput
         value={otp}
-        onChange={(v) => (setOtp(v), setError(null))}
+        onChange={(v) => (setOtp(v), clearError())}
         onComplete={(code) => verify.mutate(code)}
         disabled={verify.isPending}
         invalid={Boolean(error)}
       />
-      {error && <Alert tone="danger">{error}</Alert>}
+      {error && (
+        <Alert
+          tone="danger"
+          action={
+            errorCode === 'SELLER_EMAIL_NOT_FOUND' && (
+              <Button size="sm" variant="outline" onClick={() => switchTo('phone')}>
+                Use mobile number
+              </Button>
+            )
+          }
+        >
+          {error}
+        </Alert>
+      )}
       <Button type="submit" size="lg" loading={verify.isPending} disabled={otp.length !== 6}>
         Verify &amp; continue
       </Button>

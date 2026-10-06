@@ -23,7 +23,7 @@ export default function AccountLayout() {
       <aside>
         <div className="mb-4 px-1">
           <p className="font-semibold text-slate-900">{account?.name}</p>
-          <p className="text-sm text-slate-500">{formatPhone(account?.phone)}</p>
+          <p className="text-sm text-slate-500">{account?.phone ? formatPhone(account.phone) : account?.email}</p>
         </div>
         <nav className="flex gap-1 overflow-x-auto md:flex-col" aria-label="Account">
           {NAV.map((n) => (

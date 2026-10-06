@@ -22,7 +22,7 @@ export default function UserLoginPage() {
       <title>{`Sign in | ${siteName}`}</title>
       <Card className="p-6 sm:p-8">
         <h1 className="text-2xl font-bold text-slate-900">Sign in or create an account</h1>
-        <p className="mt-1 mb-6 text-sm text-slate-500">Use your mobile number. New here? We&apos;ll set up your account after you verify.</p>
+        <p className="mt-1 mb-6 text-sm text-slate-500">Use your mobile number or email. New here? We&apos;ll set up your account after you verify.</p>
         <OtpSignIn
           audience="user"
           onAuthenticated={async () => {

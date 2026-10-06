@@ -61,7 +61,7 @@ export default function ProfilePage() {
       <Card className="max-w-2xl p-5 sm:p-6">
         <form onSubmit={form.handleSubmit((v) => save.mutate(v))} className="grid gap-5 sm:grid-cols-2" noValidate>
           <Field label="Mobile number" hint="Used to sign in" className="sm:col-span-2">
-            {(p) => <Input {...p} value={formatPhone(account?.phone)} disabled />}
+            {(p) => <Input {...p} value={account?.phone ? formatPhone(account.phone) : 'Not added (you sign in by email)'} disabled />}
           </Field>
           <Field label="Full name" required error={e.name?.message}>
             {(p) => <Input {...p} autoComplete="name" {...form.register('name')} />}

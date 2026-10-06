@@ -66,14 +66,20 @@ export default function UserOnboardingPage() {
       <title>Create your account</title>
       <Card className="p-6 sm:p-8">
         <h1 className="text-2xl font-bold text-slate-900">Welcome! Let&apos;s set up your account</h1>
-        <p className="mt-1 text-sm text-slate-500">{formatPhone(state.phone)} is verified.</p>
+        <p className="mt-1 text-sm text-slate-500">{state.phone ? formatPhone(state.phone) : state.email} is verified.</p>
 
         <form onSubmit={form.handleSubmit((v) => createAccount.mutate(v))} className="mt-6 flex flex-col gap-5" noValidate>
           <Field label="Full name" required error={e.name?.message}>
             {(p) => <Input {...p} autoComplete="name" autoFocus {...form.register('name')} />}
           </Field>
-          <Field label="Email" error={e.email?.message} hint="Optional">
-            {(p) => <Input {...p} type="email" autoComplete="email" {...form.register('email')} />}
+          <Field label="Email" error={e.email?.message} hint={state.email ? 'Verified' : 'Optional'}>
+            {(p) =>
+              state.email ? (
+                <Input {...p} type="email" value={state.email} readOnly disabled />
+              ) : (
+                <Input {...p} type="email" autoComplete="email" {...form.register('email')} />
+              )
+            }
           </Field>
 
           <div>

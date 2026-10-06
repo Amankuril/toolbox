@@ -54,7 +54,7 @@ export default function VendorLoginPage() {
             <Logo to="/" suffix="Seller" />
           </div>
           <h2 className="text-2xl font-bold text-slate-900">Sell on {siteName}</h2>
-          <p className="mt-1 mb-8 text-sm text-slate-500">Sign in or create your seller account with your mobile number.</p>
+          <p className="mt-1 mb-8 text-sm text-slate-500">Sign in with your mobile number or email. New sellers sign up with a mobile number.</p>
           <OtpSignIn
             audience="vendor"
             onAuthenticated={(account) => navigate(destinationFor(account, next), { replace: true })}
