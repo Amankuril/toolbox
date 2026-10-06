@@ -214,6 +214,18 @@ export function AmountRows({ amounts }) {
         <dd className="tabular">{formatINR(amounts.total)}</dd>
       </div>
       <p className="text-xs text-slate-500">Includes GST of {formatINR(amounts.tax)}</p>
+      {amounts.advance > 0 && (
+        <div className="mt-1 flex flex-col gap-1.5 rounded-md border border-slate-200 bg-slate-50 p-3">
+          <div className="flex justify-between">
+            <dt className="text-slate-600">Advance paid online</dt>
+            <dd className="tabular font-semibold text-slate-900">{formatINR(amounts.advance)}</dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-slate-600">Due on delivery (cash)</dt>
+            <dd className="tabular font-semibold text-slate-900">{amounts.balanceDue > 0 ? formatINR(amounts.balanceDue) : 'Nothing'}</dd>
+          </div>
+        </div>
+      )}
       {amounts.refunded > 0 && (
         <div className="flex justify-between text-emerald-700">
           <dt>Refunded</dt>

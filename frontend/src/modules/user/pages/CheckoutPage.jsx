@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Banknote, Check, CreditCard, MapPin, Plus } from 'lucide-react'
+import { Banknote, Check, CreditCard, MapPin, Plus, WalletCards } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { parseApiError } from '@/core/api/errors'
 import { useSession } from '@/core/auth/session'
 import { cn } from '@/core/lib/cn'
+import { splitPartial } from '@/core/lib/pricing'
 import { formatINR, formatPhone } from '@/core/lib/format'
 import { gstin as gstinRule } from '@/core/lib/validators'
 import { usePublicSettings } from '@/core/settings/usePublicSettings'
@@ -81,6 +82,14 @@ export default function CheckoutPage() {
   const payments = settings?.payments
   const total = cart.summary.total
   const codAllowed = payments?.codEnabled && (!payments.codMaxOrderValue || total <= payments.codMaxOrderValue)
+  const split = payments?.partialEnabled ? splitPartial(total, payments.partialAdvancePercent) : null
+  const partialBlock = !split
+    ? null
+    : total < payments.partialMinOrderValue
+      ? `Available on orders of ${formatINR(payments.partialMinOrderValue, { whole: true })} or more`
+      : payments.partialMaxBalance && split.balanceDue > payments.partialMaxBalance
+        ? `Up to ${formatINR(payments.partialMaxBalance, { whole: true })} can be paid on delivery`
+        : null
   const chosenMethod = method ?? (payments?.razorpayEnabled ? 'razorpay' : codAllowed ? 'cod' : null)
   const chosenAddress = addressId ?? addresses?.find((a) => a.isDefault)?._id ?? addresses?.[0]?._id
   const gstError = wantsGst && gst.gstin && !gstinRule.safeParse(gst.gstin).success ? 'Enter a valid 15 character GSTIN' : null
@@ -208,6 +217,27 @@ export default function CheckoutPage() {
                   <span className="mt-0.5 block text-sm text-slate-600">UPI, debit/credit cards, net banking and wallets via Razorpay</span>
                 </Option>
               )}
+              {split && (
+                <Option selected={chosenMethod === 'partial'} onSelect={() => setMethod('partial')} disabled={Boolean(partialBlock)}>
+                  <span className="flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-900">
+                    <WalletCards className="size-4" /> Pay {payments.partialAdvancePercent}% now, rest on delivery
+                  </span>
+                  {partialBlock ? (
+                    <span className="mt-0.5 block text-sm text-slate-600">{partialBlock}</span>
+                  ) : (
+                    <span className="mt-2 grid max-w-sm grid-cols-2 gap-2 text-sm">
+                      <span className="rounded-md border border-slate-200 bg-white px-3 py-2">
+                        <span className="block text-xs text-slate-600">Pay online now</span>
+                        <span className="price block text-lg">{formatINR(split.advance)}</span>
+                      </span>
+                      <span className="rounded-md border border-dashed border-slate-300 bg-white px-3 py-2">
+                        <span className="block text-xs text-slate-600">Cash on delivery</span>
+                        <span className="price block text-lg">{formatINR(split.balanceDue)}</span>
+                      </span>
+                    </span>
+                  )}
+                </Option>
+              )}
               {payments.codEnabled && (
                 <Option selected={chosenMethod === 'cod'} onSelect={() => setMethod('cod')} disabled={!codAllowed}>
                   <span className="flex items-center gap-2 text-sm font-semibold text-slate-900">
@@ -244,7 +274,11 @@ export default function CheckoutPage() {
               ))}
             </ul>
             <Button size="lg" variant="accent" className="mt-5 w-full" disabled={!canPlace} loading={place.isPending || paying} onClick={() => place.mutate()}>
-              {chosenMethod === 'razorpay' ? `Pay ${formatINR(total)}` : 'Place order'}
+              {chosenMethod === 'razorpay'
+                ? `Pay ${formatINR(total)}`
+                : chosenMethod === 'partial' && split
+                  ? `Pay ${formatINR(split.advance)} now`
+                  : 'Place order'}
             </Button>
             <p className="mt-3 text-center text-xs text-slate-500">
               <Link to="/cart" className="font-medium text-primary hover:underline">

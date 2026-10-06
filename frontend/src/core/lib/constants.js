@@ -109,6 +109,7 @@ export const STATUS_TONES = {
   failed: 'danger',
   refunded: 'neutral',
   partially_refunded: 'warning',
+  partially_paid: 'info',
   // shipment
   created: 'info',
   courier_assigned: 'info',
@@ -137,6 +138,7 @@ export const STATUS_LABELS = {
   pending_review: 'Under review',
   pending_payment: 'Awaiting payment',
   partially_refunded: 'Part refunded',
+  partially_paid: 'Advance paid',
   pending: 'Pending',
   courier_assigned: 'Courier assigned',
   pickup_scheduled: 'Pickup scheduled',
@@ -150,7 +152,11 @@ export const STATUS_LABELS = {
 
 export const SHIPMENT_STATUS_LABELS = { pending: 'Not booked', created: 'Booked' }
 
-export const PAYMENT_METHOD_LABEL = { razorpay: 'Paid online (Razorpay)', cod: 'Cash on delivery' }
+export const PAYMENT_METHOD_LABEL = {
+  razorpay: 'Paid online (Razorpay)',
+  cod: 'Cash on delivery',
+  partial: 'Part payment: advance online, balance on delivery',
+}
 
 /** First two digits of a GSTIN identify the state. Used to pre-fill addresses. */
 export const GST_STATE_CODES = {

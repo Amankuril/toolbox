@@ -4,7 +4,7 @@ import { useParams, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { errorMessage } from '@/core/api/errors'
 import { PAYMENT_METHOD_LABEL } from '@/core/lib/constants'
-import { formatDateTime } from '@/core/lib/format'
+import { formatDateTime, formatINR } from '@/core/lib/format'
 import { useBranding } from '@/core/settings/usePublicSettings'
 import { AddressBlock, AmountRows, OrderItemRow } from '@/modules/shared/orders'
 import { ScanList, ShipmentStatusBadge, ShipmentTimeline } from '@/modules/shared/shipments'
@@ -80,7 +80,12 @@ export default function MyOrderDetailPage() {
 
       {justPlaced && (
         <Alert tone="success" icon={CircleCheckBig} title="Order placed!" className="mb-5">
-          {o.payment.method === 'cod' ? 'Pay in cash when it arrives. ' : 'Your payment is confirmed. '}We&apos;ll show updates here as sellers ship your items.
+          {o.payment.method === 'cod'
+            ? 'Pay in cash when it arrives. '
+            : o.payment.method === 'partial'
+              ? `Advance received. Pay ${formatINR(o.amounts.balanceDue ?? 0)} in cash when it arrives. `
+              : 'Your payment is confirmed. '}
+          We&apos;ll show updates here as sellers ship your items.
         </Alert>
       )}
       {isVerifying && (
@@ -121,9 +126,11 @@ export default function MyOrderDetailPage() {
                     <ReasonDialog
                       title="Cancel this item?"
                       description={
-                        o.payment.method === 'razorpay' && o.payment.status !== 'pending'
-                          ? 'The amount for this item is refunded to your original payment method.'
-                          : 'You will not be charged for it.'
+                        o.payment.method === 'partial' && o.payment.status !== 'pending'
+                          ? 'The amount due on delivery goes down first. If your advance now covers more than you owe, the difference is refunded.'
+                          : o.payment.method === 'razorpay' && o.payment.status !== 'pending'
+                            ? 'The amount for this item is refunded to your original payment method.'
+                            : 'You will not be charged for it.'
                       }
                       label="Reason"
                       required={false}

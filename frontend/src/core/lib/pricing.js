@@ -28,4 +28,11 @@ export function tierRows(basePrice, moq, tiers) {
   }))
 }
 
-export const rangeLabel = (row, unit = 'pc') => (row.maxQty ? (row.maxQty === row.minQty ? `${row.minQty}` : `${row.minQty}–${row.maxQty}`) : `${row.minQty}+`) + ` ${unit}`
+export const rangeLabel = (row, unit = 'pc') =>
+  (row.maxQty ? (row.maxQty === row.minQty ? `${row.minQty}` : `${row.minQty}–${row.maxQty}`) : `${row.minQty}+`) + ` ${unit}`
+
+/** Mirrors the API's partial-payment split (advance rounded up to a whole rupee). Display only; the server decides. */
+export function splitPartial(total, percent) {
+  const advance = Math.min(total, Math.max(100, Math.ceil((total * percent) / 100 / 100) * 100))
+  return { advance, balanceDue: total - advance }
+}

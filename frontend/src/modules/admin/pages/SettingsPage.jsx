@@ -492,7 +492,84 @@ function PaymentSettings({ payments, integrations }) {
           </div>
         </CardBody>
       </Card>
+      <PartialPaymentSettings payments={payments} razorpayReady={rz.configured} />
     </div>
+  )
+}
+
+/** Advance online + balance in cash on delivery. */
+function PartialPaymentSettings({ payments, razorpayReady }) {
+  const save = useSaveSettings('payments', 'Part payment settings saved')
+  const [v, setV] = useState({
+    percent: payments.partialAdvancePercent,
+    min: payments.partialMinOrderValue || undefined,
+    max: payments.partialMaxBalance || undefined,
+  })
+  const example = 1_000_000
+  const advance = Math.min(example, Math.max(100, Math.ceil((example * (v.percent || 0)) / 100 / 100) * 100))
+  return (
+    <Card>
+      <CardHeader
+        title="Part payment"
+        description="Buyers pay a share online now and the rest in cash to the courier. Cuts fake COD orders and lets buyers place larger orders."
+      />
+      <CardBody className="flex flex-col gap-5">
+        <Switch
+          checked={payments.partialEnabled}
+          disabled={!razorpayReady || save.isPending}
+          onCheckedChange={(partialEnabled) => save.mutate({ partialEnabled })}
+          label="Offer “pay part now, rest on delivery”"
+          description={
+            razorpayReady
+              ? payments.razorpayEnabled
+                ? 'The advance is taken through Razorpay; the courier collects the balance.'
+                : 'Turn on Razorpay above too: the advance is paid online.'
+              : 'Add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET on the server to enable.'
+          }
+        />
+        {payments.partialEnabled && (
+          <>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Field label="Advance" hint="5–90% of the order total">
+                {(p) => (
+                  <Input
+                    {...p}
+                    type="number"
+                    min={5}
+                    max={90}
+                    value={v.percent ?? ''}
+                    onChange={(e) => setV({ ...v, percent: e.target.value === '' ? undefined : Number(e.target.value) })}
+                    suffix="%"
+                  />
+                )}
+              </Field>
+              <Field label="Only on orders from" hint="Leave empty for every order">
+                {(p) => <PriceInput {...p} value={v.min} onChange={(min) => setV({ ...v, min })} placeholder="Any amount" />}
+              </Field>
+              <Field label="Most due on delivery" hint="Leave empty for no limit">
+                {(p) => <PriceInput {...p} value={v.max} onChange={(max) => setV({ ...v, max })} placeholder="No limit" />}
+              </Field>
+            </div>
+            {v.percent >= 5 && v.percent <= 90 && (
+              <p className="text-sm text-slate-600">
+                Example: on a ₹10,000 order the buyer pays <strong className="text-slate-900">₹{(advance / 100).toLocaleString('en-IN')}</strong> now and{' '}
+                <strong className="text-slate-900">₹{((example - advance) / 100).toLocaleString('en-IN')}</strong> in cash on delivery.
+              </p>
+            )}
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                loading={save.isPending}
+                disabled={!(v.percent >= 5 && v.percent <= 90)}
+                onClick={() => save.mutate({ partialAdvancePercent: v.percent, partialMinOrderValue: v.min ?? 0, partialMaxBalance: v.max ?? 0 })}
+              >
+                Save part payment
+              </Button>
+            </div>
+          </>
+        )}
+      </CardBody>
+    </Card>
   )
 }
 
