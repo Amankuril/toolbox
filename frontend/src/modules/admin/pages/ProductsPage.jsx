@@ -1,7 +1,7 @@
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, ExternalLink, Eye, EyeOff, Layers, MessageSquareWarning, Star, X } from 'lucide-react'
+import { Check, ExternalLink, Eye, EyeOff, Layers, MessageSquareWarning, Star, Upload, X } from 'lucide-react'
 import { useState } from 'react'
-import { useNavigate } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { errorMessage } from '@/core/api/errors'
 import { useSearchParamsState } from '@/core/hooks/useSearchParamsState'
@@ -62,7 +62,17 @@ export default function ProductsPage() {
 
   return (
     <>
-      <PageHeader title="Products" description="Moderate listings from every vendor." />
+      <PageHeader
+        title="Products"
+        description="Moderate listings from every vendor."
+        actions={
+          <Button variant="outline" asChild>
+            <Link to="/admin/products/import">
+              <Upload /> Bulk upload
+            </Link>
+          </Button>
+        }
+      />
       <Card>
         <div className="px-4 pt-2">
           <FilterTabs value={filters.status ?? ''} onChange={(status) => setFilters({ status })} options={TABS} />
@@ -106,7 +116,10 @@ export default function ProductsPage() {
                     <p className="flex items-center gap-1.5 truncate text-xs text-slate-500">
                       {[p.brand, p.sku].filter(Boolean).join(' · ') || '—'}
                       {p.bulkPricing?.tiers?.length > 0 && (
-                        <span className="inline-flex items-center gap-0.5 rounded bg-slate-100 px-1 text-[10px] font-semibold text-slate-600" title="Has bulk pricing">
+                        <span
+                          className="inline-flex items-center gap-0.5 rounded bg-slate-100 px-1 text-[10px] font-semibold text-slate-600"
+                          title="Has bulk pricing"
+                        >
                           <Layers className="size-3" /> Bulk
                         </span>
                       )}
@@ -135,7 +148,8 @@ export default function ProductsPage() {
                   label={`Actions for ${p.name}`}
                   items={[
                     { label: 'View details', icon: Eye, onSelect: () => navigate(`/admin/products/${p._id}`) },
-                    p.status === 'active' && p.vendorApproved && { label: 'View on store', icon: ExternalLink, onSelect: () => window.open(`/p/${p.slug}`, '_blank', 'noopener') },
+                    p.status === 'active' &&
+                      p.vendorApproved && { label: 'View on store', icon: ExternalLink, onSelect: () => window.open(`/p/${p.slug}`, '_blank', 'noopener') },
                     ['pending', 'rejected'].includes(p.status) && 'separator',
                     ['pending', 'rejected'].includes(p.status) && { label: 'Approve', icon: Check, onSelect: () => setAction({ type: 'approve', row: p }) },
                     p.status === 'pending' && { label: 'Reject', icon: MessageSquareWarning, onSelect: () => setAction({ type: 'reject', row: p }) },

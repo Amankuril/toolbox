@@ -77,8 +77,8 @@ export default function VendorProductsPage() {
 
   const headerActions = (
     <div className="flex flex-wrap gap-2">
-      <Button variant="outline" onClick={() => vendorApi.exportProducts().catch(onError)}>
-        <Download /> Export CSV
+      <Button variant="outline" onClick={() => vendorApi.productImports.exportProducts('xlsx').catch(onError)}>
+        <Download /> Export (Excel)
       </Button>
       {approved && (
         <Button variant="outline" asChild>

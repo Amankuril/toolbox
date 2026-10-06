@@ -18,6 +18,7 @@ export const adminRoutes = {
             { path: 'orders/:id', ...page(() => import('./pages/OrderDetailPage')) },
             { path: 'quotes', ...page(() => import('./pages/QuotesPage')) },
             { path: 'products', ...page(() => import('./pages/ProductsPage')) },
+            { path: 'products/import', ...page(() => import('./pages/ProductImportPage')) },
             { path: 'products/:id', ...page(() => import('./pages/ProductDetailPage')) },
             { path: 'categories', ...page(() => import('./pages/CategoriesPage')) },
             { path: 'vendors', ...page(() => import('./pages/VendorsPage')) },

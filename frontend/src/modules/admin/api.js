@@ -1,4 +1,5 @@
 import { api, list, one } from '@/core/api/http'
+import { createImportApi } from '@/modules/shared/productImportApi'
 
 const a = api.admin
 
@@ -26,6 +27,7 @@ export const adminKeys = {
 }
 
 export const adminApi = {
+  productImports: createImportApi(a),
   me: () => one(a.get('/me')),
   changePassword: (body) => one(a.post('/me/password', body)),
   dashboard: () => one(a.get('/dashboard')),
