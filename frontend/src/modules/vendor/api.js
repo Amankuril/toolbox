@@ -16,6 +16,7 @@ export const vendorKeys = {
   quotes: (p) => ['vendor', 'quotes', p],
   quote: (id) => ['vendor', 'quote', id],
   order: (id) => ['vendor', 'order', id],
+  shipments: (orderId) => ['vendor', 'shipments', orderId],
 }
 
 export const vendorApi = {
@@ -51,6 +52,8 @@ export const vendorApi = {
   orders: (params) => list(v.get('/orders', { params })),
   order: (id) => one(v.get(`/orders/${id}`)),
   updateOrderItem: (id, itemId, body) => one(v.patch(`/orders/${id}/items/${itemId}`, body)),
+  shipments: (orderId) => one(v.get(`/orders/${orderId}/shipments`)),
+  shipmentLabel: (id) => v.get(`/shipments/${id}/label`, { responseType: 'blob' }).then((r) => r.data),
 }
 
 /**

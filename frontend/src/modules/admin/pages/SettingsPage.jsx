@@ -53,7 +53,7 @@ export default function SettingsPage() {
             { value: 'branding', label: 'Branding', icon: Store, content: <BrandingSettings branding={data.branding} theme={data.theme} /> },
             { value: 'storage', label: 'Storage', icon: HardDrive, content: <StorageSettings storage={data.storage} integrations={data.integrations} /> },
             { value: 'payments', label: 'Payments', icon: CreditCard, content: <PaymentSettings payments={data.payments} integrations={data.integrations} /> },
-            { value: 'shipping', label: 'Shipping', icon: Truck, content: <ShippingSettings shipping={data.shipping} /> },
+            { value: 'shipping', label: 'Shipping', icon: Truck, content: <ShippingSettings shipping={data.shipping} integrations={data.integrations} /> },
             { value: 'moderation', label: 'Moderation', icon: ShieldCheck, content: <ModerationSettings moderation={data.moderation} /> },
           ]}
         />
@@ -498,24 +498,123 @@ function PaymentSettings({ payments, integrations }) {
 
 /* ───────────────────────── Shipping ───────────────────────── */
 
-function ShippingSettings({ shipping }) {
+function ShippingSettings({ shipping, integrations }) {
   const [v, setV] = useState({ flatFee: shipping.flatFee || undefined, freeAbove: shipping.freeAbove || undefined })
   const save = useSaveSettings('shipping', 'Shipping settings saved')
   return (
-    <Card className="max-w-3xl">
-      <CardHeader title="Shipping charges" description="Applied once per order at checkout." />
-      <CardBody className="grid gap-5 sm:grid-cols-2">
-        <Field label="Flat shipping fee" hint="Leave empty for free shipping on every order">
-          {(p) => <PriceInput {...p} value={v.flatFee} onChange={(flatFee) => setV({ ...v, flatFee })} placeholder="Free" />}
-        </Field>
-        <Field label="Free shipping on orders above" hint="Leave empty to always charge the fee">
-          {(p) => <PriceInput {...p} value={v.freeAbove} onChange={(freeAbove) => setV({ ...v, freeAbove })} placeholder="Never" />}
-        </Field>
-        <div className="flex justify-end border-t border-slate-100 pt-5 sm:col-span-2">
-          <Button loading={save.isPending} onClick={() => save.mutate({ flatFee: v.flatFee ?? 0, freeAbove: v.freeAbove ?? 0 })}>
-            Save shipping
-          </Button>
+    <div className="flex max-w-3xl flex-col gap-6">
+      <Card>
+        <CardHeader title="Shipping charges" description="Applied once per order at checkout." />
+        <CardBody className="grid gap-5 sm:grid-cols-2">
+          <Field label="Flat shipping fee" hint="Leave empty for free shipping on every order">
+            {(p) => <PriceInput {...p} value={v.flatFee} onChange={(flatFee) => setV({ ...v, flatFee })} placeholder="Free" />}
+          </Field>
+          <Field label="Free shipping on orders above" hint="Leave empty to always charge the fee">
+            {(p) => <PriceInput {...p} value={v.freeAbove} onChange={(freeAbove) => setV({ ...v, freeAbove })} placeholder="Never" />}
+          </Field>
+          <div className="flex justify-end border-t border-slate-100 pt-5 sm:col-span-2">
+            <Button loading={save.isPending} onClick={() => save.mutate({ flatFee: v.flatFee ?? 0, freeAbove: v.freeAbove ?? 0 })}>
+              Save shipping
+            </Button>
+          </div>
+        </CardBody>
+      </Card>
+      <ShipmozoSettings shipping={shipping} configured={integrations.shipmozo?.configured} />
+    </div>
+  )
+}
+
+function ShipmozoSettings({ shipping, configured }) {
+  const save = useSaveSettings('shipping', 'Shipmozo settings saved')
+  const [pkg, setPkg] = useState(shipping.defaultPackage)
+  const [checking, setChecking] = useState(false)
+  const on = shipping.shipmozoEnabled
+  const toggles = [
+    [
+      'autoCreateShipments',
+      'Book shipments automatically',
+      'Confirmed orders (COD, or paid online) are pushed to Shipmozo in the background. Off: an admin books each one from the order page.',
+    ],
+    ['autoAssignCourier', 'Auto-assign a courier', 'Uses the rules in Shipmozo → Settings → Auto assign. Set those up in the panel first.'],
+    [
+      'blockUnserviceable',
+      'Block checkout for unserviceable pincodes',
+      'Only when Shipmozo confirms a seller cannot deliver there; an outage never blocks orders.',
+    ],
+  ]
+  const check = async () => {
+    setChecking(true)
+    try {
+      await adminApi.shippingHealth()
+      toast.success('Connected to Shipmozo')
+    } catch (err) {
+      toast.error(errorMessage(err))
+    } finally {
+      setChecking(false)
+    }
+  }
+  const dims = [
+    ['weightGrams', 'Weight (g)'],
+    ['lengthCm', 'Length (cm)'],
+    ['widthCm', 'Width (cm)'],
+    ['heightCm', 'Height (cm)'],
+  ]
+  return (
+    <Card>
+      <CardHeader
+        title="Shipmozo"
+        description="Courier booking, labels and tracking. Each seller's pickup address is registered as a Shipmozo warehouse on their first shipment."
+        action={<IntegrationStatus ok={configured} />}
+      />
+      <CardBody className="flex flex-col gap-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <Switch
+            checked={on}
+            disabled={!configured || save.isPending}
+            onCheckedChange={(shipmozoEnabled) => save.mutate({ shipmozoEnabled })}
+            label="Ship orders with Shipmozo"
+            description={
+              configured
+                ? 'Order pages get shipment, courier and tracking controls.'
+                : 'Add SHIPMOZO_PUBLIC_KEY and SHIPMOZO_PRIVATE_KEY on the server to enable.'
+            }
+          />
+          {on && (
+            <Button size="sm" variant="outline" loading={checking} onClick={check}>
+              Test connection
+            </Button>
+          )}
         </div>
+        {on && (
+          <>
+            {toggles.map(([key, label, description]) => (
+              <Switch
+                key={key}
+                checked={shipping[key]}
+                disabled={save.isPending}
+                onCheckedChange={(value) => save.mutate({ [key]: value })}
+                label={label}
+                description={description}
+              />
+            ))}
+            <div className="border-t border-slate-100 pt-5">
+              <p className="text-sm font-medium text-slate-900">Default package</p>
+              <p className="mb-3 text-sm text-slate-600">Used for products without shipping weight or dimensions.</p>
+              <div className="grid gap-3 sm:grid-cols-4">
+                {dims.map(([key, label]) => (
+                  <Field key={key} label={label}>
+                    {(p) => <Input {...p} type="number" min={1} value={pkg[key]} onChange={(e) => setPkg({ ...pkg, [key]: Number(e.target.value) })} />}
+                  </Field>
+                ))}
+              </div>
+              <div className="mt-4 flex justify-end">
+                <Button variant="outline" loading={save.isPending} onClick={() => save.mutate({ defaultPackage: pkg })}>
+                  Save package
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
       </CardBody>
     </Card>
   )

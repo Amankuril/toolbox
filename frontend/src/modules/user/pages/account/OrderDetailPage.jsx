@@ -7,6 +7,7 @@ import { PAYMENT_METHOD_LABEL } from '@/core/lib/constants'
 import { formatDateTime } from '@/core/lib/format'
 import { useBranding } from '@/core/settings/usePublicSettings'
 import { AddressBlock, AmountRows, OrderItemRow } from '@/modules/shared/orders'
+import { ScanList, ShipmentStatusBadge, ShipmentTimeline } from '@/modules/shared/shipments'
 import { StatusBadge } from '@/ui/Badge'
 import { Button } from '@/ui/Button'
 import { Alert, Card, CardBody, CardHeader, Skeleton } from '@/ui/Card'
@@ -25,6 +26,12 @@ export default function MyOrderDetailPage() {
     queryFn: () => userApi.order(id),
     // Webhooks may confirm a payment moments after the redirect; poll briefly while it's pending.
     refetchInterval: (q) => (q.state.data?.status === 'pending_payment' ? 5000 : false),
+  })
+
+  const { data: shipments = [] } = useQuery({
+    queryKey: storeKeys.tracking(id),
+    queryFn: () => userApi.tracking(id),
+    enabled: Boolean(o) && !['pending_payment', 'cancelled'].includes(o?.status),
   })
 
   const refresh = (updated) => {
@@ -108,7 +115,9 @@ export default function MyOrderDetailPage() {
                 item={item}
                 actions={
                   ['pending', 'confirmed'].includes(item.status) &&
-                  o.status !== 'pending_payment' && (
+                  o.status !== 'pending_payment' &&
+                  // Booked with a courier: cancelling goes through support.
+                  !shipments.some((s) => s.type === 'forward' && s.status !== 'cancelled' && s.items.some((r) => r.itemId === item._id)) && (
                     <ReasonDialog
                       title="Cancel this item?"
                       description={
@@ -134,6 +143,22 @@ export default function MyOrderDetailPage() {
         </Card>
 
         <div className="flex flex-col gap-5">
+          {shipments.map((s, i) => (
+            <Card key={s._id}>
+              <CardHeader
+                title={s.type === 'return' ? 'Return pickup' : shipments.filter((x) => x.type === 'forward').length > 1 ? `Delivery ${i + 1}` : 'Delivery'}
+                description={s.courier && [s.courier.name, s.awbNumber && `AWB ${s.awbNumber}`].filter(Boolean).join(' · ')}
+                action={<ShipmentStatusBadge status={s.status} />}
+              />
+              <CardBody className="flex flex-col gap-4">
+                {s.tracking.expectedDeliveryDate && s.status !== 'delivered' && (
+                  <p className="text-sm text-slate-700">Expected by {s.tracking.expectedDeliveryDate}</p>
+                )}
+                {s.type === 'forward' && <ShipmentTimeline steps={[{ key: 'confirmed', label: 'Order confirmed', done: true }, ...s.steps]} />}
+                <ScanList scans={s.tracking.scans} />
+              </CardBody>
+            </Card>
+          ))}
           <Card>
             <CardHeader title="Payment" action={<StatusBadge status={o.payment.status} />} />
             <CardBody className="flex flex-col gap-4">

@@ -109,6 +109,17 @@ export const STATUS_TONES = {
   failed: 'danger',
   refunded: 'neutral',
   partially_refunded: 'warning',
+  // shipment
+  created: 'info',
+  courier_assigned: 'info',
+  pickup_scheduled: 'info',
+  pickup_pending: 'warning',
+  picked_up: 'info',
+  in_transit: 'info',
+  out_for_delivery: 'primary',
+  exception: 'danger',
+  return_in_transit: 'warning',
+  returned: 'neutral',
 }
 
 export const QUOTE_STATUS_LABELS = {
@@ -127,7 +138,17 @@ export const STATUS_LABELS = {
   pending_payment: 'Awaiting payment',
   partially_refunded: 'Part refunded',
   pending: 'Pending',
+  courier_assigned: 'Courier assigned',
+  pickup_scheduled: 'Pickup scheduled',
+  pickup_pending: 'Awaiting pickup',
+  picked_up: 'Picked up',
+  in_transit: 'In transit',
+  out_for_delivery: 'Out for delivery',
+  exception: 'Delivery issue',
+  return_in_transit: 'Returning to seller',
 }
+
+export const SHIPMENT_STATUS_LABELS = { pending: 'Not booked', created: 'Booked' }
 
 export const PAYMENT_METHOD_LABEL = { razorpay: 'Paid online (Razorpay)', cod: 'Cash on delivery' }
 

@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { errorMessage } from '@/core/api/errors'
 import { formatDateTime, formatINR } from '@/core/lib/format'
 import { AddressBlock, ItemStatusActions, OrderItemRow } from '@/modules/shared/orders'
+import { LabelButton, ScanList, ShipmentFacts, ShipmentStatusBadge } from '@/modules/shared/shipments'
 import { Badge, StatusBadge } from '@/ui/Badge'
 import { Card, CardBody, CardHeader, Skeleton } from '@/ui/Card'
 import { PageHeader } from '@/ui/PageHeader'
@@ -13,6 +14,7 @@ export default function VendorOrderDetailPage() {
   const { id } = useParams()
   const qc = useQueryClient()
   const { data: o, isLoading } = useQuery({ queryKey: vendorKeys.order(id), queryFn: () => vendorApi.order(id) })
+  const { data: shipments = [] } = useQuery({ queryKey: vendorKeys.shipments(id), queryFn: () => vendorApi.shipments(id) })
 
   const updateItem = (itemId) => async (body) => {
     try {
@@ -42,6 +44,27 @@ export default function VendorOrderDetailPage() {
           </ul>
         </Card>
         <div className="flex flex-col gap-6">
+          {shipments
+            .filter((s) => s.status !== 'pending')
+            .map((s) => (
+              <Card key={s._id}>
+                <CardHeader
+                  title={s.type === 'return' ? 'Return pickup' : 'Shipment'}
+                  description={<span className="font-mono">{s.providerOrderId}</span>}
+                  action={<ShipmentStatusBadge status={s.status} />}
+                />
+                <CardBody className="flex flex-col gap-4">
+                  <ShipmentFacts
+                    shipment={s}
+                    extra={[s.paymentType === 'cod' && s.type === 'forward' && ['Collect on delivery', formatINR(s.codAmount ?? 0)]]}
+                  />
+                  <ScanList scans={s.tracking.scans} />
+                  <div>
+                    <LabelButton shipment={s} fetchLabel={vendorApi.shipmentLabel} />
+                  </div>
+                </CardBody>
+              </Card>
+            ))}
           <Card>
             <CardHeader title="Ship to" />
             <CardBody>

@@ -9,11 +9,16 @@ import { StatusBadge } from '@/ui/Badge'
 import { Alert, Card, CardBody, CardHeader, Skeleton } from '@/ui/Card'
 import { DescriptionList, PageHeader } from '@/ui/PageHeader'
 import { adminApi, adminKeys } from '../api'
+import { VendorShipments } from '../shipping'
 
 export default function OrderDetailPage() {
   const { id } = useParams()
   const qc = useQueryClient()
   const { data: o, isLoading } = useQuery({ queryKey: adminKeys.order(id), queryFn: () => adminApi.order(id) })
+  const { data: settings } = useQuery({ queryKey: adminKeys.settings, queryFn: adminApi.settings })
+  const shippingOn = Boolean(settings?.shipping?.shipmozoEnabled)
+  const { data: shipments = [] } = useQuery({ queryKey: adminKeys.shipments(id), queryFn: () => adminApi.shipments(id), enabled: shippingOn })
+  const runShipment = useShipmentRunner(id, qc)
 
   const updateItem = (itemId) => async (body) => {
     try {
@@ -73,6 +78,18 @@ export default function OrderDetailPage() {
                   />
                 ))}
               </ul>
+              {shippingOn && (
+                <VendorShipments
+                  shipments={shipments.filter((s) => String(s.vendor) === String(g.vendor?._id ?? g.vendor))}
+                  canCreate={['placed', 'processing'].includes(o.status)}
+                  onCreate={async () => {
+                    const result = await runShipment(() => adminApi.createShipments(id), 'Shipments created').catch(() => null)
+                    // Seller-level failures stay retryable on the shipment; surface the first one.
+                    if (result?.errors?.length) toast.error(result.errors[0].message)
+                  }}
+                  run={runShipment}
+                />
+              )}
             </Card>
           ))}
         </div>
@@ -123,4 +140,21 @@ export default function OrderDetailPage() {
       </div>
     </>
   )
+}
+
+/** Runs a shipment action, toasts the outcome, and refreshes the order and its shipments. */
+function useShipmentRunner(orderId, qc) {
+  return async (fn, message) => {
+    try {
+      const result = await fn()
+      toast.success(message)
+      return result
+    } catch (err) {
+      toast.error(errorMessage(err))
+      throw err
+    } finally {
+      qc.invalidateQueries({ queryKey: adminKeys.shipments(orderId) })
+      qc.invalidateQueries({ queryKey: adminKeys.order(orderId) })
+    }
+  }
 }

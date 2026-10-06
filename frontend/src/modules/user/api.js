@@ -16,6 +16,7 @@ export const storeKeys = {
   addresses: ['user', 'addresses'],
   orders: (p) => ['user', 'orders', p],
   order: (id) => ['user', 'order', id],
+  tracking: (id) => ['user', 'order', id, 'tracking'],
   quotes: (p) => ['user', 'quotes', p],
   quote: (id) => ['user', 'quote', id],
 }
@@ -53,6 +54,7 @@ export const userApi = {
   verifyPayment: (id, body) => one(u.post(`/orders/${id}/payment/verify`, body)),
   retryPayment: (id) => one(u.post(`/orders/${id}/payment/retry`)),
   paymentFailed: (id, reason) => one(u.post(`/orders/${id}/payment/failed`, { reason })),
+  tracking: (id) => one(u.get(`/orders/${id}/tracking`)),
   cancelItem: (id, itemId, reason) => one(u.post(`/orders/${id}/items/${itemId}/cancel`, { reason })),
 
   quotes: (params) => list(u.get('/quotes', { params })),
