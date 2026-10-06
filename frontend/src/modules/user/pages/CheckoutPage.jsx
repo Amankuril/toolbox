@@ -243,7 +243,7 @@ export default function CheckoutPage() {
                 </li>
               ))}
             </ul>
-            <Button size="lg" className="mt-5 w-full" disabled={!canPlace} loading={place.isPending || paying} onClick={() => place.mutate()}>
+            <Button size="lg" variant="accent" className="mt-5 w-full" disabled={!canPlace} loading={place.isPending || paying} onClick={() => place.mutate()}>
               {chosenMethod === 'razorpay' ? `Pay ${formatINR(total)}` : 'Place order'}
             </Button>
             <p className="mt-3 text-center text-xs text-slate-500">

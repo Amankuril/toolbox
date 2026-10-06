@@ -10,6 +10,7 @@ import { formatINR, formatNumber } from '@/core/lib/format'
 import { priceFor, usableTiers } from '@/core/lib/pricing'
 import { useBranding } from '@/core/settings/usePublicSettings'
 import { Thumb } from '@/ui/Brand'
+import { Sticker } from '@/ui/Badge'
 import { Button } from '@/ui/Button'
 import { EmptyState, Skeleton } from '@/ui/Card'
 import { QuantityStepper } from '@/ui/inputs'
@@ -197,14 +198,15 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related } })
               <span className="rounded-sm bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-800 capitalize">{p.condition}</span>
             )}
           </div>
-          <h1 className="mt-1.5 text-xl sm:text-2xl font-bold leading-snug text-slate-900">{p.name}</h1>
-          <p className="mt-1 text-xs text-slate-500">
-            {[p.modelNumber && `Model ${p.modelNumber}`, p.sku && !p.hasVariants && `SKU ${p.sku}`].filter(Boolean).join('   ·   ')}
+          <h1 className="mt-1.5 text-2xl leading-[1.12] font-extrabold tracking-tight text-slate-900 sm:text-[2rem]">{p.name}</h1>
+          <p className="code mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-600">
+            {p.modelNumber && <span>MODEL {p.modelNumber}</span>}
+            {p.sku && !p.hasVariants && <span>SKU {p.sku}</span>}
           </p>
 
           <div className="mt-3.5 border-t border-slate-200 pt-3">
             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <span className="font-display text-2xl sm:text-3xl leading-none font-bold text-slate-900">{formatINR(unitPrice)}</span>
+              <span className="price text-[2.25rem] leading-none text-slate-900 sm:text-[2.75rem]">{formatINR(unitPrice)}</span>
               {qty > 1 && <span className="text-xs sm:text-sm text-slate-500">/ {unit}</span>}
               {tier ? (
                 <span className="text-xs sm:text-sm text-slate-500 line-through">{formatINR(sellable.price)}</span>
@@ -212,7 +214,7 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related } })
                 sellable.mrp > sellable.price && (
                   <>
                     <span className="text-xs sm:text-sm text-slate-500 line-through">MRP {formatINR(sellable.mrp)}</span>
-                    <span className="text-xs sm:text-sm font-semibold text-accent-ink">Save {sellable.discountPercent}%</span>
+                    <Sticker className="self-center">Save {sellable.discountPercent}%</Sticker>
                   </>
                 )
               )}
@@ -281,10 +283,10 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related } })
                 </p>
               )}
               <div className="mt-3 grid grid-cols-2 gap-2.5">
-                <Button size="md" variant="outline" className="border-slate-900 font-semibold" loading={busy === 'add'} onClick={() => add(false)}>
+                <Button size="lg" loading={busy === 'add'} onClick={() => add(false)}>
                   <ShoppingCart /> Add to cart
                 </Button>
-                <Button size="md" className="font-semibold" loading={busy === 'buy'} onClick={() => add(true)}>
+                <Button size="lg" variant="accent" loading={busy === 'buy'} onClick={() => add(true)}>
                   Buy now
                 </Button>
               </div>
@@ -390,17 +392,18 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related } })
         {p.specifications.length > 0 && (
           <section id="specs" className={cn('scroll-mt-28', !p.description && 'lg:col-span-2')}>
             <SectionHeading title="Specifications" />
-            <dl className="divide-y divide-slate-200 border-y border-slate-200 text-sm">
+            {/* Spec-sheet rows: label left, value right, dotted leader between. */}
+            <dl className="text-[0.9375rem]">
               {p.specifications.map((s) => (
-                <div key={s.label} className="grid grid-cols-[40%_1fr] gap-4 py-2">
-                  <dt className="text-slate-500">{s.label}</dt>
-                  <dd className="font-medium text-slate-900">{s.value}</dd>
+                <div key={s.label} className="flex items-baseline justify-between gap-6 border-b border-dotted border-slate-300 py-2.5 last:border-b-0">
+                  <dt className="text-slate-600">{s.label}</dt>
+                  <dd className="text-right font-semibold text-slate-900">{s.value}</dd>
                 </div>
               ))}
               {p.shipping?.weightKg != null && (
-                <div className="grid grid-cols-[40%_1fr] gap-4 py-2">
-                  <dt className="text-slate-500">Shipping weight</dt>
-                  <dd className="font-medium text-slate-900">{p.shipping.weightKg} kg</dd>
+                <div className="flex items-baseline justify-between gap-6 py-2.5">
+                  <dt className="text-slate-600">Shipping weight</dt>
+                  <dd className="text-right font-semibold text-slate-900">{p.shipping.weightKg} kg</dd>
                 </div>
               )}
             </dl>
@@ -437,7 +440,7 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related } })
       {sellable.inStock && (
         <div className="fixed inset-x-0 bottom-0 z-20 flex items-center gap-3 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:hidden">
           <span className="min-w-0">
-            <span className="tabular block font-display text-xl leading-none font-bold">{formatINR(total)}</span>
+            <span className="price block text-xl leading-none">{formatINR(total)}</span>
             <span className="text-xs text-slate-500">
               {formatNumber(qty)} × {formatINR(unitPrice)}
             </span>

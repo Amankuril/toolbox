@@ -42,10 +42,7 @@ export function CategoryBar() {
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
           onMouseEnter={openSoon}
-          className={cn(
-            '-ml-3 flex items-center gap-2 px-3 font-display text-sm font-semibold tracking-wide uppercase',
-            open ? 'bg-white text-slate-900' : 'hover:bg-white/10',
-          )}
+          className={cn('-ml-3 flex items-center gap-2 px-3 text-sm font-bold', open ? 'bg-white text-slate-900' : 'hover:bg-white/10')}
         >
           <MenuIcon className="size-4" /> All departments <ChevronDown className={cn('size-4 transition-transform', open && 'rotate-180')} />
         </button>

@@ -137,7 +137,8 @@ export default function CartPage() {
           <CartSummary summary={cart.summary}>
             <Button
               size="lg"
-              className="mt-5 w-full font-semibold"
+              variant="accent"
+              className="mt-5 w-full"
               disabled={cart.hasIssues}
               onClick={() => navigate(cart.signedIn ? '/checkout' : '/login?next=/checkout')}
             >

@@ -202,10 +202,10 @@ export function ProductGrid({ products, loading, count = 10, view = 'grid' }) {
 /** Section heading used across the storefront: condensed title, optional subtitle, link on the right. */
 export function SectionHeading({ title, subtitle, action, className }) {
   return (
-    <div className={cn('mb-5 flex items-end justify-between gap-4 border-b border-slate-200 pb-3', className)}>
+    <div className={cn('mb-5 flex items-end justify-between gap-4 border-b-2 border-slate-900 pb-3', className)}>
       <div className="min-w-0">
-        <h2 className="font-display text-[1.65rem] leading-tight font-bold text-slate-900">{title}</h2>
-        {subtitle && <p className="mt-0.5 text-sm text-slate-500">{subtitle}</p>}
+        <h2 className="text-[1.75rem] leading-tight font-extrabold tracking-tight text-slate-900">{title}</h2>
+        {subtitle && <p className="mt-0.5 text-sm text-slate-600">{subtitle}</p>}
       </div>
       {action}
     </div>
