@@ -14,7 +14,7 @@ import { adminCategoryRoutes, publicCategoryRoutes, vendorCategoryRoutes } from 
 import { dashboardService } from '#modules/dashboard/dashboard.service.js';
 import { adminMediaRouter, mediaUploadRouter } from '#modules/media/media.routes.js';
 import { adminOrderRoutes, userOrderRoutes, vendorOrderRoutes } from '#modules/orders/order.routes.js';
-import { vendorProductImportRoutes } from '#modules/products/imports/import.routes.js';
+import { adminProductImportRoutes, vendorProductImportRoutes } from '#modules/products/imports/import.routes.js';
 import { adminProductRoutes, publicProductRoutes, vendorProductRoutes } from '#modules/products/product.routes.js';
 import { adminQuoteRoutes, userQuoteRoutes, vendorQuoteRoutes } from '#modules/quotes/quote.routes.js';
 import { adminSettingsRoutes, publicSettingsRoutes } from '#modules/settings/settings.routes.js';
@@ -85,6 +85,7 @@ export function buildRoutes() {
     .use('/users', adminUserRoutes)
     .use('/categories', adminCategoryRoutes)
     .use('/products', adminProductRoutes)
+    .use('/product-imports', adminProductImportRoutes)
     .use('/orders', adminOrderRoutes)
     .use('/quotes', adminQuoteRoutes)
     .use('/banners', adminBannerRoutes)

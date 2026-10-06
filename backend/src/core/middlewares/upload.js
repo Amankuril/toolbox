@@ -25,15 +25,28 @@ const imageUpload = multer({
 
 export const uploadImages = (field = 'files') => imageUpload.array(field, env.UPLOAD_MAX_FILES);
 
-/** One spreadsheet (CSV) for bulk imports. Excel on Windows labels CSVs as vnd.ms-excel. */
-const CSV_TYPES = new Set(['text/csv', 'application/csv', 'text/plain', 'application/vnd.ms-excel', 'application/octet-stream']);
-const csvUpload = multer({
+/**
+ * One spreadsheet (.csv or .xlsx) for bulk imports. Browsers label these inconsistently
+ * (Excel on Windows calls CSVs vnd.ms-excel), so the extension decides and the content is
+ * verified when it's read.
+ */
+const SHEET_TYPES = new Set([
+  'text/csv',
+  'application/csv',
+  'text/plain',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/zip',
+  'application/x-zip-compressed',
+  'application/octet-stream',
+]);
+const sheetUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024, files: 1, fields: 5, parts: 6 },
   fileFilter(_req, file, cb) {
-    if (!/\.csv$/i.test(file.originalname ?? '') || !CSV_TYPES.has(file.mimetype)) {
+    if (!/\.(csv|xlsx)$/i.test(file.originalname ?? '') || !SHEET_TYPES.has(file.mimetype)) {
       cb(
-        ApiError.badRequest('Upload a .csv file. In Excel or Google Sheets use File → Download / Save as → CSV.', {
+        ApiError.badRequest('Upload an Excel (.xlsx) or CSV file. Old .xls files: open in Excel and save as .xlsx.', {
           code: 'UNSUPPORTED_FILE',
         }),
       );
@@ -43,4 +56,4 @@ const csvUpload = multer({
   },
 });
 
-export const uploadCsv = (field = 'file') => csvUpload.single(field);
+export const uploadSheet = (field = 'file') => sheetUpload.single(field);

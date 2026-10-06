@@ -1,5 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
-import { baseOptions } from '#core/db/schemas.js';
+import { actorSchema, baseOptions } from '#core/db/schemas.js';
 
 /**
  * validated  → file parsed and checked; waiting for the vendor to confirm
@@ -26,6 +26,8 @@ const issueSchema = new Schema(
 const importSchema = new Schema(
   {
     vendor: { type: Schema.Types.ObjectId, ref: 'Vendor', required: true },
+    // An admin may upload on a vendor's behalf; products still belong to the vendor.
+    createdBy: { type: actorSchema },
     fileName: { type: String, trim: true, maxlength: 255 },
     mode: { type: String, enum: IMPORT_MODES, default: 'create' },
     status: { type: String, enum: IMPORT_STATUSES, default: 'validated' },

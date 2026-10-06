@@ -1,9 +1,9 @@
-import { parse as parseCsv } from 'csv-parse/sync';
 import { Category } from '#modules/categories/category.model.js';
 import { generateSku } from '../inventory.js';
 import { Product } from '../product.model.js';
 import { vendorCreateProduct } from '../product.validation.js';
 import { CellError, COLUMNS, COLUMN_KEYS, normalizeHeader } from './import.columns.js';
+import { readSheet } from './import.sheets.js';
 
 export const MAX_IMPORT_ROWS = 5000;
 const MAX_IMAGES = 10;
@@ -198,24 +198,12 @@ function buildItem(group, categories, issues) {
 /* ─────────────── File ─────────────── */
 
 /**
- * Parses and validates a CSV against the same rules as the product form.
+ * Parses and validates a CSV or Excel sheet against the same rules as the product form.
  * Nothing is written to products here; the result is stored for the vendor to review.
  */
-export async function parseImportFile(buffer, { vendorId, mode }) {
+export async function parseImportFile({ buffer, originalname }, { vendorId, mode }) {
   const fileIssues = [];
-  let records;
-  try {
-    records = parseCsv(buffer, {
-      bom: true,
-      skip_empty_lines: true,
-      relax_column_count: true,
-      relax_quotes: false,
-      trim: false,
-      to: MAX_IMPORT_ROWS + 2,
-    });
-  } catch (err) {
-    return { fileIssues: [{ row: err.lines, message: `This file isn't valid CSV: ${err.message.slice(0, 200)}` }], items: [], rowCount: 0 };
-  }
+  const records = await readSheet(buffer, originalname, { maxRows: MAX_IMPORT_ROWS + 2 });
   if (!records.length) return { fileIssues: [{ message: 'The file is empty' }], items: [], rowCount: 0 };
 
   const headers = records[0].map(normalizeHeader);

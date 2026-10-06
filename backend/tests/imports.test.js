@@ -1,3 +1,4 @@
+import ExcelJS from 'exceljs';
 import { parse } from 'csv-parse/sync';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -14,6 +15,13 @@ let admin;
 
 const V = () => bearer(vendor.accessToken);
 const BASE = `${API}/vendor/product-imports`;
+
+/** supertest: collect a binary body into a Buffer. */
+const binary = (res, cb) => {
+  const chunks = [];
+  res.on('data', (c) => chunks.push(c));
+  res.on('end', () => cb(null, Buffer.concat(chunks)));
+};
 
 const HEADER =
   'handle,sku,name,type,category,mrp,price,gst_rate,hsn_code,stock,publish,option1_name,option1_value,variant_price,variant_mrp,variant_stock,image_urls';
@@ -53,7 +61,7 @@ afterAll(stopTestApp);
 
 describe('template & reference files', () => {
   it('serves a template with every column and the vendor’s categories', async () => {
-    const t = await request(app).get(`${BASE}/template.csv`).set(V()).expect(200);
+    const t = await request(app).get(`${BASE}/template?format=csv`).set(V()).expect(200);
     expect(t.headers['content-type']).toContain('text/csv');
     const rows = parse(t.text, { bom: true });
     expect(rows[0]).toEqual(expect.arrayContaining(['name', 'category', 'hsn_code', 'option1_name', 'variant_price', 'image_urls']));
@@ -125,7 +133,7 @@ describe('validate then import', () => {
       .data;
     expect(dup.counts).toMatchObject({ valid: 0, invalid: 1 });
 
-    const exported = (await request(app).get(`${BASE}/export.csv`).set(V()).expect(200)).text;
+    const exported = (await request(app).get(`${BASE}/export?format=csv`).set(V()).expect(200)).text;
     const rows = parse(exported, { bom: true, columns: true });
     const pumpRow = rows.find((r) => r.sku === 'PMP-1');
     expect(pumpRow).toMatchObject({ price: '7850', category: 'Pumps > Monoblock', publish: 'yes' });
@@ -240,5 +248,99 @@ describe('resilience & access', () => {
     expect(cancelled.status).toBe('cancelled');
     await request(app).post(`${BASE}/${res._id}/start`).set(V()).expect(409);
     await request(app).get(BASE).set(bearer(admin.accessToken)).expect(401);
+  });
+});
+
+describe('Excel & ready-to-edit templates', () => {
+  const ADMIN_BASE = `${API}/admin/product-imports`;
+
+  it('both template formats upload cleanly as downloaded (example rows use real categories)', async () => {
+    const csvT = await request(app).get(`${BASE}/template?format=csv`).set(V()).expect(200);
+    const fromCsv = (await uploadCsv(Buffer.from(csvT.text), { name: 'template.csv' }).expect(201)).body.data;
+    expect(fromCsv.counts).toMatchObject({ items: 2, valid: 2, invalid: 0 });
+
+    const xlsx = await request(app).get(`${BASE}/template?format=xlsx`).set(V()).buffer(true).parse(binary).expect(200);
+    expect(xlsx.headers['content-type']).toContain('spreadsheetml');
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(xlsx.body);
+    expect(wb.worksheets.map((w) => w.name)).toEqual(['Products', 'Instructions', 'Categories']);
+    expect(wb.getWorksheet('Products').getRow(1).getCell(3).value).toBe('name*');
+    const fromXlsx = (await uploadCsv(xlsx.body, { name: 'template.xlsx' }).expect(201)).body.data;
+    expect(fromXlsx.counts).toMatchObject({ items: 2, valid: 2, invalid: 0 });
+    await request(app).post(`${BASE}/${fromCsv._id}/cancel`).set(V()).expect(200);
+    await request(app).post(`${BASE}/${fromXlsx._id}/cancel`).set(V()).expect(200);
+  });
+
+  it('reads Excel numbers, formulas and rich text, and imports from .xlsx', async () => {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Products');
+    ws.addRow(['sku', 'name*', 'type', 'category', 'mrp', 'price', 'gst_rate', 'hsn_code', 'stock', 'publish']);
+    ws.addRow([
+      'XL-1',
+      { richText: [{ text: 'Excel ' }, { text: 'Pump' }] },
+      'machinery',
+      'Pumps',
+      1200,
+      { formula: 'E2*0.9', result: 1080 },
+      18,
+      '8413',
+      7,
+      true,
+    ]);
+    const buffer = Buffer.from(await wb.xlsx.writeBuffer());
+    const res = (await uploadCsv(buffer, { name: 'excel.xlsx' }).expect(201)).body.data;
+    expect(res.counts).toMatchObject({ valid: 1, invalid: 0 });
+    await runImport(res._id);
+    expect(await Product.findOne({ sku: 'XL-1' }).lean()).toMatchObject({
+      name: 'Excel Pump',
+      pricing: { mrp: 120_000, price: 108_000 },
+      status: 'active',
+    });
+  });
+
+  it('rejects zip bombs and fake .xlsx files before unzipping', async () => {
+    // A valid-looking central directory that claims 100 MB of content.
+    const cd = Buffer.alloc(46);
+    cd.writeUInt32LE(0x02014b50, 0);
+    cd.writeUInt32LE(100 * 1024 * 1024, 24);
+    const eocd = Buffer.alloc(22);
+    eocd.writeUInt32LE(0x06054b50, 0);
+    eocd.writeUInt16LE(1, 10);
+    eocd.writeUInt32LE(4, 16);
+    const bomb = Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), cd, eocd]);
+    expect((await uploadCsv(bomb, { name: 'bomb.xlsx' }).expect(400)).body.error.message).toContain('too large');
+    await uploadCsv(Buffer.from('name,price'), { name: 'fake.xlsx' }).expect(400);
+    await uploadCsv(Buffer.from('x'), { name: 'old.xls' }).expect(400);
+  });
+
+  it('lets an admin download templates and upload for a chosen vendor, and export their catalogue', async () => {
+    const A = bearer(admin.accessToken);
+    const t = await request(app).get(`${ADMIN_BASE}/template?format=csv&vendorId=${vendor.account._id}`).set(A).expect(200);
+    const sheet = Buffer.from(t.text.replace('SPR-16L', 'ADM-1').replace('GLV-NIT', 'ADM-2').replaceAll('nitrile-gloves', 'adm-gloves'));
+    await request(app).post(ADMIN_BASE).set(A).attach('file', sheet, 'a.csv').expect(422);
+    const res = (
+      await request(app)
+        .post(ADMIN_BASE)
+        .set(A)
+        .field('vendorId', String(vendor.account._id))
+        .attach('file', sheet, { filename: 'a.csv', contentType: 'text/csv' })
+        .expect(201)
+    ).body.data;
+    expect(res).toMatchObject({ createdBy: 'admin', counts: { valid: 2 } });
+    await request(app).post(`${ADMIN_BASE}/${res._id}/start`).set(A).expect(200);
+    await productImportService.processQueued({ budgetMs: 10_000 });
+    expect(await Product.countDocuments({ vendor: vendor.account._id, sku: { $in: ['ADM-1', 'ADM-2'] } })).toBe(2);
+
+    const list = (await request(app).get(`${ADMIN_BASE}?vendor=${vendor.account._id}`).set(A).expect(200)).body.data;
+    expect(list[0].vendor.storeName).toBeTruthy();
+    await request(app).get(`${ADMIN_BASE}/export?format=csv`).set(A).expect(422);
+    const exported = await request(app).get(`${ADMIN_BASE}/export?format=csv&vendorId=${vendor.account._id}`).set(A).expect(200);
+    expect(exported.text).toContain('ADM-1');
+    // The vendor's own import list shows it too; another vendor can't export it.
+    const otherExport = await request(app)
+      .get(`${BASE}/export?format=csv&vendorId=${vendor.account._id}`)
+      .set(bearer(other.accessToken))
+      .expect(200);
+    expect(otherExport.text).not.toContain('ADM-1');
   });
 });
