@@ -6,6 +6,8 @@ const a = api.admin
 export const adminKeys = {
   all: ['admin'],
   dashboard: ['admin', 'dashboard'],
+  me: ['admin', 'me'],
+  shippingStatus: ['admin', 'shipping-status'],
   vendors: (p) => ['admin', 'vendors', p],
   vendor: (id) => ['admin', 'vendor', id],
   users: (p) => ['admin', 'users', p],
@@ -74,6 +76,7 @@ export const adminApi = {
   returnReasons: () => one(a.get('/shipping/return-reasons')),
   warehouses: () => one(a.get('/shipping/warehouses')),
   shippingHealth: () => one(a.get('/shipping/health')),
+  shippingStatus: () => one(a.get('/shipping/status')),
 
   quotes: (params) => list(a.get('/quotes', { params })),
   reviews: (params) => list(a.get('/reviews', { params })),

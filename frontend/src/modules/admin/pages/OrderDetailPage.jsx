@@ -15,8 +15,9 @@ export default function OrderDetailPage() {
   const { id } = useParams()
   const qc = useQueryClient()
   const { data: o, isLoading } = useQuery({ queryKey: adminKeys.order(id), queryFn: () => adminApi.order(id) })
-  const { data: settings } = useQuery({ queryKey: adminKeys.settings, queryFn: adminApi.settings })
-  const shippingOn = Boolean(settings?.shipping?.shipmozoEnabled)
+  // Only needs to know whether shipping is on: doesn't require the Settings permission.
+  const { data: shipping } = useQuery({ queryKey: adminKeys.shippingStatus, queryFn: adminApi.shippingStatus, staleTime: 60_000 })
+  const shippingOn = Boolean(shipping?.enabled)
   const { data: shipments = [] } = useQuery({ queryKey: adminKeys.shipments(id), queryFn: () => adminApi.shipments(id), enabled: shippingOn })
   const runShipment = useShipmentRunner(id, qc)
 
