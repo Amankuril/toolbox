@@ -37,7 +37,7 @@ export function Logo({ to = '/', className, inverted = false, suffix }) {
       {suffix && (
         <span
           className={cn(
-            'code rounded-sm px-1.5 py-0.5 text-[10.5px] font-medium tracking-wider uppercase',
+            'code rounded-sm px-1.5 py-0.5 text-[11.5px] font-medium tracking-wider uppercase',
             inverted ? 'bg-accent text-accent-fg' : 'border border-slate-300 text-slate-600',
           )}
         >

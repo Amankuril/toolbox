@@ -1,7 +1,7 @@
 import { Check, PackageCheck, Truck, X } from 'lucide-react'
 import { useState } from 'react'
 import { cn } from '@/core/lib/cn'
-import { formatDateTime, formatINR, formatPhone, titleCase } from '@/core/lib/format'
+import { formatINR, formatNumber, formatPhone } from '@/core/lib/format'
 import { StatusBadge } from '@/ui/Badge'
 import { Thumb } from '@/ui/Brand'
 import { Button } from '@/ui/Button'
@@ -124,63 +124,53 @@ function ShipDialog({ onSubmit, primary }) {
 }
 
 export function OrderItemRow({ item, actions, showVendor = false }) {
+  const cancelled = item.status === 'cancelled'
   return (
-    <li className="flex flex-col gap-4 py-4 sm:flex-row sm:items-start">
-      <Thumb src={item.image} alt="" className="size-16 shrink-0 rounded-lg border border-slate-200" />
+    <li className={cn('flex flex-col gap-4 py-5 sm:flex-row sm:items-start', cancelled && 'opacity-70')}>
+      <Thumb src={item.image} alt="" className="size-20 shrink-0 rounded-md border border-slate-200 bg-slate-100" />
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="font-medium text-slate-900">{item.name}</p>
-            {item.variant?.title && <p className="text-sm text-slate-600">{item.variant.title}</p>}
-            <p className="mt-0.5 text-xs text-slate-500">
-              {[item.sku && `SKU ${item.sku}`, `Qty ${item.quantity}`, `${formatINR(item.unitPrice)} each`, `GST ${item.gstRate}%`].filter(Boolean).join(' · ')}
+            <p className={cn('font-semibold text-slate-900', cancelled && 'line-through decoration-slate-400')}>{item.name}</p>
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs">
+              {item.variant?.title && <span className="rounded-sm bg-slate-900 px-1.5 py-0.5 font-semibold text-white">{item.variant.title}</span>}
               {item.pricing?.source === 'bulk' && (
-                <span className="ml-2 rounded bg-accent-soft px-1.5 py-0.5 font-medium text-accent-ink">Bulk price ({item.pricing.tierMinQty}+)</span>
+                <span className="rounded-sm bg-accent px-1.5 py-0.5 font-bold text-accent-fg">Bulk price · {item.pricing.tierMinQty}+</span>
               )}
-              {item.pricing?.source === 'quote' && <span className="ml-2 rounded bg-sky-50 px-1.5 py-0.5 font-medium text-sky-700">Quoted price</span>}
+              {item.pricing?.source === 'quote' && <span className="rounded-sm bg-sky-100 px-1.5 py-0.5 font-semibold text-sky-800">Quoted price</span>}
+              {item.refunded && <span className="rounded-sm bg-emerald-100 px-1.5 py-0.5 font-semibold text-emerald-800">Refunded</span>}
+            </div>
+            <p className="code mt-2 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-slate-600">
+              {item.sku && <span>SKU {item.sku}</span>}
+              {item.hsnCode && <span>HSN {item.hsnCode}</span>}
+              <span>GST {item.gstRate}%</span>
             </p>
-            {showVendor && item.vendor?.store?.name && <p className="mt-0.5 text-xs text-slate-500">Sold by {item.vendor.store.name}</p>}
+            {showVendor && item.vendor?.store?.name && <p className="mt-1 text-xs text-slate-500">Sold by {item.vendor.store.name}</p>}
           </div>
-          <div className="text-right">
-            <p className="tabular font-semibold text-slate-900">{formatINR(item.lineTotal)}</p>
-            <StatusBadge status={item.status} className="mt-1" />
+          <div className="flex flex-col items-end gap-1.5 text-right">
+            <p className="price text-lg text-slate-900">{formatINR(item.lineTotal)}</p>
+            <p className="text-xs text-slate-600">
+              {formatNumber(item.quantity)} × {formatINR(item.unitPrice)}
+              {item.basePrice > item.unitPrice && <span className="ml-1 text-slate-400 line-through">{formatINR(item.basePrice)}</span>}
+            </p>
+            <StatusBadge status={item.status} />
           </div>
         </div>
         {item.tracking && (
-          <p className="mt-2 text-sm text-slate-600">
-            <Truck className="mr-1 inline size-4 text-slate-400" />
-            {item.tracking.carrier} {item.tracking.trackingNumber}
+          <p className="mt-3 flex flex-wrap items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+            <Truck className="size-4 text-slate-500" />
+            <span className="font-semibold">{item.tracking.carrier}</span>
+            <span className="code">{item.tracking.trackingNumber}</span>
             {item.tracking.url && (
-              <a href={item.tracking.url} target="_blank" rel="noreferrer" className="ml-2 font-medium text-primary hover:underline">
+              <a href={item.tracking.url} target="_blank" rel="noreferrer" className="ml-auto font-semibold text-primary hover:underline">
                 Track
               </a>
             )}
           </p>
         )}
-        {item.refunded && <p className="mt-1 text-xs font-medium text-emerald-700">Refunded</p>}
-        {actions && <div className="mt-3">{actions}</div>}
-        {item.history?.length > 1 && <ItemHistory history={item.history} />}
+        {actions && <div className="mt-3 print:hidden">{actions}</div>}
       </div>
     </li>
-  )
-}
-
-function ItemHistory({ history }) {
-  return (
-    <details className="group mt-3">
-      <summary className="cursor-pointer text-xs font-medium text-slate-500 hover:text-slate-800">History</summary>
-      <ol className="mt-2 flex flex-col gap-2 border-l border-slate-200 pl-4">
-        {history.map((h, i) => (
-          <li key={i} className="relative text-xs">
-            <span
-              className={cn('absolute top-1 -left-[21px] size-2.5 rounded-full ring-2 ring-white', h.status === 'cancelled' ? 'bg-red-400' : 'bg-slate-300')}
-            />
-            <span className="font-medium text-slate-800">{titleCase(h.status)}</span> <span className="text-slate-500">· {formatDateTime(h.at)}</span>
-            {h.note && <p className="text-slate-600">{h.note}</p>}
-          </li>
-        ))}
-      </ol>
-    </details>
   )
 }
 

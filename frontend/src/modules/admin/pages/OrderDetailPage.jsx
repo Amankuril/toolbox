@@ -2,12 +2,20 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useParams } from 'react-router'
 import { toast } from 'sonner'
 import { errorMessage } from '@/core/api/errors'
-import { formatDateTime, formatINR, formatPhone } from '@/core/lib/format'
-import { PAYMENT_METHOD_LABEL } from '@/core/lib/constants'
-import { AddressBlock, AmountRows, ItemStatusActions, OrderItemRow } from '@/modules/shared/orders'
-import { StatusBadge } from '@/ui/Badge'
-import { Alert, Card, CardBody, CardHeader, Skeleton } from '@/ui/Card'
-import { DescriptionList, PageHeader } from '@/ui/PageHeader'
+import { formatDateTime, formatINR } from '@/core/lib/format'
+import {
+  ActivityTimeline,
+  CustomerCard,
+  NoteCard,
+  OrderFacts,
+  OrderHeader,
+  OrderProgress,
+  PaymentCard,
+  SellerItems,
+  ShipToCard,
+} from '@/modules/shared/orderDetail'
+import { ItemStatusActions, OrderItemRow } from '@/modules/shared/orders'
+import { Alert, Skeleton } from '@/ui/Card'
 import { adminApi, adminKeys } from '../api'
 import { VendorShipments } from '../shipping'
 
@@ -46,12 +54,7 @@ export default function OrderDetailPage() {
 
   return (
     <>
-      <PageHeader
-        back={{ to: '/admin/orders', label: 'Orders' }}
-        title={`Order ${o.orderNumber}`}
-        meta={<StatusBadge status={o.status} />}
-        description={`Placed ${formatDateTime(o.createdAt)}`}
-      />
+      <OrderHeader order={o} back={{ to: '/admin/orders', label: 'Orders' }} />
 
       {o.status === 'pending_payment' && (
         <Alert tone="warning" title="Awaiting payment" className="mb-6">
@@ -59,85 +62,68 @@ export default function OrderDetailPage() {
           {o.payment.failureReason && ` Last attempt: ${o.payment.failureReason}.`}
         </Alert>
       )}
-      {o.cancelReason && o.status === 'cancelled' && (
-        <Alert tone="danger" title="Cancelled" className="mb-6">
-          {o.cancelReason}
-        </Alert>
-      )}
+      <OrderProgress order={o} />
+      <OrderFacts order={o} />
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="flex flex-col gap-6 lg:col-span-2">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="flex min-w-0 flex-col gap-6">
           {groups.map((g) => (
-            <Card key={g.vendor?._id ?? 'unknown'}>
-              <CardHeader title={g.vendor?.store?.name ?? 'Vendor'} description={g.vendor?.phone && `Vendor contact ${formatPhone(g.vendor.phone)}`} />
-              <ul className="divide-y divide-slate-100 px-5">
-                {g.items.map((item) => (
-                  <OrderItemRow
-                    key={item._id}
-                    item={item}
-                    actions={<ItemStatusActions item={item} onUpdate={updateItem(item._id)} disabled={o.status === 'pending_payment'} />}
+            <SellerItems
+              key={g.vendor?._id ?? 'unknown'}
+              title={g.vendor?.store?.name ?? 'Seller'}
+              subtitle={`${g.items.length} ${g.items.length === 1 ? 'line' : 'lines'} fulfilled by this seller`}
+              contactPhone={g.vendor?.phone}
+              items={g.items}
+              footer={
+                shippingOn && (
+                  <VendorShipments
+                    shipments={shipments.filter((s) => String(s.vendor) === String(g.vendor?._id ?? g.vendor))}
+                    canCreate={['placed', 'processing'].includes(o.status)}
+                    onCreate={async () => {
+                      const result = await runShipment(() => adminApi.createShipments(id), 'Shipments created').catch(() => null)
+                      // Seller-level failures stay retryable on the shipment; surface the first one.
+                      if (result?.errors?.length) toast.error(result.errors[0].message)
+                    }}
+                    run={runShipment}
                   />
-                ))}
-              </ul>
-              {shippingOn && (
-                <VendorShipments
-                  shipments={shipments.filter((s) => String(s.vendor) === String(g.vendor?._id ?? g.vendor))}
-                  canCreate={['placed', 'processing'].includes(o.status)}
-                  onCreate={async () => {
-                    const result = await runShipment(() => adminApi.createShipments(id), 'Shipments created').catch(() => null)
-                    // Seller-level failures stay retryable on the shipment; surface the first one.
-                    if (result?.errors?.length) toast.error(result.errors[0].message)
-                  }}
-                  run={runShipment}
+                )
+              }
+            >
+              {g.items.map((item) => (
+                <OrderItemRow
+                  key={item._id}
+                  item={item}
+                  actions={<ItemStatusActions item={item} onUpdate={updateItem(item._id)} disabled={o.status === 'pending_payment'} />}
                 />
-              )}
-            </Card>
+              ))}
+            </SellerItems>
           ))}
+          <ActivityTimeline order={o} />
         </div>
 
-        <div className="flex flex-col gap-6">
-          <Card>
-            <CardHeader title="Payment" action={<StatusBadge status={o.payment.status} />} />
-            <CardBody className="flex flex-col gap-4">
-              <p className="text-sm text-slate-700">{PAYMENT_METHOD_LABEL[o.payment.method]}</p>
-              <AmountRows amounts={o.amounts} />
-              {o.refunds?.length > 0 && (
-                <div className="border-t border-slate-100 pt-3 text-xs text-slate-600">
+        <aside className="flex flex-col gap-6">
+          <NoteCard note={o.notes} />
+          <PaymentCard
+            order={o}
+            note={
+              o.refunds?.length > 0 && (
+                <div className="flex flex-col gap-1 border-t border-slate-100 pt-3 text-xs text-slate-600">
+                  <p className="eyebrow">Refunds</p>
                   {o.refunds.map((r) => (
-                    <p key={r.providerRefundId ?? r.at}>
-                      Refund {formatINR(r.amount)} · {r.status} · {formatDateTime(r.at)}
+                    <p key={r.providerRefundId ?? r.at} className="flex justify-between gap-2">
+                      <span>
+                        {formatDateTime(r.at)} · {r.status}
+                      </span>
+                      <span className="tabular font-semibold text-slate-900">{formatINR(r.amount)}</span>
                     </p>
                   ))}
                 </div>
-              )}
-            </CardBody>
-          </Card>
-          <Card>
-            <CardHeader title="Customer" />
-            <CardBody className="flex flex-col gap-4">
-              <DescriptionList
-                className="sm:grid-cols-1"
-                items={[
-                  ['Name', o.user?.name],
-                  ['Mobile', formatPhone(o.user?.phone)],
-                  ['Email', o.user?.email],
-                  o.billing && ['GSTIN', o.billing.gstin],
-                  o.billing && ['Business', o.billing.businessName],
-                ]}
-              />
-              <div>
-                <p className="mb-1 text-xs font-medium tracking-wide text-slate-500 uppercase">Ship to</p>
-                <AddressBlock address={o.shippingAddress} />
-              </div>
-              {o.notes && (
-                <div>
-                  <p className="mb-1 text-xs font-medium tracking-wide text-slate-500 uppercase">Customer note</p>
-                  <p className="text-sm text-slate-700">{o.notes}</p>
-                </div>
-              )}
-            </CardBody>
-          </Card>
-        </div>
+              )
+            }
+          />
+          <CustomerCard user={o.user} billing={o.billing} />
+          <ShipToCard address={o.shippingAddress} />
+        </aside>
       </div>
     </>
   )

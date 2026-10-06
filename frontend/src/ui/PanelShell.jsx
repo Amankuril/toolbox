@@ -21,7 +21,7 @@ export function PanelShell({ brand, nav, user, menuItems = [], onSignOut, banner
     <nav className="flex flex-col gap-6 px-3 py-4" aria-label="Main">
       {nav.map((group, gi) => (
         <div key={gi} className="flex flex-col gap-0.5">
-          {group.title && <p className="code px-3 pb-1.5 text-[10.5px] tracking-[0.12em] text-secondary-fg/45 uppercase">{group.title}</p>}
+          {group.title && <p className="code px-3 pb-1.5 text-[11px] tracking-[0.12em] text-secondary-fg/45 uppercase">{group.title}</p>}
           {group.items.map((item) => (
             <NavLink
               key={item.to}
@@ -49,8 +49,8 @@ export function PanelShell({ brand, nav, user, menuItems = [], onSignOut, banner
   )
 
   return (
-    <div className="min-h-dvh bg-slate-50 lg:grid lg:grid-cols-[256px_1fr]">
-      <aside className="sticky top-0 hidden h-dvh flex-col overflow-y-auto bg-secondary lg:flex">
+    <div className="min-h-dvh bg-slate-50 lg:grid lg:grid-cols-[256px_1fr] print:block print:bg-white">
+      <aside className="sticky top-0 hidden h-dvh flex-col overflow-y-auto bg-secondary lg:flex print:hidden">
         <div className="flex h-16 shrink-0 items-center border-b border-white/8 px-5">{brand}</div>
         {sidebar}
       </aside>
@@ -60,7 +60,7 @@ export function PanelShell({ brand, nav, user, menuItems = [], onSignOut, banner
       </Sheet>
 
       <div className="flex min-w-0 flex-col">
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-slate-200 bg-white px-4 sm:px-6">
+        <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-slate-200 bg-white px-4 sm:px-6 print:hidden">
           <Button variant="ghost" size="icon" className="lg:hidden" aria-label="Open menu" onClick={() => setOpen(true)}>
             <MenuIcon />
           </Button>
