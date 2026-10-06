@@ -44,6 +44,11 @@ function assertIntegrationsConfigured(key, value) {
       code: 'INTEGRATION_NOT_CONFIGURED',
     });
   }
+  if (key === 'payments' && value.partialEnabled && !env.razorpayConfigured) {
+    throw ApiError.unprocessable('Part payment takes the advance through Razorpay. Add the RAZORPAY_* variables first.', {
+      code: 'INTEGRATION_NOT_CONFIGURED',
+    });
+  }
   if (key === 'shipping' && value.shipmozoEnabled && !env.shipmozoConfigured) {
     throw ApiError.unprocessable('Shipmozo is not configured on the server. Add the SHIPMOZO_* variables first.', {
       code: 'INTEGRATION_NOT_CONFIGURED',
@@ -94,6 +99,11 @@ export const settingsService = {
         razorpayKeyId: razorpayEnabled ? env.RAZORPAY_KEY_ID : null,
         codEnabled: values.payments.codEnabled,
         codMaxOrderValue: values.payments.codMaxOrderValue,
+        // Partial payment needs the gateway for the advance.
+        partialEnabled: razorpayEnabled && values.payments.partialEnabled,
+        partialAdvancePercent: values.payments.partialAdvancePercent,
+        partialMinOrderValue: values.payments.partialMinOrderValue,
+        partialMaxBalance: values.payments.partialMaxBalance,
       },
       shipping: { flatFee: values.shipping.flatFee, freeAbove: values.shipping.freeAbove },
     };

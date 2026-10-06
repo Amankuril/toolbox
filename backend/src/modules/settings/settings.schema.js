@@ -63,8 +63,24 @@ export const SETTINGS = {
       codEnabled: z.boolean(),
       /** Orders above this value (paise) cannot use cash on delivery. 0 = no limit. */
       codMaxOrderValue: z.number().int().min(0),
+      /** Pay part online now (Razorpay), the rest in cash to the courier. Needs Razorpay. */
+      partialEnabled: z.boolean(),
+      /** Share charged up front, in percent. */
+      partialAdvancePercent: z.number().int().min(5).max(90),
+      /** Offered only for orders at or above this total (paise). 0 = every order. */
+      partialMinOrderValue: z.number().int().min(0),
+      /** Most the courier may collect on delivery (paise). 0 = no limit. */
+      partialMaxBalance: z.number().int().min(0),
     }),
-    defaults: { razorpayEnabled: false, codEnabled: true, codMaxOrderValue: 0 },
+    defaults: {
+      razorpayEnabled: false,
+      codEnabled: true,
+      codMaxOrderValue: 0,
+      partialEnabled: false,
+      partialAdvancePercent: 20,
+      partialMinOrderValue: 0,
+      partialMaxBalance: 0,
+    },
   },
 
   shipping: {

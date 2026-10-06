@@ -8,6 +8,7 @@ import { shippingProvider } from '#services/shipping/shipping.provider.js';
 import { settingsService } from '#services/settings/settings.service.js';
 import { PRE_PICKUP_STATUSES, Shipment, TERMINAL_SHIPMENT_STATUSES, TRACKABLE_STATUSES } from './shipment.model.js';
 import { computePackage } from './shipping.package.js';
+import { allocate } from '#modules/orders/partialPayment.js';
 
 const SYSTEM = { kind: 'system' };
 // A provider call that hasn't released its lock after this long is assumed to have crashed.
@@ -176,7 +177,8 @@ export const shippingService = {
             provider: provider.name,
             providerOrderId: forwardProviderOrderId(order, vendorId, attempt),
             items: lines.map((i) => ({ itemId: i._id, quantity: i.quantity })),
-            paymentType: order.payment.method === 'cod' ? 'cod' : 'prepaid',
+            // Partial orders: the courier collects the balance in cash, so they ship as COD.
+            paymentType: ['cod', 'partial'].includes(order.payment.method) ? 'cod' : 'prepaid',
             status: 'pending',
             history: [{ status: 'pending', by: SYSTEM }],
           }),
@@ -219,9 +221,14 @@ export const shippingService = {
       shipment.package = await computePackage(lines, defaultPackage);
       shipment.warehouseId = await ensureWarehouse(provider, shipment.vendor);
       if (shipment.paymentType === 'cod') {
-        // Shipping fee is collected with the first seller's parcel.
-        const isFirst = String(order.vendors.find((v) => activeLines(order, v).length)) === String(shipment.vendor);
-        shipment.codAmount = lines.reduce((s, i) => s + i.lineTotal, 0) + (isFirst ? order.amounts.shipping : 0);
+        // Each seller's parcel collects its own lines; the shipping fee rides with the first seller's parcel.
+        const sellers = order.vendors.filter((v) => activeLines(order, v).length);
+        const values = sellers.map(
+          (v, i) => activeLines(order, v).reduce((sum, l) => sum + l.lineTotal, 0) + (i === 0 ? order.amounts.shipping : 0),
+        );
+        const mine = sellers.findIndex((v) => String(v) === String(shipment.vendor));
+        // Partial orders only collect the balance, split across parcels in proportion and exact to the paisa.
+        shipment.codAmount = order.payment.method === 'partial' ? allocate(order.amounts.balanceDue ?? 0, values)[mine] : values[mine];
       }
 
       let alreadyThere = false;

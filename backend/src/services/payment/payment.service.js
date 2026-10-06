@@ -5,6 +5,7 @@ import { cartService } from '#modules/cart/cart.service.js';
 import { Order, PaymentEvent } from '#modules/orders/order.model.js';
 import { canTransitionPayment, Payment } from '#modules/orders/payment.model.js';
 import { Refund } from '#modules/orders/refund.model.js';
+import { onlineAmount, PAID_ONLINE } from '#modules/orders/partialPayment.js';
 import { settingsService } from '#services/settings/settings.service.js';
 import { createRazorpayProvider } from './providers/razorpay.provider.js';
 
@@ -56,7 +57,7 @@ export const paymentService = {
       provider: 'razorpay',
       keyId: razorpay?.publicKey || env.RAZORPAY_KEY_ID,
       providerOrderId: providerOrderId || order.payment?.providerOrderId,
-      amount: order.amounts.total,
+      amount: onlineAmount(order),
       currency: CURRENCY,
       orderNumber: order.orderNumber,
       prefill: { name: user.name, contact: user.phone, email: user.email ?? undefined },
@@ -81,7 +82,7 @@ export const paymentService = {
         status: { $in: ['created', 'pending'] },
       });
       const stillValid = !order.expiresAt || order.expiresAt > new Date();
-      if (active && stillValid && active.amount === order.amounts.total) {
+      if (active && stillValid && active.amount === onlineAmount(order)) {
         return {
           payment: active,
           checkoutPayload: this.checkoutPayload(order, user, active.providerOrderId),
@@ -97,7 +98,7 @@ export const paymentService = {
     // 3. Create Gateway Order
     const receipt = `${order.orderNumber}-A${attemptNumber}`.slice(0, 40);
     const gatewayOrder = await provider.createOrder({
-      amount: order.amounts.total,
+      amount: onlineAmount(order),
       currency: CURRENCY,
       receipt,
       notes: {
@@ -116,7 +117,7 @@ export const paymentService = {
       providerOrderId: gatewayOrder.providerOrderId,
       attemptNumber,
       idempotencyKey: finalIdempotencyKey,
-      amount: order.amounts.total,
+      amount: onlineAmount(order),
       currency: CURRENCY,
       status: 'pending',
     });
@@ -175,15 +176,12 @@ export const paymentService = {
   async verifyPayment(user, orderId, { providerOrderId, paymentId, signature }, { latePaymentHandler } = {}) {
     const order = await Order.findOne({ _id: orderId, user: user._id });
     if (!order) throw ApiError.notFound('Order not found');
-    if (order.payment.status === 'paid') return order;
+    if (['paid', 'partially_paid'].includes(order.payment.status)) return order;
 
     const provider = this.webhookProvider('razorpay');
     if (!provider) throw ApiError.serviceUnavailable('Payment gateway not configured');
 
-    if (
-      providerOrderId !== order.payment.providerOrderId ||
-      !provider.verifyCheckoutSignature({ providerOrderId, paymentId, signature })
-    ) {
+    if (providerOrderId !== order.payment.providerOrderId || !provider.verifyCheckoutSignature({ providerOrderId, paymentId, signature })) {
       throw ApiError.badRequest('Payment verification failed. If money was deducted it will be confirmed automatically.', {
         code: 'PAYMENT_VERIFICATION_FAILED',
       });
@@ -216,19 +214,21 @@ export const paymentService = {
       });
     }
 
-    // Atomically transition order
+    // Atomically transition order. A partial order has only paid its advance: the courier collects the rest.
     const order = await Order.findOneAndUpdate(
       { 'payment.providerOrderId': providerOrderId, status: 'pending_payment' },
-      {
-        $set: {
-          status: 'placed',
-          'payment.status': 'paid',
-          'payment.providerPaymentId': paymentId,
-          'payment.paidAt': now,
+      [
+        {
+          $set: {
+            status: 'placed',
+            'payment.status': { $cond: [{ $eq: ['$payment.method', 'partial'] }, 'partially_paid', 'paid'] },
+            'payment.providerPaymentId': paymentId,
+            'payment.paidAt': now,
+          },
         },
-        $unset: { expiresAt: 1, 'payment.failureReason': 1 },
-      },
-      { returnDocument: 'after' },
+        { $unset: ['expiresAt', 'payment.failureReason'] },
+      ],
+      { returnDocument: 'after', updatePipeline: true },
     );
 
     if (order) {
@@ -241,7 +241,7 @@ export const paymentService = {
 
     const existing = await Order.findOne({ 'payment.providerOrderId': providerOrderId });
     if (!existing) throw ApiError.notFound('Order not found for this payment');
-    if (['paid', 'refunded', 'partially_refunded'].includes(existing.payment.status)) return existing;
+    if (PAID_ONLINE.includes(existing.payment.status)) return existing;
 
     if (existing.status === 'cancelled' && latePaymentHandler) {
       return latePaymentHandler(existing, paymentId);
@@ -252,10 +252,7 @@ export const paymentService = {
   /** Records client-reported or gateway-notified failure on payment attempt. */
   async recordPaymentFailure(user, orderId, reason, code = null) {
     const cleanReason = reason?.slice(0, 300) ?? 'Payment failed';
-    await Order.updateOne(
-      { _id: orderId, user: user._id, status: 'pending_payment' },
-      { 'payment.failureReason': cleanReason },
-    );
+    await Order.updateOne({ _id: orderId, user: user._id, status: 'pending_payment' }, { 'payment.failureReason': cleanReason });
 
     const payment = await Payment.findOne({ orderId, status: { $in: ['created', 'pending'] } }).sort({ attemptNumber: -1 });
     if (payment && canTransitionPayment(payment.status, 'failed')) {
@@ -272,7 +269,7 @@ export const paymentService = {
    * Processes a refund via Razorpay with strict idempotency and audit record creation.
    */
   async processRefund({ order, itemId, amount, reason, idempotencyKey }) {
-    if (order.payment.method !== 'razorpay' || !order.payment.providerPaymentId) {
+    if (!['razorpay', 'partial'].includes(order.payment.method) || !order.payment.providerPaymentId) {
       throw ApiError.badRequest('Order was not paid via online gateway');
     }
     if (amount <= 0) return null;
@@ -323,8 +320,7 @@ export const paymentService = {
       // 4. Update Payment record if exists
       const payment = await Payment.findOne({ providerPaymentId: order.payment.providerPaymentId });
       if (payment) {
-        const nextPaymentStatus =
-          order.amounts.refunded + amount >= order.amounts.total ? 'refunded' : 'partially_refunded';
+        const nextPaymentStatus = order.amounts.refunded + amount >= onlineAmount(order) ? 'refunded' : 'partially_refunded';
         if (canTransitionPayment(payment.status, nextPaymentStatus)) {
           await this.transitionPayment(payment, nextPaymentStatus);
         }

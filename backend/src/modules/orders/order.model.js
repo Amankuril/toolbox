@@ -3,8 +3,9 @@ import { actorSchema, addressFields, baseOptions } from '#core/db/schemas.js';
 
 export const ORDER_STATUSES = ['pending_payment', 'placed', 'processing', 'completed', 'cancelled'];
 export const ITEM_STATUSES = ['pending', 'confirmed', 'packed', 'shipped', 'delivered', 'cancelled'];
-export const PAYMENT_METHODS = ['razorpay', 'cod'];
-export const PAYMENT_STATUSES = ['pending', 'paid', 'failed', 'refunded', 'partially_refunded'];
+/** partial = an advance paid online now, the balance collected in cash on delivery. */
+export const PAYMENT_METHODS = ['razorpay', 'cod', 'partial'];
+export const PAYMENT_STATUSES = ['pending', 'partially_paid', 'paid', 'failed', 'refunded', 'partially_refunded'];
 
 /** Allowed fulfilment transitions per line item. */
 export const ITEM_TRANSITIONS = {
@@ -104,6 +105,9 @@ const orderSchema = new Schema(
       shipping: { type: Number, required: true },
       discount: { type: Number, default: 0 },
       total: { type: Number, required: true },
+      // Partial payments only: what's charged online up front, and what the courier collects.
+      advance: Number,
+      balanceDue: Number,
       refunded: { type: Number, default: 0 },
     },
 

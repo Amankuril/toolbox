@@ -15,6 +15,7 @@ import { userService } from '#modules/users/user.service.js';
 import { paymentService } from '#services/payment/payment.service.js';
 import { settingsService } from '#services/settings/settings.service.js';
 import { ITEM_TRANSITIONS, Order, PaymentEvent } from './order.model.js';
+import { onlineAmount, splitPartial } from './partialPayment.js';
 import { serializeOrder, serializeVendorOrder } from './order.serializer.js';
 
 const CURRENCY = 'INR';
@@ -118,7 +119,7 @@ async function handleLatePayment(order, paymentId) {
       item.status = 'pending';
       item.history.push({ status: 'pending', by: { kind: 'system' }, note: 'Payment received after expiry' });
     }
-    order.payment.status = 'paid';
+    order.payment.status = order.payment.method === 'partial' ? 'partially_paid' : 'paid';
     order.payment.providerPaymentId = paymentId;
     order.payment.paidAt = new Date();
     await order.save();
@@ -130,7 +131,7 @@ async function handleLatePayment(order, paymentId) {
     const refund = await provider.refund(paymentId, { notes: { reason: 'Order expired and stock unavailable' } });
     order.payment.status = 'refunded';
     order.payment.providerPaymentId = paymentId;
-    order.amounts.refunded = order.amounts.total;
+    order.amounts.refunded = onlineAmount(order);
     order.refunds.push({ amount: refund.amount, providerRefundId: refund.refundId, status: refund.status });
     await order.save();
     logger.warn({ orderId: order._id }, 'Late payment refunded: stock no longer available');
@@ -138,7 +139,37 @@ async function handleLatePayment(order, paymentId) {
   }
 }
 
+/**
+ * Partial orders: cancelling a line first lowers the cash the courier collects; only the part of
+ * the advance no longer covered by what's still owed is refunded.
+ * @returns {{ amount: number, refundId?: string, status?: string, balanceDue: number } | null}
+ */
+async function settlePartialCancellation(order, item) {
+  if (
+    order.payment.method !== 'partial' ||
+    !['partially_paid', 'paid', 'partially_refunded'].includes(order.payment.status) ||
+    item.refunded
+  ) {
+    return null;
+  }
+  const remaining = order.items.filter((i) => i.status !== 'cancelled' && String(i._id) !== String(item._id));
+  const stillOwed = remaining.length ? remaining.reduce((s, i) => s + i.lineTotal, 0) + order.amounts.shipping : 0;
+  const paidOnline = (order.amounts.advance ?? 0) - order.amounts.refunded;
+  const balanceDue = Math.max(0, stillOwed - paidOnline);
+  const excess = Math.max(0, paidOnline - stillOwed);
+  if (!excess) return { amount: 0, balanceDue };
+  const refund = await paymentService.processRefund({
+    order,
+    itemId: item._id,
+    amount: excess,
+    reason: `Cancelled item ${item.name}`,
+    idempotencyKey: `cancel_refund_${order._id}_${item._id}`,
+  });
+  return { amount: refund.amount, refundId: refund.providerRefundId, status: refund.status, balanceDue };
+}
+
 async function refundForCancellation(order, item) {
+  if (order.payment.method === 'partial') return settlePartialCancellation(order, item);
   if (order.payment.method !== 'razorpay' || !['paid', 'partially_refunded'].includes(order.payment.status) || item.refunded) return null;
 
   const remainingActive = order.items.filter((i) => i.status !== 'cancelled' && String(i._id) !== String(item._id));
@@ -168,7 +199,7 @@ export const orderService = {
       const existing = await Order.findOne({ user: user._id, idempotencyKey });
       if (existing) {
         let payment = null;
-        if (existing.payment.method === 'razorpay' && existing.status === 'pending_payment') {
+        if (['razorpay', 'partial'].includes(existing.payment.method) && existing.status === 'pending_payment') {
           payment = paymentService.checkoutPayload(existing, user, existing.payment.providerOrderId);
         }
         return { order: serializeOrder(existing), payment };
@@ -190,7 +221,20 @@ export const orderService = {
     const { total } = cart.summary;
 
     let provider = null;
-    if (paymentMethod === 'cod') {
+    let split = null;
+    if (paymentMethod === 'partial') {
+      if (!payments.partialEnabled) throw ApiError.unprocessable('Part payment is not available', { code: 'PARTIAL_UNAVAILABLE' });
+      if (total < payments.partialMinOrderValue) {
+        throw ApiError.unprocessable('Part payment is available on larger orders only', { code: 'PARTIAL_MIN_ORDER' });
+      }
+      split = splitPartial(total, payments.partialAdvancePercent);
+      if (payments.partialMaxBalance && split.balanceDue > payments.partialMaxBalance) {
+        throw ApiError.unprocessable('The amount due on delivery is above the limit for this order. Please pay online in full.', {
+          code: 'PARTIAL_LIMIT',
+        });
+      }
+      provider = await paymentService.requireOnlineProvider();
+    } else if (paymentMethod === 'cod') {
       if (!payments.codEnabled) throw ApiError.unprocessable('Cash on delivery is not available', { code: 'COD_UNAVAILABLE' });
       if (payments.codMaxOrderValue && total > payments.codMaxOrderValue) {
         throw ApiError.unprocessable('This order is above the cash on delivery limit. Please pay online.', { code: 'COD_LIMIT' });
@@ -249,7 +293,7 @@ export const orderService = {
           gstin: gstin ?? user.business?.gstin,
         },
         notes,
-        amounts: { subtotal: cart.summary.subtotal, tax: cart.summary.tax, shipping: cart.summary.shipping, discount: 0, total },
+        amounts: { subtotal: cart.summary.subtotal, tax: cart.summary.tax, shipping: cart.summary.shipping, discount: 0, total, ...split },
         payment: { method: paymentMethod, status: 'pending', provider: provider?.name },
         status: paymentMethod === 'cod' ? 'placed' : 'pending_payment',
         expiresAt: paymentMethod === 'cod' ? undefined : new Date(Date.now() + env.ORDER_PAYMENT_WINDOW_MINUTES * 60_000),
@@ -413,7 +457,18 @@ export const orderService = {
     }
     for (const [key, value] of Object.entries(tracking ?? {})) item.set(`tracking.${key}`, value);
 
-    if (refund) {
+    if (refund && order.payment.method === 'partial') {
+      item.refunded = true;
+      order.amounts.balanceDue = refund.balanceDue;
+      if (refund.amount > 0) {
+        order.amounts.refunded += refund.amount;
+        order.refunds.push({ itemId: item._id, amount: refund.amount, providerRefundId: refund.refundId, status: refund.status });
+      }
+      const anyLeft = order.items.some((i) => i.status !== 'cancelled');
+      // Fully refunded once nothing is left; fully paid when the advance alone now covers what's left.
+      if (!anyLeft) order.payment.status = order.amounts.refunded > 0 ? 'refunded' : order.payment.status;
+      else if (refund.balanceDue === 0) order.payment.status = 'paid';
+    } else if (refund) {
       item.refunded = true;
       order.amounts.refunded += refund.amount;
       order.refunds.push({ itemId: item._id, amount: refund.amount, providerRefundId: refund.refundId, status: refund.status });
@@ -429,6 +484,11 @@ export const orderService = {
     if (order.payment.method === 'cod' && order.status === 'completed' && order.payment.status === 'pending') {
       order.payment.status = 'paid';
       order.payment.paidAt = new Date();
+    }
+    // Partial: the courier collected the balance with the last delivery.
+    if (order.payment.method === 'partial' && order.status === 'completed' && order.payment.status === 'partially_paid') {
+      order.payment.status = 'paid';
+      order.amounts.balanceDue = 0;
     }
 
     await order.save();

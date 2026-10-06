@@ -368,6 +368,25 @@ describe('shipment creation', () => {
     expect(fake.last('pushOrder')).toMatchObject({ paymentType: 'prepaid' });
   });
 
+  it('ships part-paid orders as COD for the balance only', async () => {
+    await settingsService.update(
+      'payments',
+      { razorpayEnabled: true, partialEnabled: true, partialAdvancePercent: 25 },
+      { kind: 'system' },
+    );
+    await request(app).put(`${API}/user/cart/items/${product._id}`).set(U()).send({ quantity: 2 }).expect(200);
+    const { order } = (
+      await request(app).post(`${API}/user/orders/checkout`).set(U()).send({ addressId, paymentMethod: 'partial' }).expect(201)
+    ).body.data;
+    const doc = await Order.findById(order._id);
+    await paymentService.markPaid({ providerOrderId: doc.payment.providerOrderId, paymentId: `pay_${order._id}` });
+    const [s] = (await shipFor(order._id)).shipments;
+    expect(s).toMatchObject({ paymentType: 'cod', codAmount: order.amounts.balanceDue });
+    expect(order.amounts.advance + order.amounts.balanceDue).toBe(order.amounts.total);
+    expect(fake.last('pushOrder')).toMatchObject({ paymentType: 'cod', codAmount: order.amounts.balanceDue });
+    await settingsService.update('payments', { partialEnabled: false }, { kind: 'system' });
+  });
+
   it('verifies a timed-out push with get-order-detail instead of pushing twice', async () => {
     const order = await placeCodOrder();
     // The push reaches Shipmozo, but the response is lost.
