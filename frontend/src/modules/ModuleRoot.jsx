@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Outlet } from 'react-router'
 import { ModuleContext } from '@/core/module'
+import { useModuleIsolation } from '@/core/navigation/moduleIsolation'
 import { useModuleTheme } from '@/core/settings/usePublicSettings'
 
 const DEFAULT_FAVICON = '/toolboxlogo.jpeg'
@@ -51,6 +52,8 @@ export function setFavicon(url, version) {
 /** Applies the admin-configured theme and browser-tab icon for a module to everything below it. */
 export function ModuleRoot({ module }) {
   const settings = useModuleTheme(module)
+  // One tab, one panel: Back never jumps between store, seller and admin.
+  useModuleIsolation(module)
   const moduleFavicon = settings?.branding?.modules?.[module]?.favicon
   const globalFavicon = settings?.branding?.modules?.user?.favicon || settings?.branding?.favicon
   const activeFavicon = moduleFavicon?.url ? moduleFavicon : (globalFavicon?.url ? globalFavicon : null)
