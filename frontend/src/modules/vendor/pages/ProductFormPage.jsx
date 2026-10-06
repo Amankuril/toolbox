@@ -96,7 +96,13 @@ const schema = z
     quotes: z.object({ enabled: z.boolean(), minQty: optNum(z.number().int().min(1)) }),
     condition: z.enum(['new', 'refurbished', 'used']),
     warranty: z.object({ months: optNum(z.number().int().min(0).max(240)), details: z.string().trim().max(500).optional() }),
-    shipping: z.object({ weightKg: optNum(z.number().min(0)), dispatchDays: optNum(z.number().int().min(0).max(60)) }),
+    shipping: z.object({
+      weightKg: optNum(z.number().min(0).max(100_000)),
+      lengthCm: optNum(z.number().min(0).max(10_000)),
+      widthCm: optNum(z.number().min(0).max(10_000)),
+      heightCm: optNum(z.number().min(0).max(10_000)),
+      dispatchDays: optNum(z.number().int().min(0).max(60)),
+    }),
     specifications: z.array(z.object({ label: required('Label', 80), value: required('Value', 300) })).max(50),
     compatibleWith: z.array(z.object({ _id: z.string(), name: z.string() }).loose()).max(100),
     compatibleModels: z.array(z.string()).max(100),
@@ -153,7 +159,7 @@ const EMPTY = {
   quotes: { enabled: true, minQty: undefined },
   condition: 'new',
   warranty: { months: undefined, details: '' },
-  shipping: { weightKg: undefined, dispatchDays: 2 },
+  shipping: { weightKg: undefined, lengthCm: undefined, widthCm: undefined, heightCm: undefined, dispatchDays: 2 },
   specifications: [],
   compatibleWith: [],
   compatibleModels: [],
@@ -202,7 +208,13 @@ function toForm(p) {
     quotes: { enabled: p.quotes?.enabled ?? true, minQty: p.quotes?.minQty ?? undefined },
     condition: p.condition,
     warranty: { months: p.warranty?.months ?? undefined, details: p.warranty?.details ?? '' },
-    shipping: { weightKg: p.shipping?.weightKg ?? undefined, dispatchDays: p.shipping?.dispatchDays ?? undefined },
+    shipping: {
+      weightKg: p.shipping?.weightKg ?? undefined,
+      lengthCm: p.shipping?.lengthCm ?? undefined,
+      widthCm: p.shipping?.widthCm ?? undefined,
+      heightCm: p.shipping?.heightCm ?? undefined,
+      dispatchDays: p.shipping?.dispatchDays ?? undefined,
+    },
     specifications: p.specifications,
     compatibleWith: p.compatibleWith,
     compatibleModels: p.compatibleModels,
@@ -639,32 +651,67 @@ function ProductForm({ product }) {
           </Card>
 
           <Card>
-            <CardHeader title="Shipping & warranty" />
+            <CardHeader
+              title="Shipping & warranty"
+              description="Packed size and weight, as the courier will collect it. Used to book shipments and price delivery."
+            />
             <CardBody className="grid grid-cols-2 gap-4">
-              <Field label="Dispatch in (days)">
-                {(p) => (
-                  <Controller
-                    name="shipping.dispatchDays"
-                    control={control}
-                    render={({ field }) => <NumberInput {...p} value={field.value} onChange={field.onChange} />}
-                  />
-                )}
-              </Field>
-              <Field label="Weight (kg)">
+              <Field label="Package weight" error={e.shipping?.weightKg?.message} hint={variantCount > 0 ? 'Variants can set their own weight' : undefined}>
                 {(p) => (
                   <Controller
                     name="shipping.weightKg"
                     control={control}
-                    render={({ field }) => <NumberInput {...p} step="0.1" value={field.value} onChange={field.onChange} />}
+                    render={({ field }) => (
+                      <NumberInput {...p} step="0.01" inputMode="decimal" value={field.value} onChange={field.onChange} suffix="kg" placeholder="0.00" />
+                    )}
                   />
                 )}
               </Field>
-              <Field label="Warranty (months)">
+              <Field label="Dispatch in" error={e.shipping?.dispatchDays?.message}>
+                {(p) => (
+                  <Controller
+                    name="shipping.dispatchDays"
+                    control={control}
+                    render={({ field }) => <NumberInput {...p} value={field.value} onChange={field.onChange} suffix="days" />}
+                  />
+                )}
+              </Field>
+              <fieldset className="col-span-2 flex flex-col gap-1.5">
+                <legend className="mb-1.5 text-sm font-semibold text-slate-900">Package size (L × W × H)</legend>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    ['lengthCm', 'Length'],
+                    ['widthCm', 'Width'],
+                    ['heightCm', 'Height'],
+                  ].map(([key, label]) => (
+                    <Controller
+                      key={key}
+                      name={`shipping.${key}`}
+                      control={control}
+                      render={({ field }) => (
+                        <NumberInput
+                          aria-label={`${label} in centimetres`}
+                          aria-invalid={Boolean(e.shipping?.[key]) || undefined}
+                          step="0.1"
+                          inputMode="decimal"
+                          value={field.value}
+                          onChange={field.onChange}
+                          placeholder={label}
+                          suffix="cm"
+                        />
+                      )}
+                    />
+                  ))}
+                </div>
+                <p className="text-xs text-slate-500">Measure the box it ships in. Leave empty to use the store’s default package size.</p>
+              </fieldset>
+              <div className="col-span-2 border-t border-slate-100" />
+              <Field label="Warranty" error={e.warranty?.months?.message}>
                 {(p) => (
                   <Controller
                     name="warranty.months"
                     control={control}
-                    render={({ field }) => <NumberInput {...p} value={field.value} onChange={field.onChange} />}
+                    render={({ field }) => <NumberInput {...p} value={field.value} onChange={field.onChange} suffix="months" />}
                   />
                 )}
               </Field>

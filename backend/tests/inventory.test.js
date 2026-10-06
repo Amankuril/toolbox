@@ -88,6 +88,14 @@ describe('inventory basics', () => {
   });
 });
 
+describe('shipping details', () => {
+  it('stores package weight and dimensions from the product form', async () => {
+    const { data } = await create(base({ name: 'Boxed sprayer', shipping: { weightKg: 4.25, lengthCm: 42, widthCm: 30.5, heightCm: 20, dispatchDays: 3 } }));
+    expect(data.shipping).toMatchObject({ weightKg: 4.25, lengthCm: 42, widthCm: 30.5, heightCm: 20, dispatchDays: 3 });
+    await create(base({ name: 'Bad box', shipping: { lengthCm: -1 } }), 422);
+  });
+});
+
 describe('variants', () => {
   const variantBody = (extra = {}) =>
     base({
