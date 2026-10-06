@@ -1,5 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Archive, Eye, EyeOff, IndianRupee, MoreHorizontal, Package, PackagePlus, Pencil } from 'lucide-react'
+import { Archive, Download, Eye, EyeOff, IndianRupee, MoreHorizontal, Package, PackagePlus, Pencil, Upload } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { toast } from 'sonner'
@@ -75,18 +75,45 @@ export default function VendorProductsPage() {
     </Tooltip>
   )
 
+  const headerActions = (
+    <div className="flex flex-wrap gap-2">
+      <Button variant="outline" onClick={() => vendorApi.exportProducts().catch(onError)}>
+        <Download /> Export CSV
+      </Button>
+      {approved && (
+        <Button variant="outline" asChild>
+          <Link to="/vendor/products/import">
+            <Upload /> Bulk upload
+          </Link>
+        </Button>
+      )}
+      {addButton}
+    </div>
+  )
+
   const noProductsYet = !isLoading && !data?.items?.length && !filters.status && !filters.q && !filters.type
 
   return (
     <>
-      <PageHeader title="Products" description="Tools, machinery and spare parts you sell." actions={addButton} />
+      <PageHeader title="Products" description="Tools, machinery and spare parts you sell." actions={headerActions} />
       {noProductsYet ? (
         <Card>
           <EmptyState
             icon={Package}
             title="List your first product"
             description="Add photos, pricing with GST and stock. Spare parts can be linked to the machines they fit."
-            action={addButton}
+            action={
+              <div className="flex flex-wrap justify-center gap-2">
+                {addButton}
+                {approved && (
+                  <Button variant="outline" asChild>
+                    <Link to="/vendor/products/import">
+                      <Upload /> Bulk upload from a spreadsheet
+                    </Link>
+                  </Button>
+                )}
+              </div>
+            }
           />
         </Card>
       ) : (

@@ -17,9 +17,42 @@ export const vendorKeys = {
   quote: (id) => ['vendor', 'quote', id],
   order: (id) => ['vendor', 'order', id],
   shipments: (orderId) => ['vendor', 'shipments', orderId],
+  imports: (p) => ['vendor', 'imports', p],
+  import: (id) => ['vendor', 'import', id],
+  importItems: (id, p) => ['vendor', 'import', id, 'items', p],
+  importColumns: ['vendor', 'import-columns'],
+}
+
+/** Fetches a file through the authenticated client and saves it (keeps the token out of URLs). */
+async function download(path, fallbackName) {
+  const res = await v.get(path, { responseType: 'blob' })
+  const name = /filename="([^"]+)"/.exec(res.headers['content-disposition'] ?? '')?.[1] ?? fallbackName
+  const url = URL.createObjectURL(res.data)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = name
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(url), 10_000)
 }
 
 export const vendorApi = {
+  imports: (params) => list(v.get('/product-imports', { params })),
+  import: (id) => one(v.get(`/product-imports/${id}`)),
+  importItems: (id, params) => list(v.get(`/product-imports/${id}/items`, { params })),
+  importColumns: () => one(v.get('/product-imports/columns')),
+  uploadImport: (file, mode, onUploadProgress) => {
+    const body = new FormData()
+    body.append('mode', mode)
+    body.append('file', file)
+    return one(v.post('/product-imports', body, { onUploadProgress, timeout: 120_000 }))
+  },
+  startImport: (id) => one(v.post(`/product-imports/${id}/start`)),
+  cancelImport: (id) => one(v.post(`/product-imports/${id}/cancel`)),
+  downloadTemplate: () => download('/product-imports/template.csv', 'products-template.csv'),
+  downloadCategories: () => download('/product-imports/categories.csv', 'categories.csv'),
+  downloadImportIssues: (id) => download(`/product-imports/${id}/issues.csv`, 'import-problems.csv'),
+  exportProducts: () => download('/product-imports/export.csv', 'products.csv'),
+
   me: () => one(v.get('/me')),
   updateProfile: (body) => one(v.patch('/me', body)),
   saveBusiness: (body) => one(v.put('/onboarding/business', body)),
