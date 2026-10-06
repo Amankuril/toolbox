@@ -31,13 +31,20 @@ export const adminService = {
     return rows.map(serializeAdmin);
   },
 
-  async create({ name, email, password, role }) {
+  async create({ name, email, password, role, permissions }) {
     if (await Admin.exists({ email })) throw ApiError.conflict('An admin with this email already exists');
-    const admin = await Admin.create({ name, email, role, passwordHash: await hashPassword(password) });
+    // New staff start with only what they're given; super admins don't need a list.
+    const admin = await Admin.create({
+      name,
+      email,
+      role,
+      permissions: role === 'super_admin' || permissions === null ? undefined : (permissions ?? {}),
+      passwordHash: await hashPassword(password),
+    });
     return serializeAdmin(admin.toObject());
   },
 
-  async update(id, { name, role, status, password }, actor) {
+  async update(id, { name, role, status, password, permissions }, actor) {
     const admin = await Admin.findById(id);
     if (!admin) throw ApiError.notFound('Admin not found');
 
@@ -50,8 +57,13 @@ export const adminService = {
       if (others === 0) throw ApiError.conflict('At least one active super admin is required');
     }
 
+    if (isSelf && permissions !== undefined) throw ApiError.forbidden('You cannot change your own permissions');
+
     if (name !== undefined) admin.name = name;
+    if (permissions !== undefined) admin.permissions = permissions === null ? undefined : permissions;
     if (role !== undefined) admin.role = role;
+    // Super admins have everything; a stored list would only mislead if they're demoted later.
+    if (admin.role === 'super_admin') admin.permissions = undefined;
     if (status !== undefined) admin.status = status;
     if (password !== undefined) {
       admin.passwordHash = await hashPassword(password);

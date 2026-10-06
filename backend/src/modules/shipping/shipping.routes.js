@@ -12,6 +12,7 @@ import { CUSTOMER_REQUESTS } from '#services/shipping/providers/shipmozo/constan
 import { serializeAdminShipment, serializeCustomerShipment, serializeVendorShipment } from './shipping.serializer.js';
 import { shippingQuotes } from './shipping.quotes.js';
 import { shippingService } from './shipping.service.js';
+import { shippingProvider } from '#services/shipping/shipping.provider.js';
 
 const awbNumber = z
   .string()
@@ -135,6 +136,7 @@ export const adminShippingRoutes = Router()
   .get('/shipments/:id/label', validate({ params: idParams }), async (req, res) => {
     await sendLabel(res, await shippingService.get(req.params.id));
   })
+  .get('/shipping/status', async (_req, res) => ok(res, { enabled: Boolean(await shippingProvider.active()) }))
   .get('/shipping/health', async (_req, res) => ok(res, await shippingService.health()))
   .get('/shipping/return-reasons', async (_req, res) => ok(res, await shippingService.returnReasons()))
   .get('/shipping/warehouses', async (_req, res) => ok(res, await shippingService.listWarehouses()))

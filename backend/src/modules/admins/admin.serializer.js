@@ -1,3 +1,5 @@
+import { effectivePermissions, hasFullAccess } from './permissions.js';
+
 export function serializeAdmin(admin) {
   if (!admin) return null;
   return {
@@ -7,6 +9,9 @@ export function serializeAdmin(admin) {
     name: admin.name,
     email: admin.email,
     status: admin.status,
+    // What this admin can actually do, per section; fullAccess = super admin or a legacy admin.
+    permissions: effectivePermissions(admin),
+    fullAccess: hasFullAccess(admin),
     lastLoginAt: admin.lastLoginAt ?? null,
     createdAt: admin.createdAt,
   };

@@ -6,6 +6,7 @@ import { pincode } from '#core/validation/common.js';
 import { pincodeService } from '#services/pincode/pincode.service.js';
 import { ok } from '#core/utils/response.js';
 import { adminManagementRoutes, adminSelfRoutes } from '#modules/admins/admin.routes.js';
+import { requireSection } from '#modules/admins/permissions.js';
 import { authenticate } from '#modules/auth/auth.middleware.js';
 import authRoutes from '#modules/auth/auth.routes.js';
 import { adminBannerRoutes, publicBannerRoutes } from '#modules/banners/banner.routes.js';
@@ -84,22 +85,26 @@ export function buildRoutes() {
     .use('/media', mediaUploadRouter());
   api.use('/vendor', vendorApi);
 
+  // Every admin section is guarded: reads need view access, changes need manage (see admins/permissions.js).
   const adminApi = Router()
     .use(authenticate('admin'))
     .use(adminSelfRoutes)
-    .get('/dashboard', async (_req, res) => ok(res, await dashboardService.admin()))
+    .get('/dashboard', requireSection('dashboard'), async (_req, res) => ok(res, await dashboardService.admin()))
     .use('/admins', adminManagementRoutes)
-    .use('/vendors', adminVendorRoutes)
-    .use('/users', adminUserRoutes)
-    .use('/categories', adminCategoryRoutes)
-    .use('/products', adminProductRoutes)
-    .use('/product-imports', adminProductImportRoutes)
-    .use('/orders', adminOrderRoutes)
-    .use('/quotes', adminQuoteRoutes)
-    .use('/reviews', adminReviewRoutes)
-    .use('/banners', adminBannerRoutes)
-    .use('/media', adminMediaRouter())
-    .use('/settings', adminSettingsRoutes)
+    .use('/vendors', requireSection('vendors', { readableBy: ['products'], readablePath: /^\/(?:[0-9a-f]{24})?$/i }), adminVendorRoutes)
+    .use('/users', requireSection('customers'), adminUserRoutes)
+    .use('/categories', requireSection('categories', { readableBy: ['products'] }), adminCategoryRoutes)
+    .use('/products', requireSection('products'), adminProductRoutes)
+    .use('/product-imports', requireSection('products'), adminProductImportRoutes)
+    .use('/orders', requireSection('orders'), adminOrderRoutes)
+    .use(['/shipments', '/shipping'], requireSection('orders'))
+    .use('/quotes', requireSection('quotes'), adminQuoteRoutes)
+    .use('/reviews', requireSection('reviews'), adminReviewRoutes)
+    .use('/banners', requireSection('banners'), adminBannerRoutes)
+    // Uploading is part of whichever section the file is for (banners, categories, branding…);
+    // browsing and deleting the library is its own permission.
+    .use('/media', requireSection('media', { writeMethods: ['DELETE'] }), adminMediaRouter())
+    .use('/settings', requireSection('settings'), adminSettingsRoutes)
     .use(adminShippingRoutes);
   api.use('/admin', adminApi);
 
