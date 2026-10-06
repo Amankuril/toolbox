@@ -1,4 +1,9 @@
 import { Router } from 'express';
+import { z } from 'zod';
+import { rateLimit } from '#core/middlewares/rateLimit.js';
+import { validate } from '#core/middlewares/validate.js';
+import { pincode } from '#core/validation/common.js';
+import { pincodeService } from '#services/pincode/pincode.service.js';
 import { ok } from '#core/utils/response.js';
 import { adminManagementRoutes, adminSelfRoutes } from '#modules/admins/admin.routes.js';
 import { authenticate } from '#modules/auth/auth.middleware.js';
@@ -35,7 +40,16 @@ export function buildRoutes() {
     .use('/products', publicProductRoutes)
     .use('/stores', publicStoreRoutes)
     .use('/banners', publicBannerRoutes)
-    .use('/shipping', publicShippingRoutes);
+    .use('/shipping', publicShippingRoutes)
+    .get(
+      '/pincodes/:pincode',
+      rateLimit({ keyPrefix: 'pincode', points: 30, duration: 60 }),
+      validate({ params: z.object({ pincode }) }),
+      async (req, res) => {
+        res.set('Cache-Control', 'public, max-age=86400');
+        ok(res, await pincodeService.lookup(req.params.pincode));
+      },
+    );
   api.use('/public', publicApi);
 
   const userApi = Router()

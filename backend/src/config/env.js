@@ -149,6 +149,9 @@ const schema = z
     SHIPMOZO_BASE_URL: z.url().default('https://shipping-api.com/app/api/v1'),
     SHIPMOZO_PUBLIC_KEY: z.string().optional(),
     SHIPMOZO_PRIVATE_KEY: z.string().optional(),
+    // Free India Post API used to auto-fill city/state from a pincode (no key needed).
+    PINCODE_LOOKUP_URL: z.url().default('https://api.postalpincode.in/pincode'),
+    PINCODE_LOOKUP_TIMEOUT_MS: z.coerce.number().int().positive().default(5_000),
     SHIPMOZO_TIMEOUT_MS: z.coerce.number().int().positive().default(15_000),
   })
   .superRefine((env, ctx) => {
@@ -210,6 +213,7 @@ export const env = Object.freeze({
   cloudinaryConfigured: Boolean(raw.CLOUDINARY_CLOUD_NAME && raw.CLOUDINARY_API_KEY && raw.CLOUDINARY_API_SECRET),
   razorpayConfigured: Boolean(raw.RAZORPAY_KEY_ID && raw.RAZORPAY_KEY_SECRET),
   SHIPMOZO_BASE_URL: raw.SHIPMOZO_BASE_URL.replace(/\/+$/, ''),
+  PINCODE_LOOKUP_URL: raw.PINCODE_LOOKUP_URL.replace(/\/+$/, ''),
   shipmozoConfigured: Boolean(raw.SHIPMOZO_PUBLIC_KEY && raw.SHIPMOZO_PRIVATE_KEY),
 });
 

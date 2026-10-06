@@ -5,6 +5,7 @@ import { useForm, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { applyFieldErrors, errorMessage } from '@/core/api/errors'
+import { pincodeHint, usePincodeAutofill } from '@/core/hooks/usePincodeAutofill'
 import { INDIAN_STATES } from '@/core/lib/constants'
 import { addressFields, phone10, required } from '@/core/lib/validators'
 import { Button } from '@/ui/Button'
@@ -52,6 +53,7 @@ export function AddressDialog({ open, onOpenChange, address, defaults, onSaved }
 
   const e = form.formState.errors
   const label = useWatch({ control: form.control, name: 'label' })
+  const lookup = usePincodeAutofill(form)
 
   return (
     <Dialog
@@ -92,7 +94,7 @@ export function AddressDialog({ open, onOpenChange, address, defaults, onSaved }
           {(p) => <Input {...p} autoComplete="address-line2" placeholder="Area, colony, village" {...form.register('line2')} />}
         </Field>
         <Field label="Landmark">{(p) => <Input {...p} {...form.register('landmark')} />}</Field>
-        <Field label="Pincode" required error={e.pincode?.message}>
+        <Field label="Pincode" required error={e.pincode?.message} hint={pincodeHint(lookup)}>
           {(p) => <Input {...p} inputMode="numeric" maxLength={6} autoComplete="postal-code" {...form.register('pincode')} />}
         </Field>
         <Field label="City / district" required error={e.city?.message}>

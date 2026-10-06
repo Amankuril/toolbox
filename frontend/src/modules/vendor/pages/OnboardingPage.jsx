@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Building2, Check, CircleCheckBig, FileText, Landmark, LogOut, MapPin, PencilLine, Send, TriangleAlert } from 'lucide-react'
 import { useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
+import { pincodeHint, usePincodeAutofill } from '@/core/hooks/usePincodeAutofill'
 import { Link, Navigate, useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { z } from 'zod'
@@ -260,6 +261,7 @@ function AddressStep({ vendor, onSaved, onBack }) {
     },
   })
   const save = useSaveStep(vendorApi.saveAddress, form, onSaved)
+  const lookup = usePincodeAutofill(form)
   const e = form.formState.errors
   return (
     <Card>
@@ -273,6 +275,9 @@ function AddressStep({ vendor, onSaved, onBack }) {
             {(p) => <Input {...p} autoComplete="address-line2" placeholder="Area, industrial estate" {...form.register('line2')} />}
           </Field>
           <Field label="Landmark">{(p) => <Input {...p} {...form.register('landmark')} />}</Field>
+          <Field label="Pincode" required error={e.pincode?.message} hint={pincodeHint(lookup)}>
+            {(p) => <Input {...p} inputMode="numeric" maxLength={6} autoComplete="postal-code" {...form.register('pincode')} />}
+          </Field>
           <Field label="City" required error={e.city?.message}>
             {(p) => <Input {...p} autoComplete="address-level2" {...form.register('city')} />}
           </Field>
@@ -284,9 +289,6 @@ function AddressStep({ vendor, onSaved, onBack }) {
                 ))}
               </Select>
             )}
-          </Field>
-          <Field label="Pincode" required error={e.pincode?.message}>
-            {(p) => <Input {...p} inputMode="numeric" maxLength={6} autoComplete="postal-code" {...form.register('pincode')} />}
           </Field>
           <StepActions onBack={onBack} loading={save.isPending} />
         </form>
