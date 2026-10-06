@@ -233,11 +233,11 @@ export default function CheckoutPage() {
           <CartSummary summary={cart.summary}>
             <ul className="mt-4 flex max-h-64 flex-col gap-3 overflow-y-auto border-t border-slate-100 pt-4">
               {cart.items.map((i) => (
-                <li key={i.productId} className="flex items-center gap-3 text-sm">
+                <li key={`${i.productId}:${i.variantId ?? ''}`} className="flex items-center gap-3 text-sm">
                   <Thumb src={i.product?.image?.url} className="size-12 shrink-0 rounded border border-slate-200" />
                   <span className="min-w-0 flex-1">
                     <span className="line-clamp-2 text-slate-800">{i.product?.name}</span>
-                    <span className="text-xs text-slate-500">Qty {i.quantity}</span>
+                    <span className="text-xs text-slate-500">{[i.variant?.title, `Qty ${i.quantity}`].filter(Boolean).join(' · ')}</span>
                   </span>
                   <span className="tabular font-medium">{formatINR(i.lineTotal)}</span>
                 </li>

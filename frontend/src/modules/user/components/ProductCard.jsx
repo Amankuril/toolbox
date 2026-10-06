@@ -22,7 +22,7 @@ export function Availability({ product: p, className }) {
   return (
     <p className={cn('flex items-center gap-1.5 text-xs text-slate-600', className)}>
       <span className="size-1.5 rounded-full bg-accent" aria-hidden />
-      {p.stock > 0 && p.stock <= 5 ? `Only ${p.stock} left` : 'In stock'}
+      {p.lowStock ? `Only ${p.lowStock} left` : 'In stock'}
       {p.dispatchDays != null && <span className="text-slate-400">· ships in {p.dispatchDays === 0 ? '24 h' : `${p.dispatchDays} d`}</span>}
     </p>
   )
@@ -33,7 +33,8 @@ export function BulkHint({ bulk, unit, className }) {
   return (
     <p className={cn('flex items-center gap-1 text-xs font-medium text-accent-ink', className)}>
       <Layers className="size-3.5 shrink-0" />
-      {formatINR(bulk.fromPrice)}/{unitShort(unit)} at {bulk.tiers.at(-1).minQty}+{bulk.businessOnly && <span className="font-normal text-slate-500"> · business</span>}
+      {formatINR(bulk.fromPrice)}/{unitShort(unit)} at {bulk.tiers.at(-1).minQty}+
+      {bulk.businessOnly && <span className="font-normal text-slate-500"> · business</span>}
     </p>
   )
 }
@@ -44,6 +45,8 @@ function useAddToCart(p) {
   const [busy, setBusy] = useState(false)
   const inCart = cart.quantityOf(p._id)
   const add = async () => {
+    // Variant products need an option picked on the product page.
+    if (p.hasVariants) return navigate(`/p/${p.slug}`)
     setBusy(true)
     try {
       await cart.setQty(p._id, Math.max(p.moq, inCart + 1))
@@ -89,7 +92,10 @@ export function ProductCard({ product: p, className }) {
           {facts && <p className="mt-1 truncate text-xs text-slate-500">{facts}</p>}
           <div className="mt-auto pt-2">
             <p className="flex items-baseline gap-2">
-              <span className="font-display text-[1.375rem] leading-none font-bold text-slate-900">{formatINR(p.price)}</span>
+              <span className="font-display text-[1.375rem] leading-none font-bold text-slate-900">
+                {p.hasVariants && <span className="mr-1 text-xs font-normal text-slate-500">From</span>}
+                {formatINR(p.price)}
+              </span>
               {p.mrp > p.price && <span className="text-xs text-slate-400 line-through">{formatINR(p.mrp)}</span>}
             </p>
             <BulkHint bulk={p.bulk} unit={p.unit} className="mt-1" />
@@ -106,7 +112,7 @@ export function ProductCard({ product: p, className }) {
         onClick={add}
         aria-label={`Add ${p.name} to cart`}
       >
-        {inCart ? `In cart · ${inCart}` : p.moq > 1 ? `Add ${p.moq} ${unitShort(p.unit)}` : 'Add to cart'}
+        {p.hasVariants ? 'Choose options' : inCart ? `In cart · ${inCart}` : p.moq > 1 ? `Add ${p.moq} ${unitShort(p.unit)}` : 'Add to cart'}
       </Button>
     </article>
   )
@@ -140,7 +146,10 @@ export function ProductRow({ product: p }) {
       </div>
       <div className="col-span-2 flex items-end justify-between gap-3 sm:col-span-1 sm:flex-col sm:items-end sm:justify-start sm:text-right">
         <div>
-          <p className="font-display text-2xl leading-none font-bold text-slate-900">{formatINR(p.price)}</p>
+          <p className="font-display text-2xl leading-none font-bold text-slate-900">
+            {p.hasVariants && <span className="mr-1 text-xs font-normal text-slate-500">From</span>}
+            {formatINR(p.price)}
+          </p>
           {p.mrp > p.price && (
             <p className="mt-1 text-xs text-slate-500">
               <span className="line-through">{formatINR(p.mrp)}</span> <span className="font-semibold text-accent-ink">−{p.discountPercent}%</span>
@@ -149,7 +158,13 @@ export function ProductRow({ product: p }) {
           <BulkHint bulk={p.bulk} unit={p.unit} className="mt-1 sm:justify-end" />
         </div>
         <Button size="sm" variant={inCart ? 'soft' : 'primary'} disabled={!p.inStock} loading={busy} onClick={add} className="sm:w-full">
-          <Plus /> {inCart ? `In cart · ${inCart}` : p.moq > 1 ? `Add ${p.moq}` : 'Add'}
+          {p.hasVariants ? (
+            'Choose options'
+          ) : (
+            <>
+              <Plus /> {inCart ? `In cart · ${inCart}` : p.moq > 1 ? `Add ${p.moq}` : 'Add'}
+            </>
+          )}
         </Button>
       </div>
     </article>
@@ -213,7 +228,10 @@ export function ProductRail({ title, subtitle, products, loading, viewAll, class
         action={
           <div className="flex shrink-0 items-center gap-1">
             {viewAll && (
-              <Link to={viewAll} className="mr-2 text-sm font-semibold text-slate-900 underline decoration-slate-300 underline-offset-4 hover:decoration-slate-900">
+              <Link
+                to={viewAll}
+                className="mr-2 text-sm font-semibold text-slate-900 underline decoration-slate-300 underline-offset-4 hover:decoration-slate-900"
+              >
                 View all
               </Link>
             )}

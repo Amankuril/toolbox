@@ -89,15 +89,19 @@ export default function CartPage() {
             const next = line.pricing?.next
             const nextReachable = next && line.quantity + next.unitsNeeded <= line.maxQuantity
             return (
-              <li key={line.productId} className="grid grid-cols-[88px_1fr] gap-4 border-b border-slate-200 py-5 sm:grid-cols-[112px_1fr_auto]">
+              <li
+                key={`${line.productId}:${line.variantId ?? ''}`}
+                className="grid grid-cols-[88px_1fr] gap-4 border-b border-slate-200 py-5 sm:grid-cols-[112px_1fr_auto]"
+              >
                 <Link to={p ? `/p/${p.slug}` : '#'} className="aspect-square overflow-hidden rounded-md bg-[#f4f4f2] p-2">
-                  <Thumb src={p?.image?.url} alt={p?.name} className="size-full bg-transparent mix-blend-multiply" />
+                  <Thumb src={line.variant?.image?.url ?? p?.image?.url} alt={p?.name} className="size-full bg-transparent mix-blend-multiply" />
                 </Link>
                 <div className="min-w-0">
                   {p?.brand && <p className="text-[11px] font-semibold tracking-[0.08em] text-slate-500 uppercase">{p.brand}</p>}
                   <Link to={p ? `/p/${p.slug}` : '#'} className="line-clamp-2 font-medium text-slate-900 hover:underline">
                     {p?.name ?? 'Unavailable product'}
                   </Link>
+                  {line.variant && <p className="mt-0.5 text-sm text-slate-600">{line.variant.title}</p>}
                   <p className="tabular mt-1 text-sm text-slate-600">
                     {formatINR(line.unitPrice)} / {unit}
                     {line.unitPrice < line.baseUnitPrice && <span className="ml-2 text-xs text-slate-400 line-through">{formatINR(line.baseUnitPrice)}</span>}
@@ -107,10 +111,13 @@ export default function CartPage() {
                   {!line.issue && nextReachable && !line.quantityLocked && (
                     <button
                       type="button"
-                      onClick={() => cart.setQty(line.productId, line.quantity + next.unitsNeeded)}
+                      onClick={() => cart.setQty(line.productId, line.quantity + next.unitsNeeded, line.variantId)}
                       className="mt-2 rounded-sm bg-accent-soft px-2 py-1 text-left text-xs text-slate-800 hover:bg-accent/15"
                     >
-                      Add {formatNumber(next.unitsNeeded)} more to pay <strong>{formatINR(next.price)}/{unit}</strong>
+                      Add {formatNumber(next.unitsNeeded)} more to pay{' '}
+                      <strong>
+                        {formatINR(next.price)}/{unit}
+                      </strong>
                     </button>
                   )}
                   <div className="mt-3 flex items-center gap-4 sm:hidden">
@@ -128,7 +135,12 @@ export default function CartPage() {
 
         <div className="lg:sticky lg:top-40 lg:self-start">
           <CartSummary summary={cart.summary}>
-            <Button size="lg" className="mt-5 w-full font-semibold" disabled={cart.hasIssues} onClick={() => navigate(cart.signedIn ? '/checkout' : '/login?next=/checkout')}>
+            <Button
+              size="lg"
+              className="mt-5 w-full font-semibold"
+              disabled={cart.hasIssues}
+              onClick={() => navigate(cart.signedIn ? '/checkout' : '/login?next=/checkout')}
+            >
               {cart.signedIn ? 'Checkout' : 'Sign in to check out'}
             </Button>
             <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-slate-500">
@@ -152,10 +164,23 @@ function LineControls({ line, cart }) {
       ) : (
         p &&
         !['unavailable', 'out_of_stock'].includes(line.issue) && (
-          <QuantityStepper size="sm" value={line.quantity} min={p.moq} max={line.maxQuantity || 9999} disabled={cart.isUpdating} onChange={(q) => cart.setQty(line.productId, q)} />
+          <QuantityStepper
+            size="sm"
+            value={line.quantity}
+            min={p.moq}
+            max={line.maxQuantity || 9999}
+            disabled={cart.isUpdating}
+            onChange={(q) => cart.setQty(line.productId, q, line.variantId)}
+          />
         )
       )}
-      <Button variant="ghost" size="icon-sm" className="text-slate-400 hover:text-red-600" aria-label={`Remove ${p?.name ?? 'item'}`} onClick={() => cart.remove(line.productId)}>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        className="text-slate-400 hover:text-red-600"
+        aria-label={`Remove ${p?.name ?? 'item'}`}
+        onClick={() => cart.remove(line.productId, line.variantId)}
+      >
         <Trash2 />
       </Button>
     </div>

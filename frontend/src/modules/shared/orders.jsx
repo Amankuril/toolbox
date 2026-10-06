@@ -131,6 +131,7 @@ export function OrderItemRow({ item, actions, showVendor = false }) {
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="font-medium text-slate-900">{item.name}</p>
+            {item.variant?.title && <p className="text-sm text-slate-600">{item.variant.title}</p>}
             <p className="mt-0.5 text-xs text-slate-500">
               {[item.sku && `SKU ${item.sku}`, `Qty ${item.quantity}`, `${formatINR(item.unitPrice)} each`, `GST ${item.gstRate}%`].filter(Boolean).join(' · ')}
               {item.pricing?.source === 'bulk' && (

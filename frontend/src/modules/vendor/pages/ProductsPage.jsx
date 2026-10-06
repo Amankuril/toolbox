@@ -11,7 +11,7 @@ import { Badge, StatusBadge } from '@/ui/Badge'
 import { Thumb } from '@/ui/Brand'
 import { Button } from '@/ui/Button'
 import { Card, EmptyState } from '@/ui/Card'
-import { FilterTabs, Menu, Tooltip } from '@/ui/Controls'
+import { FilterTabs, Menu, Switch, Tooltip } from '@/ui/Controls'
 import { DataTable, Pagination } from '@/ui/DataTable'
 import { ConfirmDialog, Dialog } from '@/ui/Dialog'
 import { Field, Select } from '@/ui/Field'
@@ -48,6 +48,11 @@ export default function VendorProductsPage() {
   const visibility = useMutation({
     mutationFn: ({ id, visible }) => vendorApi.setVisibility(id, visible),
     onSuccess: (_d, v) => (refresh(), toast.success(v.visible ? 'Product is live' : 'Product hidden')),
+    onError,
+  })
+  const availability = useMutation({
+    mutationFn: ({ id, available }) => vendorApi.quickUpdate(id, { available }),
+    onSuccess: (_d, v) => (refresh(), toast.success(v.available ? 'Marked available' : 'Marked not available')),
     onError,
   })
   const archive = useMutation({ mutationFn: (id) => vendorApi.archiveProduct(id), onSuccess: () => (refresh(), toast.success('Product archived')), onError })
@@ -135,10 +140,39 @@ export default function VendorProductsPage() {
                 key: 'stock',
                 header: 'Stock',
                 className: 'text-right',
+                cell: (p) =>
+                  p.inventory.trackQuantity === false ? (
+                    <span className="text-xs text-slate-500">Not tracked</span>
+                  ) : (
+                    <span className={`tabular font-medium ${p.inventory.stock === 0 ? 'text-red-600' : p.inventory.stock <= 5 ? 'text-amber-700' : ''}`}>
+                      {formatNumber(p.inventory.stock)}
+                      {p.variants?.length > 0 && <span className="block text-xs font-normal text-slate-500">{p.variants.length} variants</span>}
+                    </span>
+                  ),
+              },
+              {
+                key: 'available',
+                header: 'Available',
                 cell: (p) => (
-                  <span className={`tabular font-medium ${p.inventory.stock === 0 ? 'text-red-600' : p.inventory.stock <= 5 ? 'text-amber-700' : ''}`}>
-                    {formatNumber(p.inventory.stock)}
-                  </span>
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <Tooltip
+                      content={
+                        p.inventory.available === false
+                          ? 'Not available to buy'
+                          : p.inventory.trackQuantity === false
+                            ? 'Available (quantity not tracked)'
+                            : 'Available while in stock'
+                      }
+                    >
+                      <span>
+                        <Switch
+                          checked={p.inventory.available !== false}
+                          disabled={!approved || (availability.isPending && availability.variables?.id === p._id)}
+                          onCheckedChange={(available) => availability.mutate({ id: p._id, available })}
+                        />
+                      </span>
+                    </Tooltip>
+                  </div>
                 ),
               },
               {
@@ -167,7 +201,8 @@ export default function VendorProductsPage() {
                       }
                       items={[
                         { label: 'Edit', icon: Pencil, onSelect: () => navigate(`/vendor/products/${p._id}`) },
-                        approved && { label: 'Update price & stock', icon: IndianRupee, onSelect: () => setQuickEdit(p) },
+                        // Variant products are priced per variant in the editor.
+                        approved && !p.variants?.length && { label: 'Update price & stock', icon: IndianRupee, onSelect: () => setQuickEdit(p) },
                         approved &&
                           p.status === 'active' && { label: 'Hide from store', icon: EyeOff, onSelect: () => visibility.mutate({ id: p._id, visible: false }) },
                         approved &&
@@ -203,7 +238,12 @@ function QuickEditDialog({ product, onClose, onSaved }) {
   const current =
     product && (v?.id === product._id ? v : { id: product._id, stock: product.inventory.stock, price: product.pricing.price, mrp: product.pricing.mrp })
   const save = useMutation({
-    mutationFn: () => vendorApi.quickUpdate(product._id, { stock: current.stock ?? 0, price: current.price, mrp: current.mrp }),
+    mutationFn: () =>
+      vendorApi.quickUpdate(product._id, {
+        ...(product.inventory.trackQuantity !== false ? { stock: current.stock ?? 0 } : {}),
+        price: current.price,
+        mrp: current.mrp,
+      }),
     onSuccess: () => {
       onSaved()
       toast.success('Price & stock updated')
@@ -236,9 +276,11 @@ function QuickEditDialog({ product, onClose, onSaved }) {
           <Field label="Selling price" error={current.price > current.mrp ? 'Cannot exceed MRP' : undefined}>
             {(p) => <PriceInput {...p} value={current.price} onChange={(price) => setV({ ...current, price })} />}
           </Field>
-          <Field label="Stock" hint="Price & stock changes don't need re-approval" className="sm:col-span-2">
-            {(p) => <NumberInput {...p} value={current.stock} onChange={(stock) => setV({ ...current, stock })} />}
-          </Field>
+          {product.inventory.trackQuantity !== false && (
+            <Field label="Stock" hint="Price & stock changes don't need re-approval" className="sm:col-span-2">
+              {(p) => <NumberInput {...p} value={current.stock} onChange={(stock) => setV({ ...current, stock })} />}
+            </Field>
+          )}
         </div>
       )}
     </Dialog>

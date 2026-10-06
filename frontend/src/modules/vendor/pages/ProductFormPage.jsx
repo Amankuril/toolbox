@@ -14,8 +14,8 @@ import { StatusBadge } from '@/ui/Badge'
 import { Button } from '@/ui/Button'
 import { Alert, Card, CardBody, CardHeader, Skeleton } from '@/ui/Card'
 import { Combobox } from '@/ui/Combobox'
-import { SegmentedControl } from '@/ui/Controls'
-import { Field, Input, Select, Textarea } from '@/ui/Field'
+import { SegmentedControl, Switch } from '@/ui/Controls'
+import { Checkbox, Field, Input, Select, Textarea } from '@/ui/Field'
 import { ImageUploader } from '@/ui/ImageUploader'
 import { NumberInput, PriceInput, TagInput } from '@/ui/inputs'
 import { PageHeader } from '@/ui/PageHeader'
@@ -25,8 +25,14 @@ import { useCategoryOptions } from '../components/categoryOptions'
 import { BulkPricingCard } from '../components/BulkPricingCard'
 import { bulkTierIssues, MAX_TIERS } from '../components/bulkRules'
 import { CompatibilityPicker } from '../components/CompatibilityPicker'
+import { VariantsCard } from '../components/VariantsCard'
 
 const optNum = (schema) => schema.optional()
+const barcode = z
+  .string()
+  .trim()
+  .regex(/^(\d{8}|\d{12,14}|\d{9}[\dXx])?$/, 'Use a UPC, EAN, GTIN or ISBN (8, 10, 12, 13 or 14 digits)')
+  .optional()
 const schema = z
   .object({
     type: z.enum(['tool', 'machinery', 'part']),
@@ -35,25 +41,47 @@ const schema = z
     brand: z.string().trim().max(80).optional(),
     modelNumber: z.string().trim().max(80).optional(),
     sku: z.string().trim().max(64).optional(),
+    barcode,
     shortDescription: z.string().trim().max(500).optional(),
     description: z.string().trim().max(20_000).optional(),
     images: z.array(z.object({ media: z.string(), url: z.string(), alt: z.string().optional() })).max(10),
+    // Required unless the product has variants (each variant then has its own price).
     pricing: z.object({
-      mrp: z.number({ error: 'Enter the MRP' }).int().min(1, 'Enter the MRP'),
-      price: z.number({ error: 'Enter the selling price' }).int().min(1, 'Enter the selling price'),
-      gstRate: z.coerce.number(),
+      mrp: optNum(z.number().int().min(1, 'Enter the MRP')),
+      price: optNum(z.number().int().min(1, 'Enter the selling price')),
+      gstRate: z.coerce.number({ error: 'Choose a GST rate' }),
     }),
     hsnCode: z
       .string()
       .trim()
-      .regex(/^(\d{4}|\d{6}|\d{8})?$/, 'HSN must be 4, 6 or 8 digits')
-      .optional(),
+      .regex(/^(\d{4}|\d{6}|\d{8})$/, 'Enter a 4, 6 or 8 digit HSN/SAC code'),
     inventory: z.object({
-      stock: z.number({ error: 'Enter available stock' }).int().min(0),
+      trackQuantity: z.boolean(),
+      available: z.boolean(),
+      stock: optNum(z.number().int().min(0)),
+      lowStockAlert: z.boolean(),
+      lowStockThreshold: optNum(z.number().int().min(1)),
       moq: z.number({ error: 'Minimum is 1' }).int().min(1),
       maxOrderQty: optNum(z.number().int().min(1)),
       unit: z.string(),
     }),
+    variantOptions: z.array(z.object({ name: required('Option name', 40), values: z.array(z.string()).min(1, 'Add at least one value').max(20) })).max(3),
+    variants: z
+      .array(
+        z.object({
+          _id: z.string().optional(),
+          options: z.array(z.string()),
+          price: z.number({ error: 'Enter a price' }).int().min(1, 'Enter a price'),
+          mrp: z.number({ error: 'Enter the MRP' }).int().min(1, 'Enter the MRP'),
+          sku: z.string().trim().max(64).optional(),
+          barcode,
+          stock: optNum(z.number().int().min(0)),
+          available: z.boolean(),
+          weightKg: optNum(z.number().min(0)),
+          image: z.any().optional(),
+        }),
+      )
+      .max(100),
     bulkPricing: z.object({
       tiers: z
         .array(
@@ -74,12 +102,23 @@ const schema = z
     compatibleModels: z.array(z.string()).max(100),
     tags: z.array(z.string()).max(20),
   })
-  .refine((v) => v.pricing.price <= v.pricing.mrp, { path: ['pricing', 'price'], message: 'Selling price cannot be more than MRP' })
+  .superRefine((v, ctx) => {
+    const issue = (path, message) => ctx.addIssue({ code: 'custom', path, message })
+    if (v.variants.length) {
+      v.variants.forEach((row, i) => row.price > row.mrp && issue(['variants', i, 'price'], 'More than MRP'))
+      return
+    }
+    if (!v.pricing.mrp) issue(['pricing', 'mrp'], 'Enter the MRP')
+    if (!v.pricing.price) issue(['pricing', 'price'], 'Enter the selling price')
+    if (v.pricing.price > v.pricing.mrp) issue(['pricing', 'price'], 'Selling price cannot be more than MRP')
+    if (v.inventory.trackQuantity && v.inventory.stock === undefined) issue(['inventory', 'stock'], 'Enter the quantity you have')
+  })
   .refine((v) => !v.inventory.maxOrderQty || v.inventory.maxOrderQty >= v.inventory.moq, {
     path: ['inventory', 'maxOrderQty'],
     message: 'Must be at least the minimum order',
   })
   .superRefine((v, ctx) => {
+    if (v.variants.length) return
     for (const issue of bulkTierIssues(v.bulkPricing.tiers, { basePrice: v.pricing.price, moq: v.inventory.moq })) {
       ctx.addIssue({ code: 'custom', path: ['bulkPricing', 'tiers', issue.index, issue.field], message: issue.message })
     }
@@ -92,12 +131,24 @@ const EMPTY = {
   brand: '',
   modelNumber: '',
   sku: '',
+  barcode: '',
   shortDescription: '',
   description: '',
   images: [],
   pricing: { mrp: undefined, price: undefined, gstRate: 18 },
   hsnCode: '',
-  inventory: { stock: undefined, moq: 1, maxOrderQty: undefined, unit: 'piece' },
+  inventory: {
+    trackQuantity: true,
+    available: true,
+    stock: undefined,
+    lowStockAlert: false,
+    lowStockThreshold: 5,
+    moq: 1,
+    maxOrderQty: undefined,
+    unit: 'piece',
+  },
+  variantOptions: [],
+  variants: [],
   bulkPricing: { tiers: [], businessOnly: false },
   quotes: { enabled: true, minQty: undefined },
   condition: 'new',
@@ -118,12 +169,35 @@ function toForm(p) {
     brand: p.brand ?? '',
     modelNumber: p.modelNumber ?? '',
     sku: p.sku ?? '',
+    barcode: p.barcode ?? '',
     shortDescription: p.shortDescription ?? '',
     description: p.description ?? '',
     images: p.images,
     pricing: { mrp: p.pricing.mrp, price: p.pricing.price, gstRate: p.pricing.gstRate },
     hsnCode: p.hsnCode ?? '',
-    inventory: { stock: p.inventory.stock, moq: p.inventory.moq, maxOrderQty: p.inventory.maxOrderQty ?? undefined, unit: p.inventory.unit },
+    inventory: {
+      trackQuantity: p.inventory.trackQuantity !== false,
+      available: p.inventory.available !== false,
+      stock: p.inventory.stock,
+      lowStockAlert: Boolean(p.inventory.lowStockAlert),
+      lowStockThreshold: p.inventory.lowStockThreshold ?? 5,
+      moq: p.inventory.moq,
+      maxOrderQty: p.inventory.maxOrderQty ?? undefined,
+      unit: p.inventory.unit,
+    },
+    variantOptions: p.variantOptions ?? [],
+    variants: (p.variants ?? []).map((v) => ({
+      _id: v._id,
+      options: v.options,
+      price: v.price,
+      mrp: v.mrp,
+      sku: v.sku ?? '',
+      barcode: v.barcode ?? '',
+      stock: v.stock,
+      available: v.available !== false,
+      weightKg: v.weightKg ?? undefined,
+      image: v.image ?? undefined,
+    })),
     bulkPricing: { tiers: (p.bulkPricing?.tiers ?? []).map(({ minQty, price }) => ({ minQty, price })), businessOnly: Boolean(p.bulkPricing?.businessOnly) },
     quotes: { enabled: p.quotes?.enabled ?? true, minQty: p.quotes?.minQty ?? undefined },
     condition: p.condition,
@@ -140,6 +214,9 @@ const clean = (obj) => Object.fromEntries(Object.entries(obj).filter(([, v]) => 
 
 function toPayload(v) {
   const isPart = v.type === 'part'
+  const hasVariants = v.variants.length > 0
+  // With variants the listing price is the cheapest variant (the server derives it too).
+  const cheapest = hasVariants ? [...v.variants].sort((a, b) => a.price - b.price)[0] : null
   return {
     type: v.type,
     name: v.name,
@@ -147,14 +224,19 @@ function toPayload(v) {
     brand: v.brand,
     modelNumber: v.modelNumber,
     sku: v.sku,
+    barcode: v.barcode,
     shortDescription: v.shortDescription,
     description: v.description,
     images: v.images.map(({ media, alt }) => clean({ media, alt })),
-    pricing: v.pricing,
+    pricing: hasVariants ? { mrp: cheapest.mrp, price: cheapest.price, gstRate: v.pricing.gstRate } : v.pricing,
     hsnCode: v.hsnCode,
-    inventory: clean(v.inventory),
-    bulkPricing: v.bulkPricing,
-    quotes: clean(v.quotes),
+    inventory: clean({ ...v.inventory, stock: hasVariants || !v.inventory.trackQuantity ? 0 : v.inventory.stock }),
+    variantOptions: hasVariants ? v.variantOptions : [],
+    variants: v.variants.map(({ image, ...row }) =>
+      clean({ ...row, stock: v.inventory.trackQuantity ? (row.stock ?? 0) : 0, ...(image?.media ? { image: { media: image.media } } : {}) }),
+    ),
+    bulkPricing: hasVariants ? { tiers: [], businessOnly: false } : v.bulkPricing,
+    quotes: hasVariants ? { enabled: false } : clean(v.quotes),
     condition: v.condition,
     warranty: clean(v.warranty),
     shipping: clean(v.shipping),
@@ -189,6 +271,9 @@ function ProductForm({ product }) {
   const type = useWatch({ control, name: 'type' })
   const pricing = useWatch({ control, name: 'pricing' })
   const unit = useWatch({ control, name: 'inventory.unit' })
+  const tracked = useWatch({ control, name: 'inventory.trackQuantity' })
+  const lowStockAlert = useWatch({ control, name: 'inventory.lowStockAlert' })
+  const variantCount = useWatch({ control, name: 'variants' })?.length ?? 0
 
   // Warn before leaving with unsaved changes.
   useEffect(() => {
@@ -301,9 +386,6 @@ function ProductForm({ product }) {
               </Field>
               <Field label="Brand">{(p) => <Input {...p} {...register('brand')} placeholder="e.g. Bosch" />}</Field>
               <Field label="Model number">{(p) => <Input {...p} {...register('modelNumber')} placeholder="e.g. GSB 550" />}</Field>
-              <Field label="SKU" error={e.sku?.message} hint="Your internal code, unique per product">
-                {(p) => <Input {...p} {...register('sku')} />}
-              </Field>
               <Field label="Condition">
                 {(p) => (
                   <Select {...p} {...register('condition')}>
@@ -384,7 +466,9 @@ function ProductForm({ product }) {
             </CardBody>
           </Card>
 
-          <BulkPricingCard control={control} register={register} errors={e} unit={unit} />
+          <VariantsCard control={control} register={register} setValue={setValue} errors={e} tracked={tracked} />
+
+          {variantCount === 0 && <BulkPricingCard control={control} register={register} errors={e} unit={unit} />}
 
           {type === 'part' && (
             <Card>
@@ -413,43 +497,53 @@ function ProductForm({ product }) {
           <Card>
             <CardHeader title="Pricing" description="Prices include GST" />
             <CardBody className="flex flex-col gap-4">
-              <Field label="MRP" required error={e.pricing?.mrp?.message}>
+              {variantCount > 0 ? (
+                <p className="text-sm text-slate-600">Each variant has its own price. Buyers see “from” the cheapest one.</p>
+              ) : (
+                <>
+                  <Field label="MRP" required error={e.pricing?.mrp?.message}>
+                    {(p) => (
+                      <Controller
+                        name="pricing.mrp"
+                        control={control}
+                        render={({ field }) => <PriceInput {...p} value={field.value} onChange={field.onChange} />}
+                      />
+                    )}
+                  </Field>
+                  <Field label="Selling price" required error={e.pricing?.price?.message} hint={discount > 0 ? `${discount}% off MRP` : undefined}>
+                    {(p) => (
+                      <Controller
+                        name="pricing.price"
+                        control={control}
+                        render={({ field }) => <PriceInput {...p} value={field.value} onChange={field.onChange} />}
+                      />
+                    )}
+                  </Field>
+                </>
+              )}
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader title="GST" />
+            <CardBody className="flex flex-col gap-4">
+              <Field label="HSN/SAC code" required error={e.hsnCode?.message} hint="4, 6 or 8 digits. SAC codes (services) start with 99.">
+                {(p) => <Input {...p} inputMode="numeric" maxLength={8} {...register('hsnCode')} />}
+              </Field>
+              <Field label="GST rate (%)" required error={e.pricing?.gstRate?.message}>
                 {(p) => (
-                  <Controller
-                    name="pricing.mrp"
-                    control={control}
-                    render={({ field }) => <PriceInput {...p} value={field.value} onChange={field.onChange} />}
-                  />
+                  <Select {...p} {...register('pricing.gstRate')}>
+                    {GST_RATES.map((r) => (
+                      <option key={r} value={r}>
+                        {r}%
+                      </option>
+                    ))}
+                  </Select>
                 )}
               </Field>
-              <Field label="Selling price" required error={e.pricing?.price?.message} hint={discount > 0 ? `${discount}% off MRP` : undefined}>
-                {(p) => (
-                  <Controller
-                    name="pricing.price"
-                    control={control}
-                    render={({ field }) => <PriceInput {...p} value={field.value} onChange={field.onChange} />}
-                  />
-                )}
-              </Field>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="GST rate">
-                  {(p) => (
-                    <Select {...p} {...register('pricing.gstRate')}>
-                      {GST_RATES.map((r) => (
-                        <option key={r} value={r}>
-                          {r}%
-                        </option>
-                      ))}
-                    </Select>
-                  )}
-                </Field>
-                <Field label="HSN code" error={e.hsnCode?.message}>
-                  {(p) => <Input {...p} inputMode="numeric" maxLength={8} {...register('hsnCode')} />}
-                </Field>
-              </div>
-              {pricing?.price > 0 && (
+              {variantCount === 0 && pricing?.price > 0 && (
                 <p className="text-xs text-slate-500">
-                  GST included: {formatINR(Math.round(pricing.price - pricing.price / (1 + Number(pricing.gstRate) / 100)))}
+                  GST included in the price: {formatINR(Math.round(pricing.price - pricing.price / (1 + Number(pricing.gstRate) / 100)))}
                 </p>
               )}
             </CardBody>
@@ -458,16 +552,61 @@ function ProductForm({ product }) {
           <Card>
             <CardHeader title="Inventory" />
             <CardBody className="grid grid-cols-2 gap-4">
-              <Field label="Stock" required error={e.inventory?.stock?.message} className="col-span-2">
-                {(p) => (
-                  <Controller
-                    name="inventory.stock"
-                    control={control}
-                    render={({ field }) => <NumberInput {...p} value={field.value} onChange={field.onChange} />}
-                  />
-                )}
+              <Field label="SKU (Stock Keeping Unit)" error={e.sku?.message} hint="Leave empty to auto-generate" className="col-span-2">
+                {(p) => <Input {...p} placeholder={product?.sku ?? 'Auto-generated'} {...register('sku')} />}
               </Field>
-              <Field label="Unit">
+              <Field label="Barcode (ISBN, UPC, GTIN, etc.)" error={e.barcode?.message} className="col-span-2">
+                {(p) => <Input {...p} inputMode="numeric" maxLength={14} {...register('barcode')} />}
+              </Field>
+              <div className="col-span-2 border-t border-slate-100 pt-4">
+                <Controller
+                  name="inventory.trackQuantity"
+                  control={control}
+                  render={({ field }) => (
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      label="Track quantity"
+                      description={
+                        field.value ? 'Stock goes down with every order.' : 'No count is kept. Use the Available switch in your product list to stop sales.'
+                      }
+                    />
+                  )}
+                />
+              </div>
+              {tracked && variantCount === 0 && (
+                <Field label="Quantity" required error={e.inventory?.stock?.message} className="col-span-2">
+                  {(p) => (
+                    <Controller
+                      name="inventory.stock"
+                      control={control}
+                      render={({ field }) => <NumberInput {...p} value={field.value} onChange={field.onChange} />}
+                    />
+                  )}
+                </Field>
+              )}
+              {tracked && variantCount > 0 && <p className="col-span-2 text-sm text-slate-600">Set the quantity for each variant in the Variants table.</p>}
+              {tracked && (
+                <div className="col-span-2 flex flex-col gap-3">
+                  <Checkbox
+                    label="Low stock alert"
+                    description="Show an alert to the customer when a few units are left"
+                    {...register('inventory.lowStockAlert')}
+                  />
+                  {lowStockAlert && (
+                    <Field label="Alert at or below" error={e.inventory?.lowStockThreshold?.message} className="w-40">
+                      {(p) => (
+                        <Controller
+                          name="inventory.lowStockThreshold"
+                          control={control}
+                          render={({ field }) => <NumberInput {...p} min={1} value={field.value} onChange={field.onChange} suffix="units" />}
+                        />
+                      )}
+                    </Field>
+                  )}
+                </div>
+              )}
+              <Field label="Unit" className="border-t border-slate-100 pt-4">
                 {(p) => (
                   <Select {...p} {...register('inventory.unit')}>
                     {PRODUCT_UNITS.map((u) => (
@@ -478,7 +617,7 @@ function ProductForm({ product }) {
                   </Select>
                 )}
               </Field>
-              <Field label="Min. order" error={e.inventory?.moq?.message}>
+              <Field label="Min. order" error={e.inventory?.moq?.message} className="border-t border-slate-100 pt-4">
                 {(p) => (
                   <Controller
                     name="inventory.moq"

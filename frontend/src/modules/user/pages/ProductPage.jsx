@@ -79,7 +79,11 @@ function Gallery({ images, name }) {
         </div>
       )}
       <div className="flex-1 overflow-hidden rounded-lg border border-slate-200/60 bg-[#f4f4f2] p-4 sm:p-6 flex items-center justify-center">
-        <Thumb src={current?.url} alt={current?.alt ?? name} className="aspect-square w-full max-h-[360px] sm:max-h-[400px] bg-transparent object-contain mix-blend-multiply" />
+        <Thumb
+          src={current?.url}
+          alt={current?.alt ?? name}
+          className="aspect-square w-full max-h-[360px] sm:max-h-[400px] bg-transparent object-contain mix-blend-multiply"
+        />
       </div>
     </div>
   )
@@ -101,16 +105,38 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related } })
   const signedIn = useSession('user', (s) => s.status === 'authenticated')
   const isBusiness = account?.accountType === 'business'
 
+  // Variant choice: start on the first combination that can be bought.
+  const [selected, setSelected] = useState(() => (p.variants.find((v) => v.inStock) ?? p.variants[0])?.options ?? [])
+  const variant = p.hasVariants ? (p.variants.find((v) => v.options.every((o, i) => o === selected[i])) ?? null) : null
+  const sellable = p.hasVariants
+    ? {
+        price: variant?.price ?? p.pricing.price,
+        mrp: variant?.mrp ?? p.pricing.mrp,
+        discountPercent: variant?.discountPercent ?? 0,
+        inStock: Boolean(variant?.inStock),
+        stock: variant?.stock ?? null,
+        lowStock: variant?.lowStock ?? null,
+      }
+    : {
+        price: p.pricing.price,
+        mrp: p.pricing.mrp,
+        discountPercent: p.pricing.discountPercent,
+        inStock: p.inStock,
+        stock: p.inventory.stock,
+        lowStock: p.lowStock,
+      }
+
   const min = p.inventory.moq
-  const max = Math.max(min, Math.min(p.inventory.stock, p.inventory.maxOrderQty ?? Infinity))
+  // `stock` is null when the seller doesn't track quantity.
+  const max = Math.max(min, Math.min(sellable.stock ?? 9999, p.inventory.maxOrderQty ?? 9999))
   const [qty, setQty] = useState(min)
   const [busy, setBusy] = useState(null)
   const [quoteOpen, setQuoteOpen] = useState(false)
-  const inCart = cart.quantityOf(p._id)
+  const inCart = cart.quantityOf(p._id, variant?._id)
   const unit = unitShort(p.inventory.unit)
 
-  const tiers = usableTiers(p.bulkPricing, { isBusiness })
-  const { unitPrice, tier, next } = priceFor(p.pricing.price, tiers, qty)
+  const tiers = p.hasVariants ? [] : usableTiers(p.bulkPricing, { isBusiness })
+  const { unitPrice, tier, next } = priceFor(sellable.price, tiers, qty)
   const total = unitPrice * qty
   const exGst = Math.round(unitPrice / (1 + p.pricing.gstRate / 100))
   const nextReachable = next && next.minQty <= max
@@ -126,7 +152,7 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related } })
   const add = async (thenGo) => {
     setBusy(thenGo ? 'buy' : 'add')
     try {
-      await cart.setQty(p._id, Math.min(max, inCart + qty))
+      await cart.setQty(p._id, Math.min(max, inCart + qty), variant?._id)
       if (thenGo) navigate('/cart')
       else toast.success('Added to cart', { description: `${formatNumber(qty)} × ${p.name}`, action: { label: 'View cart', onClick: () => navigate('/cart') } })
     } catch {
@@ -151,7 +177,11 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related } })
 
       <div className="mt-4 grid gap-6 lg:grid-cols-[380px_1fr] xl:grid-cols-[440px_1fr] lg:gap-8 xl:gap-10 items-start">
         <div className="lg:sticky lg:top-24 lg:self-start">
-          <Gallery images={p.images} name={p.name} />
+          <Gallery
+            key={variant?.image?.url ?? 'default'}
+            images={variant?.image ? [variant.image, ...p.images.filter((i) => i.url !== variant.image.url)] : p.images}
+            name={p.name}
+          />
         </div>
 
         <div>
@@ -163,22 +193,26 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related } })
             )}
             <span className="text-slate-300">|</span>
             <span className="text-slate-500">{PRODUCT_TYPE_LABEL[p.type]}</span>
-            {p.condition !== 'new' && <span className="rounded-sm bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-800 capitalize">{p.condition}</span>}
+            {p.condition !== 'new' && (
+              <span className="rounded-sm bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-800 capitalize">{p.condition}</span>
+            )}
           </div>
           <h1 className="mt-1.5 text-xl sm:text-2xl font-bold leading-snug text-slate-900">{p.name}</h1>
-          <p className="mt-1 text-xs text-slate-500">{[p.modelNumber && `Model ${p.modelNumber}`, p.sku && `SKU ${p.sku}`].filter(Boolean).join('   ·   ')}</p>
+          <p className="mt-1 text-xs text-slate-500">
+            {[p.modelNumber && `Model ${p.modelNumber}`, p.sku && !p.hasVariants && `SKU ${p.sku}`].filter(Boolean).join('   ·   ')}
+          </p>
 
           <div className="mt-3.5 border-t border-slate-200 pt-3">
             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
               <span className="font-display text-2xl sm:text-3xl leading-none font-bold text-slate-900">{formatINR(unitPrice)}</span>
               {qty > 1 && <span className="text-xs sm:text-sm text-slate-500">/ {unit}</span>}
               {tier ? (
-                <span className="text-xs sm:text-sm text-slate-500 line-through">{formatINR(p.pricing.price)}</span>
+                <span className="text-xs sm:text-sm text-slate-500 line-through">{formatINR(sellable.price)}</span>
               ) : (
-                p.pricing.mrp > p.pricing.price && (
+                sellable.mrp > sellable.price && (
                   <>
-                    <span className="text-xs sm:text-sm text-slate-500 line-through">MRP {formatINR(p.pricing.mrp)}</span>
-                    <span className="text-xs sm:text-sm font-semibold text-accent-ink">Save {p.pricing.discountPercent}%</span>
+                    <span className="text-xs sm:text-sm text-slate-500 line-through">MRP {formatINR(sellable.mrp)}</span>
+                    <span className="text-xs sm:text-sm font-semibold text-accent-ink">Save {sellable.discountPercent}%</span>
                   </>
                 )
               )}
@@ -186,16 +220,24 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related } })
             <p className="mt-1 text-xs text-slate-500">
               Incl. {p.pricing.gstRate}% GST · {formatINR(exGst)} + GST{p.hsnCode && ` · HSN ${p.hsnCode}`}
             </p>
-            {tier && <p className="mt-1.5 text-xs sm:text-sm font-semibold text-accent-ink">Bulk price applied for {formatNumber(tier.minQty)}+ {unitPlural(p.inventory.unit, 2)}</p>}
+            {tier && (
+              <p className="mt-1.5 text-xs sm:text-sm font-semibold text-accent-ink">
+                Bulk price applied for {formatNumber(tier.minQty)}+ {unitPlural(p.inventory.unit, 2)}
+              </p>
+            )}
           </div>
 
+          {p.hasVariants && <VariantPicker product={p} selected={selected} onChange={(next) => (setSelected(next), setQty(min))} />}
+
           <p className="mt-2.5 flex items-center gap-2 text-xs sm:text-sm">
-            {p.inStock ? (
+            {sellable.inStock ? (
               <>
                 <span className="size-2 rounded-full bg-accent" aria-hidden />
-                <span className="font-semibold text-slate-900">{p.inventory.stock <= 5 ? `Only ${p.inventory.stock} left` : 'In stock'}</span>
+                <span className="font-semibold text-slate-900">{sellable.lowStock ? `Only ${sellable.lowStock} left` : 'In stock'}</span>
                 {p.shipping?.dispatchDays != null && (
-                  <span className="text-slate-500">· dispatched in {p.shipping.dispatchDays === 0 ? '24 hours' : `${p.shipping.dispatchDays} day${p.shipping.dispatchDays === 1 ? '' : 's'}`}</span>
+                  <span className="text-slate-500">
+                    · dispatched in {p.shipping.dispatchDays === 0 ? '24 hours' : `${p.shipping.dispatchDays} day${p.shipping.dispatchDays === 1 ? '' : 's'}`}
+                  </span>
                 )}
               </>
             ) : (
@@ -203,13 +245,13 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related } })
             )}
           </p>
 
-          {(tiers.length > 0 || p.bulkPricing.tiers.length > 0) && (
+          {!p.hasVariants && (tiers.length > 0 || p.bulkPricing.tiers.length > 0) && (
             <div className="mt-3.5">
               <BulkPricingTable product={p} tiers={tiers} quantity={qty} onPick={(q) => setQty(Math.min(max, q))} signedIn={signedIn} isBusiness={isBusiness} />
             </div>
           )}
 
-          {p.inStock && (
+          {sellable.inStock && (
             <div className="mt-3.5 rounded-lg bg-[#f6f6f4] p-3 sm:p-3.5 border border-slate-200/60">
               <div className="flex flex-wrap items-center gap-3">
                 <QuantityStepper value={qty} onChange={setQty} min={min} max={max} />
@@ -219,14 +261,25 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related } })
                 </div>
               </div>
               {nextReachable && (
-                <button type="button" onClick={() => setQty(next.minQty)} className="mt-2.5 flex w-full items-center justify-between gap-2 text-left text-xs sm:text-sm text-slate-700 hover:text-slate-900">
+                <button
+                  type="button"
+                  onClick={() => setQty(next.minQty)}
+                  className="mt-2.5 flex w-full items-center justify-between gap-2 text-left text-xs sm:text-sm text-slate-700 hover:text-slate-900"
+                >
                   <span>
-                    Add <strong>{formatNumber(next.unitsNeeded)}</strong> more to pay <strong className="text-accent-ink">{formatINR(next.price)}/{unit}</strong>
+                    Add <strong>{formatNumber(next.unitsNeeded)}</strong> more to pay{' '}
+                    <strong className="text-accent-ink">
+                      {formatINR(next.price)}/{unit}
+                    </strong>
                   </span>
                   <ChevronRight className="size-4 shrink-0 text-slate-400" />
                 </button>
               )}
-              {min > 1 && <p className="mt-1.5 text-xs text-slate-500">Minimum order {formatNumber(min)} {unitPlural(p.inventory.unit, min)}</p>}
+              {min > 1 && (
+                <p className="mt-1.5 text-xs text-slate-500">
+                  Minimum order {formatNumber(min)} {unitPlural(p.inventory.unit, min)}
+                </p>
+              )}
               <div className="mt-3 grid grid-cols-2 gap-2.5">
                 <Button size="md" variant="outline" className="border-slate-900 font-semibold" loading={busy === 'add'} onClick={() => add(false)}>
                   <ShoppingCart /> Add to cart
@@ -247,7 +300,11 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related } })
           )}
 
           {p.quotes.enabled && (
-            <button type="button" onClick={requestQuote} className="mt-3 flex w-full items-center gap-3 rounded-lg border border-slate-200 p-3 text-left hover:border-slate-400">
+            <button
+              type="button"
+              onClick={requestQuote}
+              className="mt-3 flex w-full items-center gap-3 rounded-lg border border-slate-200 p-3 text-left hover:border-slate-400"
+            >
               <FileText className="size-5 shrink-0 text-slate-500" strokeWidth={1.75} />
               <span className="min-w-0 flex-1">
                 <span className="block text-sm font-semibold text-slate-900">
@@ -296,7 +353,8 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related } })
           {p.type === 'part' && (p.compatibleWith.length > 0 || p.compatibleModels.length > 0) && (
             <div className="mt-3.5 rounded-lg border-l-4 border-primary bg-primary-soft p-3 text-xs sm:text-sm">
               <p className="flex items-center gap-2 font-semibold text-slate-900">
-                <Wrench className="size-4" /> Fits {p.compatibleWith.length + p.compatibleModels.length} model{p.compatibleWith.length + p.compatibleModels.length === 1 ? '' : 's'}
+                <Wrench className="size-4" /> Fits {p.compatibleWith.length + p.compatibleModels.length} model
+                {p.compatibleWith.length + p.compatibleModels.length === 1 ? '' : 's'}
               </p>
               <p className="mt-1 text-slate-700">{[...p.compatibleWith.map((m) => m.name), ...p.compatibleModels].join(', ')}</p>
             </div>
@@ -309,7 +367,10 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related } })
           <ul className="flex gap-8">
             {sections.map(([id, label]) => (
               <li key={id}>
-                <a href={`#${id}`} className="-mb-px inline-block border-b-2 border-transparent py-2.5 font-display text-sm font-semibold tracking-wide text-slate-600 uppercase hover:border-slate-900 hover:text-slate-900">
+                <a
+                  href={`#${id}`}
+                  className="-mb-px inline-block border-b-2 border-transparent py-2.5 font-display text-sm font-semibold tracking-wide text-slate-600 uppercase hover:border-slate-900 hover:text-slate-900"
+                >
                   {label}
                 </a>
               </li>
@@ -373,7 +434,7 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related } })
         <ProductRail className="mt-10" title="You may also need" products={related} />
       </div>
 
-      {p.inStock && (
+      {sellable.inStock && (
         <div className="fixed inset-x-0 bottom-0 z-20 flex items-center gap-3 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:hidden">
           <span className="min-w-0">
             <span className="tabular block font-display text-xl leading-none font-bold">{formatINR(total)}</span>
@@ -389,6 +450,45 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related } })
 
       {p.quotes.enabled && signedIn && <QuoteRequestDialog open={quoteOpen} onOpenChange={setQuoteOpen} product={p} />}
       <div className="h-16 sm:hidden" aria-hidden />
+    </div>
+  )
+}
+
+/** One row of buttons per option (Size, Colour…). Values with no buyable combination are struck through. */
+function VariantPicker({ product: p, selected, onChange }) {
+  const buyable = (options) => p.variants.some((v) => v.inStock && v.options.every((o, i) => o === options[i]))
+  return (
+    <div className="mt-3 flex flex-col gap-3">
+      {p.variantOptions.map((option, i) => (
+        <div key={option.name}>
+          <p className="mb-1.5 text-xs sm:text-sm text-slate-600">
+            {option.name}: <span className="font-semibold text-slate-900">{selected[i]}</span>
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {option.values.map((value) => {
+              const next = selected.map((s, j) => (j === i ? value : s))
+              const exists = p.variants.some((v) => v.options.every((o, j) => o === next[j]))
+              const active = selected[i] === value
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={active}
+                  disabled={!exists}
+                  onClick={() => onChange(next)}
+                  className={cn(
+                    'rounded-md border px-3 py-1.5 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40',
+                    active ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-300 bg-white text-slate-800 hover:border-slate-500',
+                    exists && !buyable(next) && 'line-through decoration-slate-400',
+                  )}
+                >
+                  {value}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      ))}
     </div>
   )
 }

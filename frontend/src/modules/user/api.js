@@ -44,8 +44,8 @@ export const userApi = {
   removeAddress: (id) => one(u.delete(`/addresses/${id}`)),
 
   cart: () => one(u.get('/cart')),
-  setCartItem: (productId, quantity) => one(u.put(`/cart/items/${productId}`, { quantity })),
-  removeCartItem: (productId) => one(u.delete(`/cart/items/${productId}`)),
+  setCartItem: (productId, quantity, variantId) => one(u.put(`/cart/items/${productId}`, { quantity, ...(variantId ? { variantId } : {}) })),
+  removeCartItem: (productId, variantId) => one(u.delete(`/cart/items/${productId}`, { params: variantId ? { variantId } : undefined })),
   mergeCart: (items) => one(u.post('/cart/merge', { items })),
 
   orders: (params) => list(u.get('/orders', { params })),

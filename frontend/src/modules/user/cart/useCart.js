@@ -12,12 +12,14 @@ import { storeApi, storeKeys, userApi } from '../api'
 const GUEST_KEY = 'tb:guest-cart'
 const MAX_LINES = 50
 
-/** Guest cart: [{ productId, quantity }] in localStorage. Merged into the server cart on sign-in. */
+const sameLine = (l, productId, variantId) => String(l.productId) === String(productId) && String(l.variantId ?? '') === String(variantId ?? '')
+
+/** Guest cart: [{ productId, variantId?, quantity }] in localStorage. Merged into the server cart on sign-in. */
 export const useGuestCart = create((set, get) => ({
   lines: safeStorage.get(GUEST_KEY, []),
-  setQty(productId, quantity) {
-    const lines = get().lines.filter((l) => l.productId !== productId)
-    if (quantity > 0) lines.push({ productId, quantity })
+  setQty(productId, quantity, variantId) {
+    const lines = get().lines.filter((l) => !sameLine(l, productId, variantId))
+    if (quantity > 0) lines.push({ productId, ...(variantId ? { variantId } : {}), quantity })
     const next = lines.slice(-MAX_LINES)
     safeStorage.set(GUEST_KEY, next)
     set({ lines: next })
@@ -48,23 +50,36 @@ function useGuestView(enabled) {
 
   return useMemo(() => {
     const byId = new Map((data?.items ?? []).map((p) => [p._id, p]))
-    const items = lines.map(({ productId, quantity }) => {
+    const items = lines.map(({ productId, variantId, quantity }) => {
       const product = byId.get(productId) ?? null
-      const issue = !product ? (data ? 'unavailable' : null) : !product.inStock ? 'out_of_stock' : quantity < product.moq ? 'below_moq' : null
+      const variant = variantId ? (product?.variants ?? []).find((v) => v._id === variantId) : null
+      const sellable = variantId ? variant : product
+      const issue =
+        !product || (variantId && !variant) || (!variantId && product.hasVariants)
+          ? data
+            ? 'unavailable'
+            : null
+          : !sellable.inStock
+            ? 'out_of_stock'
+            : quantity < product.moq
+              ? 'below_moq'
+              : null
       // Guests are priced as individual buyers (business-only tiers don't apply); the server re-prices after sign-in.
-      const base = product?.price ?? 0
-      const { unitPrice, tier, next } = priceFor(base, usableTiers(product?.bulk), quantity)
+      const base = sellable?.price ?? 0
+      const { unitPrice, tier, next } = variant ? { unitPrice: base, tier: null, next: null } : priceFor(base, usableTiers(product?.bulk), quantity)
       return {
         productId,
+        variantId: variantId ?? null,
+        variant: variant ? { _id: variant._id, title: variant.title, image: variant.image } : null,
         product,
         quantity,
         unitPrice,
         baseUnitPrice: base,
-        unitMrp: product?.mrp ?? 0,
+        unitMrp: sellable?.mrp ?? 0,
         lineTotal: unitPrice * quantity,
         bulkSavings: Math.max(0, (base - unitPrice) * quantity),
         pricing: { source: tier ? 'bulk' : 'base', tier, next },
-        maxQuantity: product ? Math.min(product.stock || 9999, product.maxOrderQty ?? 9999) : 9999,
+        maxQuantity: sellable ? Math.min(sellable.stock ?? 9999, product.maxOrderQty ?? 9999) : 9999,
         issue,
       }
     })
@@ -102,15 +117,16 @@ export function useCart() {
   const server = useQuery({ queryKey: storeKeys.cart, queryFn: userApi.cart, enabled: signedIn, staleTime: 15_000 })
 
   const setServer = useMutation({
-    mutationFn: ({ productId, quantity }) => (quantity > 0 ? userApi.setCartItem(productId, quantity) : userApi.removeCartItem(productId)),
+    mutationFn: ({ productId, quantity, variantId }) =>
+      quantity > 0 ? userApi.setCartItem(productId, quantity, variantId) : userApi.removeCartItem(productId, variantId),
     onSuccess: (cart) => qc.setQueryData(storeKeys.cart, cart),
     onError: (err) => toast.error(errorMessage(err)),
   })
 
   const setQty = useCallback(
-    async (productId, quantity) => {
-      if (signedIn) return setServer.mutateAsync({ productId, quantity })
-      setGuestQty(productId, quantity)
+    async (productId, quantity, variantId) => {
+      if (signedIn) return setServer.mutateAsync({ productId, quantity, variantId })
+      setGuestQty(productId, quantity, variantId)
     },
     [signedIn, setServer, setGuestQty],
   )
@@ -126,9 +142,9 @@ export function useCart() {
     ...view,
     signedIn,
     count: view.items.reduce((n, i) => n + i.quantity, 0),
-    quantityOf: (productId) => view.items.find((i) => String(i.productId) === String(productId))?.quantity ?? 0,
+    quantityOf: (productId, variantId) => view.items.find((i) => sameLine(i, productId, variantId))?.quantity ?? 0,
     setQty,
-    remove: (productId) => setQty(productId, 0),
+    remove: (productId, variantId) => setQty(productId, 0, variantId),
     isUpdating: setServer.isPending,
   }
 }
