@@ -44,6 +44,11 @@ function assertIntegrationsConfigured(key, value) {
       code: 'INTEGRATION_NOT_CONFIGURED',
     });
   }
+  if (key === 'shipping' && value.shipmozoEnabled && !env.shipmozoConfigured) {
+    throw ApiError.unprocessable('Shipmozo is not configured on the server. Add the SHIPMOZO_* variables first.', {
+      code: 'INTEGRATION_NOT_CONFIGURED',
+    });
+  }
 }
 
 /**
@@ -90,7 +95,7 @@ export const settingsService = {
         codEnabled: values.payments.codEnabled,
         codMaxOrderValue: values.payments.codMaxOrderValue,
       },
-      shipping: values.shipping,
+      shipping: { flatFee: values.shipping.flatFee, freeAbove: values.shipping.freeAbove },
     };
   },
 
@@ -102,6 +107,7 @@ export const settingsService = {
         cloudinary: { configured: env.cloudinaryConfigured },
         razorpay: { configured: env.razorpayConfigured, webhookConfigured: Boolean(env.RAZORPAY_WEBHOOK_SECRET) },
         sms: { provider: env.SMS_PROVIDER },
+        shipmozo: { configured: env.shipmozoConfigured },
         localStorage: { directory: env.LOCAL_UPLOAD_DIR, publicPath: env.LOCAL_UPLOAD_PUBLIC_PATH },
       },
     };

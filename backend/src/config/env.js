@@ -144,6 +144,12 @@ const schema = z
     RAZORPAY_KEY_SECRET: z.string().optional(),
     RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
     ORDER_PAYMENT_WINDOW_MINUTES: z.coerce.number().int().positive().default(30),
+
+    // Shipmozo shipping. The base URL must not end with "/" (Shipmozo docs: trailing slash causes CORS errors).
+    SHIPMOZO_BASE_URL: z.url().default('https://shipping-api.com/app/api/v1'),
+    SHIPMOZO_PUBLIC_KEY: z.string().optional(),
+    SHIPMOZO_PRIVATE_KEY: z.string().optional(),
+    SHIPMOZO_TIMEOUT_MS: z.coerce.number().int().positive().default(15_000),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== 'production') return;
@@ -203,6 +209,8 @@ export const env = Object.freeze({
   LOCAL_UPLOAD_PUBLIC_PATH: localUploadPublicPath,
   cloudinaryConfigured: Boolean(raw.CLOUDINARY_CLOUD_NAME && raw.CLOUDINARY_API_KEY && raw.CLOUDINARY_API_SECRET),
   razorpayConfigured: Boolean(raw.RAZORPAY_KEY_ID && raw.RAZORPAY_KEY_SECRET),
+  SHIPMOZO_BASE_URL: raw.SHIPMOZO_BASE_URL.replace(/\/+$/, ''),
+  shipmozoConfigured: Boolean(raw.SHIPMOZO_PUBLIC_KEY && raw.SHIPMOZO_PRIVATE_KEY),
 });
 
 /** Normalises mobile phone digits to 10-digit format for matching. */

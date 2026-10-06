@@ -73,8 +73,31 @@ export const SETTINGS = {
       flatFee: z.number().int().min(0),
       /** Orders at or above this subtotal (paise) ship free. 0 = never free unless flatFee is 0. */
       freeAbove: z.number().int().min(0),
+      /** Book shipments with Shipmozo. Needs SHIPMOZO_* on the server. */
+      shipmozoEnabled: z.boolean(),
+      /** Push confirmed orders to Shipmozo automatically (background job) instead of waiting for an admin. */
+      autoCreateShipments: z.boolean(),
+      /** After pushing, ask Shipmozo to pick a courier using the panel's Settings > Auto assign rules. */
+      autoAssignCourier: z.boolean(),
+      /** Refuse checkout when Shipmozo reports a seller → customer pincode pair as not serviceable. */
+      blockUnserviceable: z.boolean(),
+      /** Fallback package used when a product has no shipping weight/dimensions. */
+      defaultPackage: z.object({
+        weightGrams: z.number().int().min(1).max(500_000),
+        lengthCm: z.number().min(1).max(500),
+        widthCm: z.number().min(1).max(500),
+        heightCm: z.number().min(1).max(500),
+      }),
     }),
-    defaults: { flatFee: 0, freeAbove: 0 },
+    defaults: {
+      flatFee: 0,
+      freeAbove: 0,
+      shipmozoEnabled: false,
+      autoCreateShipments: false,
+      autoAssignCourier: false,
+      blockUnserviceable: false,
+      defaultPackage: { weightGrams: 500, lengthCm: 20, widthCm: 15, heightCm: 10 },
+    },
   },
 
   moderation: {
