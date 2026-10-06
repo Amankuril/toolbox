@@ -448,7 +448,7 @@ export const productService = {
       .lean();
     if (!product) throw ApiError.notFound('Product not found');
 
-    const [breadcrumbs, spareParts, related] = await Promise.all([
+    const [breadcrumbs, spareParts, related, fromSeller] = await Promise.all([
       Category.find({ _id: { $in: product.categoryPath } })
         .select('name slug level')
         .sort({ level: 1 })
@@ -465,6 +465,11 @@ export const productService = {
         .limit(12)
         .select(CARD_FIELDS)
         .lean(),
+      Product.find({ ...VISIBLE, vendor: product.vendor._id, _id: { $ne: product._id } })
+        .sort({ 'rating.count': -1, publishedAt: -1 })
+        .limit(12)
+        .select(CARD_FIELDS)
+        .lean(),
     ]);
 
     return {
@@ -476,6 +481,8 @@ export const productService = {
       breadcrumbs: breadcrumbs.map(({ _id, name, slug: s }) => ({ _id, name, slug: s })),
       spareParts: spareParts.map(serializeProductCard),
       related: related.map(serializeProductCard),
+      // The same seller's other listings, minus anything already shown as similar.
+      fromSeller: fromSeller.filter((p) => !related.some((r) => String(r._id) === String(p._id))).map(serializeProductCard),
     };
   },
 

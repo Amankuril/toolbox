@@ -155,6 +155,12 @@ const productSchema = new Schema(
       approvedAt: Date,
     },
     isFeatured: { type: Boolean, default: false },
+    // Denormalised from published reviews (see review.service.js); breakdown[0] = 1-star count … [4] = 5-star.
+    rating: {
+      average: { type: Number, default: 0 },
+      count: { type: Number, default: 0 },
+      breakdown: { type: [Number], default: () => [0, 0, 0, 0, 0] },
+    },
     seo: {
       title: { type: String, trim: true, maxlength: 160 },
       description: { type: String, trim: true, maxlength: 320 },

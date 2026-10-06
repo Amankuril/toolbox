@@ -2,7 +2,10 @@ import { availableQty, hasVariants, isInStock, isTracked, lowStockCount, variant
 import { bulkSummary, quoteThreshold } from './pricing.js';
 
 export const CARD_FIELDS =
-  'name slug type brand modelNumber condition images pricing inventory isFeatured vendor bulkPricing specifications shipping variantOptions variants';
+  'name slug type brand modelNumber condition images pricing inventory isFeatured vendor bulkPricing specifications shipping variantOptions variants rating';
+
+/** Stars to show: nothing until a product has a published review. */
+const ratingOf = (p) => (p.rating?.count ? { average: p.rating.average, count: p.rating.count } : null);
 
 /** Finite stock, or null when quantity isn't tracked (unlimited while available). */
 const finite = (n) => (Number.isFinite(n) ? n : null);
@@ -54,6 +57,7 @@ export function serializeProductCard(p) {
     highlights: (p.specifications ?? []).slice(0, 3).map(({ label, value }) => ({ label, value })),
     dispatchDays: p.shipping?.dispatchDays ?? null,
     bulk: bulkSummary(p),
+    rating: ratingOf(p),
     isFeatured: Boolean(p.isFeatured),
   };
 }
@@ -136,5 +140,6 @@ export function serializePublicProduct(p) {
     inStock: isInStock(p),
     lowStock: hasVariants(p) ? null : lowStockCount(p),
     hasVariants: hasVariants(p),
+    rating: ratingOf(p),
   };
 }

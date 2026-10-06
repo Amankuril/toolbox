@@ -17,6 +17,8 @@ import { adminOrderRoutes, userOrderRoutes, vendorOrderRoutes } from '#modules/o
 import { adminProductImportRoutes, vendorProductImportRoutes } from '#modules/products/imports/import.routes.js';
 import { adminProductRoutes, publicProductRoutes, vendorProductRoutes } from '#modules/products/product.routes.js';
 import { adminQuoteRoutes, userQuoteRoutes, vendorQuoteRoutes } from '#modules/quotes/quote.routes.js';
+import { adminReviewRoutes, publicReviewRoutes, userReviewRoutes } from '#modules/reviews/review.routes.js';
+import { storeStats } from '#modules/products/store.stats.js';
 import { adminSettingsRoutes, publicSettingsRoutes } from '#modules/settings/settings.routes.js';
 import { adminShippingRoutes, publicShippingRoutes, userShippingRoutes, vendorShippingRoutes } from '#modules/shipping/shipping.routes.js';
 import { adminUserRoutes, userSelfRoutes } from '#modules/users/user.routes.js';
@@ -39,6 +41,11 @@ export function buildRoutes() {
     .use('/settings', publicSettingsRoutes)
     .use('/categories', publicCategoryRoutes)
     .use('/products', publicProductRoutes)
+    .use('/products', publicReviewRoutes)
+    .get('/stats', async (_req, res) => {
+      res.set('Cache-Control', 'public, max-age=600');
+      ok(res, await storeStats());
+    })
     .use('/stores', publicStoreRoutes)
     .use('/banners', publicBannerRoutes)
     .use('/shipping', publicShippingRoutes)
@@ -59,6 +66,7 @@ export function buildRoutes() {
     .use('/cart', cartRoutes)
     .use('/orders', userOrderRoutes)
     .use('/quotes', userQuoteRoutes)
+    .use('/products', userReviewRoutes)
     .use(userShippingRoutes)
     .use('/media', mediaUploadRouter());
   api.use('/user', userApi);
@@ -88,6 +96,7 @@ export function buildRoutes() {
     .use('/product-imports', adminProductImportRoutes)
     .use('/orders', adminOrderRoutes)
     .use('/quotes', adminQuoteRoutes)
+    .use('/reviews', adminReviewRoutes)
     .use('/banners', adminBannerRoutes)
     .use('/media', adminMediaRouter())
     .use('/settings', adminSettingsRoutes)
