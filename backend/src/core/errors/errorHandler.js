@@ -23,7 +23,9 @@ export function errorHandler(err, req, res, _next) {
     success: false,
     error: {
       code: apiError.code,
-      message: apiError.statusCode >= 500 && env.isProduction ? 'Something went wrong' : apiError.message,
+      // ApiErrors carry messages written for users (e.g. "SMS gateway unreachable, try again");
+      // only unexpected crashes are hidden, since their messages may reveal internals.
+      message: apiError.statusCode >= 500 && env.isProduction && !(err instanceof ApiError) ? 'Something went wrong' : apiError.message,
       ...(apiError.details ? { details: apiError.details } : {}),
       requestId: req.id,
     },
