@@ -12,6 +12,7 @@ import { adminOrderRoutes, userOrderRoutes, vendorOrderRoutes } from '#modules/o
 import { adminProductRoutes, publicProductRoutes, vendorProductRoutes } from '#modules/products/product.routes.js';
 import { adminQuoteRoutes, userQuoteRoutes, vendorQuoteRoutes } from '#modules/quotes/quote.routes.js';
 import { adminSettingsRoutes, publicSettingsRoutes } from '#modules/settings/settings.routes.js';
+import { adminShippingRoutes, publicShippingRoutes, userShippingRoutes, vendorShippingRoutes } from '#modules/shipping/shipping.routes.js';
 import { adminUserRoutes, userSelfRoutes } from '#modules/users/user.routes.js';
 import { adminVendorRoutes, publicStoreRoutes, vendorSelfRoutes } from '#modules/vendors/vendor.routes.js';
 
@@ -33,7 +34,8 @@ export function buildRoutes() {
     .use('/categories', publicCategoryRoutes)
     .use('/products', publicProductRoutes)
     .use('/stores', publicStoreRoutes)
-    .use('/banners', publicBannerRoutes);
+    .use('/banners', publicBannerRoutes)
+    .use('/shipping', publicShippingRoutes);
   api.use('/public', publicApi);
 
   const userApi = Router()
@@ -42,6 +44,7 @@ export function buildRoutes() {
     .use('/cart', cartRoutes)
     .use('/orders', userOrderRoutes)
     .use('/quotes', userQuoteRoutes)
+    .use(userShippingRoutes)
     .use('/media', mediaUploadRouter());
   api.use('/user', userApi);
 
@@ -53,6 +56,7 @@ export function buildRoutes() {
     .use('/products', vendorProductRoutes)
     .use('/orders', vendorOrderRoutes)
     .use('/quotes', vendorQuoteRoutes)
+    .use(vendorShippingRoutes)
     .use('/media', mediaUploadRouter());
   api.use('/vendor', vendorApi);
 
@@ -69,7 +73,8 @@ export function buildRoutes() {
     .use('/quotes', adminQuoteRoutes)
     .use('/banners', adminBannerRoutes)
     .use('/media', adminMediaRouter())
-    .use('/settings', adminSettingsRoutes);
+    .use('/settings', adminSettingsRoutes)
+    .use(adminShippingRoutes);
   api.use('/admin', adminApi);
 
   return api;

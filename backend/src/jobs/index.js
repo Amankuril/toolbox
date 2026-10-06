@@ -2,6 +2,7 @@ import { logger } from '#config/logger.js';
 import { redis } from '#config/redis.js';
 import { orderService } from '#modules/orders/order.service.js';
 import { quoteLifecycle } from '#modules/quotes/quote.lifecycle.js';
+import { shippingService } from '#modules/shipping/shipping.service.js';
 
 /**
  * Lightweight interval jobs. A Redis lock makes sure only one API instance in the
@@ -30,6 +31,22 @@ const JOBS = [
     async run() {
       const reconciled = await orderService.reconcilePendingPayments();
       if (reconciled) logger.info({ reconciled }, 'Reconciled pending payments with gateway');
+    },
+  },
+  {
+    name: 'auto-create-shipments',
+    everyMs: 2 * 60_000,
+    async run() {
+      const pushed = await shippingService.autoCreate();
+      if (pushed) logger.info({ pushed }, 'Pushed shipments to the shipping provider');
+    },
+  },
+  {
+    name: 'sync-shipment-tracking',
+    everyMs: 10 * 60_000,
+    async run() {
+      const synced = await shippingService.syncTracking();
+      if (synced) logger.info({ synced }, 'Synced shipment tracking');
     },
   },
 ];

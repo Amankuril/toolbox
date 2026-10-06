@@ -59,6 +59,12 @@ const vendorSchema = new Schema(
 
     documents: { type: [documentSchema], default: [] },
 
+    // Pickup location registered with the shipping provider (Shipmozo warehouse id).
+    shipping: {
+      warehouseId: { type: String, trim: true },
+      warehouseSyncedAt: Date,
+    },
+
     onboarding: {
       completedSteps: { type: [String], enum: ONBOARDING_STEPS, default: [] },
       submittedAt: Date,

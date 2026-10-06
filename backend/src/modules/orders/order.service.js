@@ -9,6 +9,8 @@ import { cartService } from '#modules/cart/cart.service.js';
 import { Product } from '#modules/products/product.model.js';
 import { VISIBLE } from '#modules/products/product.service.js';
 import { quoteLifecycle } from '#modules/quotes/quote.lifecycle.js';
+import { Shipment } from '#modules/shipping/shipment.model.js';
+import { shippingQuotes } from '#modules/shipping/shipping.quotes.js';
 import { userService } from '#modules/users/user.service.js';
 import { paymentService } from '#services/payment/payment.service.js';
 import { settingsService } from '#services/settings/settings.service.js';
@@ -146,6 +148,7 @@ export const orderService = {
     }
 
     const address = await userService.address(user._id, addressId);
+    await shippingQuotes.assertCheckoutServiceable([...new Set(cart.items.map((i) => String(i._product.vendor)))], address.pincode);
     const payments = await settingsService.get('payments');
     const { total } = cart.summary;
 
@@ -342,6 +345,14 @@ export const orderService = {
       }
       if (actor.kind === 'user' && (status !== 'cancelled' || !['pending', 'confirmed'].includes(item.status))) {
         throw ApiError.forbidden('This item can no longer be cancelled. Contact support for help.', { code: 'CANNOT_CANCEL' });
+      }
+    }
+
+    // Once a parcel is booked with the courier, the line can only be cancelled after the shipment is.
+    if (changingStatus && status === 'cancelled' && actor.kind !== 'system') {
+      const booked = await Shipment.exists({ order: order._id, vendor: item.vendor, type: 'forward', active: true, status: { $ne: 'pending' } });
+      if (booked) {
+        throw ApiError.conflict('This item has already been handed to the courier. Cancel the shipment first.', { code: 'SHIPMENT_IN_PROGRESS' });
       }
     }
 
