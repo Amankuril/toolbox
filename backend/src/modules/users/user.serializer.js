@@ -3,9 +3,10 @@ export function serializeUser(user) {
   return {
     _id: user._id,
     role: 'user',
-    phone: user.phone,
+    phone: user.phone ?? null,
     name: user.name,
     email: user.email ?? null,
+    emailVerified: Boolean(user.emailVerifiedAt),
     accountType: user.accountType,
     business: user.accountType === 'business' ? { name: user.business?.name ?? null, gstin: user.business?.gstin ?? null } : null,
     avatar: user.avatar ?? null,

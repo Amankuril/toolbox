@@ -10,6 +10,7 @@ export function serializeVendor(vendor) {
     phone: vendor.phone,
     contactName: vendor.contactName,
     email: vendor.email,
+    emailVerified: Boolean(vendor.emailVerifiedAt),
     status: vendor.status,
     store: vendor.store ?? null,
     business: vendor.business ?? null,

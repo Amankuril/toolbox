@@ -25,7 +25,10 @@ export const userService = {
   async updateMe(userId, { name, email, accountType, businessName, gstin }) {
     const user = await load(userId);
     if (name !== undefined) user.name = name;
-    if (email !== undefined) user.email = email ?? undefined;
+    if (email !== undefined && (email ?? undefined) !== user.email) {
+      user.email = email ?? undefined;
+      user.emailVerifiedAt = undefined;
+    }
     if (accountType !== undefined) user.accountType = accountType;
     if (businessName !== undefined) user.set('business.name', businessName);
     if (gstin !== undefined) user.set('business.gstin', gstin ?? undefined);

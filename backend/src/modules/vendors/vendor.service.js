@@ -112,7 +112,15 @@ export const vendorService = {
     const vendor = await Vendor.findById(vendorId);
     if (!vendor) throw ApiError.notFound('Vendor not found');
     if (contactName !== undefined) vendor.contactName = contactName;
-    if (email !== undefined) vendor.email = email;
+    if (email !== undefined && email !== vendor.email) {
+      if (await Vendor.exists({ email, _id: { $ne: vendorId } })) {
+        throw ApiError.conflict('This email is already used by another seller account', {
+          details: [{ path: 'email', message: 'Already in use' }],
+        });
+      }
+      vendor.email = email;
+      vendor.emailVerifiedAt = undefined;
+    }
     if (storeName !== undefined) vendor.store.name = storeName;
     if (storeDescription !== undefined) vendor.store.description = storeDescription;
     if (logo !== undefined) vendor.store.logo = logo ? await mediaService.resolveOne(logo, { kind: 'vendor', id: vendorId }) : undefined;

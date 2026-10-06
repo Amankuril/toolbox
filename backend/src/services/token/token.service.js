@@ -34,11 +34,11 @@ export function accessTokenTtlSeconds(token) {
 }
 
 /**
- * Proof that a phone number passed OTP verification but has no account yet.
+ * Proof that a phone number or email passed OTP verification but has no account yet.
  * It can only be exchanged for a new account on the matching audience.
  */
-export function signOnboardingToken({ phone, aud }) {
-  return jwt.sign({ typ: 'onboarding', phone }, env.JWT_ONBOARDING_SECRET, {
+export function signOnboardingToken({ phone, email, aud }) {
+  return jwt.sign({ typ: 'onboarding', ...(phone ? { phone } : { email }) }, env.JWT_ONBOARDING_SECRET, {
     algorithm: ALGORITHM,
     audience: aud,
     issuer: ISSUER,
@@ -49,10 +49,10 @@ export function signOnboardingToken({ phone, aud }) {
 export function verifyOnboardingToken(token, aud) {
   try {
     const payload = jwt.verify(token, env.JWT_ONBOARDING_SECRET, { algorithms: [ALGORITHM], audience: aud, issuer: ISSUER });
-    if (payload.typ !== 'onboarding' || !payload.phone) throw new Error('wrong token type');
+    if (payload.typ !== 'onboarding' || !(payload.phone || payload.email)) throw new Error('wrong token type');
     return payload;
   } catch {
-    throw ApiError.unauthorized('Your verification has expired. Please verify your mobile number again.', {
+    throw ApiError.unauthorized('Your verification has expired. Please verify your mobile number or email again.', {
       code: 'ONBOARDING_TOKEN_INVALID',
     });
   }

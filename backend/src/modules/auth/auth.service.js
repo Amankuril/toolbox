@@ -27,46 +27,92 @@ async function signIn({ audience, account, req, res }) {
   return { accessToken, expiresIn: accessTokenTtlSeconds(accessToken), account: registry.serialize(account) };
 }
 
+/** Email sign-in: refuses emails shared by more than one account (possible for older sellers). */
+async function findByEmail(audience, email) {
+  const matches = await accounts[audience].model.find({ email }).limit(2).lean();
+  if (matches.length > 1) {
+    throw ApiError.conflict('This email is linked to more than one account. Please sign in with your mobile number.', {
+      code: 'EMAIL_AMBIGUOUS',
+    });
+  }
+  return matches[0] ?? null;
+}
+
 export const authService = {
-  sendOtp({ phone, audience }) {
-    // Deliberately does not reveal whether the number is registered.
-    return otpService.send(audience, phone);
+  sendOtp({ phone, email, audience }) {
+    // Deliberately does not reveal whether the number / email is registered.
+    return otpService.send(audience, phone ?? email);
   },
 
   /**
-   * Existing account → signed in. New number → onboarding token the client exchanges on /register.
+   * Existing account → signed in. New number / email → onboarding token the client exchanges on
+   * /register. Sellers must register with a mobile number (couriers and pickups need one).
    */
-  async verifyOtp({ phone, otp, audience }, req, res) {
-    await otpService.verify(audience, phone, otp);
+  async verifyOtp({ phone, email, otp, audience }, req, res) {
+    await otpService.verify(audience, phone ?? email, otp);
 
-    const account = await accounts[audience].model.findOne({ phone }).lean();
+    const account = phone ? await accounts[audience].model.findOne({ phone }).lean() : await findByEmail(audience, email);
     if (account) {
+      if (email && !account.emailVerifiedAt) {
+        // The code just proved they own this inbox.
+        await accounts[audience].model.updateOne({ _id: account._id }, { emailVerifiedAt: new Date() });
+        account.emailVerifiedAt = new Date();
+      }
       return { status: 'authenticated', ...(await signIn({ audience, account, req, res })) };
     }
-    return { status: 'onboarding_required', onboardingToken: signOnboardingToken({ phone, aud: audience }), phone };
+    if (email && audience === 'vendor') {
+      throw ApiError.notFound('No seller account uses this email. Sign up with your mobile number, then you can sign in with either.', {
+        code: 'SELLER_EMAIL_NOT_FOUND',
+      });
+    }
+    return {
+      status: 'onboarding_required',
+      onboardingToken: signOnboardingToken(phone ? { phone, aud: audience } : { email, aud: audience }),
+      ...(phone ? { phone } : { email }),
+    };
   },
 
   async registerUser({ onboardingToken, name, email, accountType, businessName, gstin }, req, res) {
-    const { phone } = verifyOnboardingToken(onboardingToken, 'user');
+    const verified = verifyOnboardingToken(onboardingToken, 'user');
 
-    const existing = await User.findOne({ phone }).lean();
+    const existing = verified.phone
+      ? await User.findOne({ phone: verified.phone }).lean()
+      : await User.findOne({ email: verified.email }).lean();
     if (existing) return signIn({ audience: 'user', account: existing, req, res });
 
-    const user = await User.create({
-      phone,
-      name,
-      email,
-      accountType,
-      business: accountType === 'business' ? { name: businessName, gstin } : undefined,
-    });
-    return signIn({ audience: 'user', account: user.toObject(), req, res });
+    // Signing up by email: that verified email wins over anything typed in the form.
+    const accountEmail = verified.email ?? email;
+    try {
+      const user = await User.create({
+        phone: verified.phone,
+        name,
+        email: accountEmail,
+        emailVerifiedAt: verified.email ? new Date() : undefined,
+        accountType,
+        business: accountType === 'business' ? { name: businessName, gstin } : undefined,
+      });
+      return signIn({ audience: 'user', account: user.toObject(), req, res });
+    } catch (err) {
+      if (err?.code === 11000 && err.keyPattern?.email) {
+        throw ApiError.conflict('This email is already used by another account', {
+          details: [{ path: 'email', message: 'Already in use' }],
+        });
+      }
+      throw err;
+    }
   },
 
   async registerVendor({ onboardingToken, contactName, email, storeName }, req, res) {
     const { phone } = verifyOnboardingToken(onboardingToken, 'vendor');
+    if (!phone) throw ApiError.unprocessable('Sellers sign up with a mobile number', { code: 'PHONE_REQUIRED' });
 
     const existing = await Vendor.findOne({ phone }).lean();
     if (existing) return signIn({ audience: 'vendor', account: existing, req, res });
+    if (await Vendor.exists({ email })) {
+      throw ApiError.conflict('This email is already used by another seller account', {
+        details: [{ path: 'email', message: 'Already in use' }],
+      });
+    }
 
     const vendor = await Vendor.create({
       phone,

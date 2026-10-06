@@ -25,7 +25,8 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "sms:test": "node --env-file-if-exists=.env scripts/test-sms.js"
+    "sms:test": "node --env-file-if-exists=.env scripts/test-sms.js",
+    "mail:test": "node --env-file-if-exists=.env scripts/test-mail.js"
   },
   "dependencies": {
     "argon2": "^0.45.1",
@@ -43,6 +44,7 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.10.3",
     "multer": "^2.4.0",
+    "nodemailer": "^10.0.15",
     "pino": "^10.3.1",
     "pino-http": "^11.0.0",
     "rate-limiter-flexible": "^11.2.1",

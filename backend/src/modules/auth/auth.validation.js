@@ -5,19 +5,32 @@ import { AUDIENCES, OTP_AUDIENCES } from './auth.constants.js';
 
 const otpAudience = z.enum(OTP_AUDIENCES);
 
+/** Sign-in target: a mobile number or an email address (exactly one). */
+const target = {
+  phone: indianPhone.optional(),
+  email: email.optional(),
+};
+const oneTarget = (v, ctx) => {
+  if (Boolean(v.phone) === Boolean(v.email)) {
+    ctx.addIssue({ code: 'custom', path: ['phone'], message: 'Enter a mobile number or an email address' });
+  }
+};
+
 export const sendOtpSchema = {
-  body: z.object({ phone: indianPhone, audience: otpAudience }),
+  body: z.object({ ...target, audience: otpAudience }).superRefine(oneTarget),
 };
 
 export const verifyOtpSchema = {
-  body: z.object({
-    phone: indianPhone,
-    audience: otpAudience,
-    otp: z
-      .string()
-      .trim()
-      .regex(/^\d{4,8}$/, 'Enter the code sent to your phone'),
-  }),
+  body: z
+    .object({
+      ...target,
+      audience: otpAudience,
+      otp: z
+        .string()
+        .trim()
+        .regex(/^\d{4,8}$/, 'Enter the code we sent you'),
+    })
+    .superRefine(oneTarget),
 };
 
 export const registerUserSchema = {

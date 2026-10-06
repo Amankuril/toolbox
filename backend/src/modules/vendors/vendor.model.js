@@ -28,6 +28,8 @@ const vendorSchema = new Schema(
     phone: { type: String, required: true, unique: true, trim: true },
     contactName: { type: String, required: true, trim: true, maxlength: 120 },
     email: { type: String, required: true, trim: true, lowercase: true },
+    // Set when the email was proven by a sign-in code; cleared if the email changes.
+    emailVerifiedAt: Date,
     status: { type: String, enum: VENDOR_STATUSES, default: 'onboarding' },
 
     store: {
@@ -83,6 +85,9 @@ const vendorSchema = new Schema(
 
 vendorSchema.index({ 'store.slug': 1 }, { unique: true, partialFilterExpression: { 'store.slug': { $type: 'string' } } });
 vendorSchema.index({ status: 1, createdAt: -1 });
+// Not unique: older sellers may share an email. Email sign-in refuses ambiguous matches,
+// and new registrations/profile edits can't reuse another seller's email.
+vendorSchema.index({ email: 1 });
 vendorSchema.index({ 'business.gstin': 1 }, { unique: true, partialFilterExpression: { 'business.gstin': { $type: 'string' } } });
 
 export const Vendor = mongoose.models.Vendor ?? mongoose.model('Vendor', vendorSchema);

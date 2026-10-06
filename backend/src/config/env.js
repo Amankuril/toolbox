@@ -129,6 +129,21 @@ const schema = z
       .string()
       .default('{otp} is your {app} verification code. It is valid for {minutes} minutes. Do not share it with anyone.'),
 
+    // Email (OTP sign-in). console = log only (dev/tests); smtp = real sending.
+    MAIL_PROVIDER: z.enum(['console', 'smtp']).default('console'),
+    SMTP_HOST: z.string().default('smtp.gmail.com'),
+    SMTP_PORT: z.coerce.number().int().positive().default(465),
+    // true for port 465 (implicit TLS); false for 587 (STARTTLS).
+    SMTP_SECURE: bool(true),
+    SMTP_USER: z.string().optional(),
+    // Gmail: a 16-character App Password; spaces are ignored.
+    SMTP_PASS: z
+      .string()
+      .optional()
+      .transform((v) => v?.replace(/\s+/g, '')),
+    MAIL_FROM: z.string().optional(),
+    MAIL_FROM_NAME: z.string().default('ToolsHubs'),
+
     CLOUDINARY_CLOUD_NAME: z.string().optional(),
     CLOUDINARY_API_KEY: z.string().optional(),
     CLOUDINARY_API_SECRET: z.string().optional(),
@@ -163,9 +178,15 @@ const schema = z
         message: 'SMSINDIAHUB_API_KEY and SMSINDIAHUB_SENDER_ID are required when SMS_PROVIDER=smsindiahub',
       });
     }
+    if (env.MAIL_PROVIDER === 'smtp' && (!env.SMTP_USER || !env.SMTP_PASS)) {
+      ctx.addIssue({ code: 'custom', path: ['SMTP_USER'], message: 'SMTP_USER and SMTP_PASS are required when MAIL_PROVIDER=smtp' });
+    }
     if (env.NODE_ENV !== 'production') return;
     if (env.SMS_PROVIDER === 'console') {
       ctx.addIssue({ code: 'custom', path: ['SMS_PROVIDER'], message: 'console SMS provider is not allowed in production' });
+    }
+    if (env.MAIL_PROVIDER === 'console') {
+      ctx.addIssue({ code: 'custom', path: ['MAIL_PROVIDER'], message: 'console mail provider is not allowed in production' });
     }
     if (env.CORS_ORIGINS.length === 0) {
       ctx.addIssue({ code: 'custom', path: ['CORS_ORIGINS'], message: 'CORS_ORIGINS is required in production' });

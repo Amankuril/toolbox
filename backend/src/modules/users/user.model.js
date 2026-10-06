@@ -14,9 +14,12 @@ const savedAddressSchema = new Schema({
 
 const userSchema = new Schema(
   {
-    phone: { type: String, required: true, unique: true, trim: true },
+    // Optional for accounts created by email sign-in.
+    phone: { type: String, trim: true },
     name: { type: String, required: true, trim: true, maxlength: 120 },
     email: { type: String, trim: true, lowercase: true },
+    // Set when the email was proven by a sign-in code; cleared if the email changes.
+    emailVerifiedAt: Date,
     accountType: { type: String, enum: ACCOUNT_TYPES, default: 'individual' },
     business: {
       name: { type: String, trim: true, maxlength: 200 },
@@ -30,6 +33,7 @@ const userSchema = new Schema(
   baseOptions,
 );
 
+userSchema.index({ phone: 1 }, { unique: true, partialFilterExpression: { phone: { $type: 'string' } } });
 userSchema.index({ email: 1 }, { unique: true, partialFilterExpression: { email: { $type: 'string' } } });
 userSchema.index({ status: 1, createdAt: -1 });
 
