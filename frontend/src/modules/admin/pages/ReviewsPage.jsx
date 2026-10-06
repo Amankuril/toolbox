@@ -83,6 +83,21 @@ export default function ReviewsPage() {
                     {r.title && <span className="font-semibold text-slate-900">{r.title}</span>}
                   </span>
                   {r.body && <span className="line-clamp-3 text-sm text-slate-600">{r.body}</span>}
+                  {r.images?.length > 0 && (
+                    <span className="flex gap-1.5 pt-1">
+                      {r.images.map((img) => (
+                        <a
+                          key={img.url}
+                          href={img.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="block size-12 overflow-hidden rounded border border-slate-200"
+                        >
+                          <img src={img.url} alt="" loading="lazy" className="size-full object-cover" />
+                        </a>
+                      ))}
+                    </span>
+                  )}
                   {r.moderation?.note && <span className="text-xs text-red-700">Hidden: {r.moderation.note}</span>}
                 </div>
               ),

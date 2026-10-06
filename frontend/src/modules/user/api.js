@@ -16,6 +16,8 @@ export const storeKeys = {
   user: ['user'],
   me: ['user', 'me'],
   cart: ['user', 'cart'],
+  wishlist: ['user', 'wishlist'],
+  wishlistIds: ['user', 'wishlist', 'ids'],
   addresses: ['user', 'addresses'],
   orders: (p) => ['user', 'orders', p],
   order: (id) => ['user', 'order', id],
@@ -52,6 +54,12 @@ export const userApi = {
   setCartItem: (productId, quantity, variantId) => one(u.put(`/cart/items/${productId}`, { quantity, ...(variantId ? { variantId } : {}) })),
   removeCartItem: (productId, variantId) => one(u.delete(`/cart/items/${productId}`, { params: variantId ? { variantId } : undefined })),
   mergeCart: (items) => one(u.post('/cart/merge', { items })),
+
+  wishlist: () => one(u.get('/wishlist')),
+  wishlistIds: () => one(u.get('/wishlist/ids')),
+  addToWishlist: (productId) => one(u.put(`/wishlist/${productId}`)),
+  removeFromWishlist: (productId) => one(u.delete(`/wishlist/${productId}`)),
+  mergeWishlist: (productIds) => one(u.post('/wishlist/merge', { productIds })),
 
   orders: (params) => list(u.get('/orders', { params })),
   order: (id) => one(u.get(`/orders/${id}`)),

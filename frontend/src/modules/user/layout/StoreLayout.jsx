@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { FileText, LogOut, MapPin, Menu as MenuIcon, Package, ShoppingCart, User } from 'lucide-react'
+import { FileText, Heart, LogOut, MapPin, Menu as MenuIcon, Package, ShoppingCart, User } from 'lucide-react'
 import { useState } from 'react'
 import { Link, Outlet, ScrollRestoration, useNavigate } from 'react-router'
 import { signOutEverywhere } from '@/core/api/http'
@@ -14,6 +14,7 @@ import { Sheet } from '@/ui/Dialog'
 import { storeKeys } from '../api'
 import { useCart } from '../cart/useCart'
 import { useCategoryTree } from '../hooks'
+import { useWishlist } from '../wishlist/useWishlist'
 import { CategoryAccordion, CategoryBar } from './CategoryNav'
 import { SearchBox } from './SearchBox'
 
@@ -48,6 +49,7 @@ function AccountButton() {
       }
       items={[
         { label: 'Orders', icon: Package, onSelect: () => navigate('/account/orders') },
+        { label: 'Wishlist', icon: Heart, onSelect: () => navigate('/wishlist') },
         { label: 'Bulk quotes', icon: FileText, onSelect: () => navigate('/account/quotes') },
         { label: 'Addresses', icon: MapPin, onSelect: () => navigate('/account/addresses') },
         { label: 'Profile', icon: User, onSelect: () => navigate('/account/profile') },
@@ -64,6 +66,25 @@ function AccountButton() {
         },
       ]}
     />
+  )
+}
+
+function WishlistLink() {
+  const { count } = useWishlist()
+  return (
+    <Link
+      to="/wishlist"
+      className="relative grid size-11 place-items-center rounded-md hover:bg-slate-100"
+      aria-label={`Wishlist, ${count} item${count === 1 ? '' : 's'}`}
+      title="Wishlist"
+    >
+      <Heart className="size-6 text-slate-800" strokeWidth={1.75} />
+      {count > 0 && (
+        <span className="tabular absolute top-0.5 right-0.5 min-w-5 rounded-full bg-secondary px-1 text-center text-[11px] leading-5 font-bold text-secondary-fg ring-2 ring-white">
+          {count > 99 ? '99+' : count}
+        </span>
+      )}
+    </Link>
   )
 }
 
@@ -224,6 +245,7 @@ export default function StoreLayout() {
           <Logo />
           <SearchBox className="hidden flex-1 md:block" />
           <div className="ml-auto flex items-center gap-1 sm:gap-3 md:ml-0">
+            <WishlistLink />
             <AccountButton />
             <CartButton />
           </div>

@@ -22,6 +22,7 @@ import { ProductCard, ProductRail, SectionHeading } from '../components/ProductC
 import { QuoteRequestDialog } from '../components/QuoteRequestDialog'
 import { ServiceTiles } from '../components/Highlights'
 import { Reviews } from '../components/Reviews'
+import { WishlistButton } from '../components/WishlistButton'
 import { RatingInline } from '../components/Stars'
 import { useRecentlyViewed, useTrackView } from '../cart/recentlyViewed'
 import { unitPlural, unitShort } from '@/core/lib/units'
@@ -185,7 +186,8 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related, fro
       <Breadcrumbs items={[...breadcrumbs.map((b) => ({ label: b.name, to: `/c/${b.slug}` })), { label: p.name }]} />
 
       <div className="mt-4 grid gap-6 lg:grid-cols-[380px_1fr] xl:grid-cols-[440px_1fr] lg:gap-8 xl:gap-10 items-start">
-        <div className="lg:sticky lg:top-24 lg:self-start">
+        <div className="relative lg:sticky lg:top-24 lg:self-start">
+          <WishlistButton product={p} className="absolute top-3 right-3 z-10 size-11" />
           <Gallery
             key={variant?.image?.url ?? 'default'}
             images={variant?.image ? [variant.image, ...p.images.filter((i) => i.url !== variant.image.url)] : p.images}

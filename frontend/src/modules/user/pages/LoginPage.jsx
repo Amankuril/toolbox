@@ -6,6 +6,7 @@ import { useBranding } from '@/core/settings/usePublicSettings'
 import { OtpSignIn } from '@/modules/auth/OtpSignIn'
 import { Card } from '@/ui/Card'
 import { mergeGuestCart } from '../cart/useCart'
+import { mergeGuestWishlist } from '../wishlist/useWishlist'
 
 export default function UserLoginPage() {
   const status = useSession('user', (s) => s.status)
@@ -26,7 +27,7 @@ export default function UserLoginPage() {
         <OtpSignIn
           audience="user"
           onAuthenticated={async () => {
-            await mergeGuestCart(qc)
+            await Promise.all([mergeGuestCart(qc), mergeGuestWishlist(qc)])
             navigate(next, { replace: true })
           }}
           onOnboarding={(state) => navigate('/onboarding', { state: { ...state, next }, replace: true })}

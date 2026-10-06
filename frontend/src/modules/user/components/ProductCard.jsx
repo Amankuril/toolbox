@@ -11,6 +11,7 @@ import { Button } from '@/ui/Button'
 import { Skeleton } from '@/ui/Card'
 import { useCart } from '../cart/useCart'
 import { unitShort } from '@/core/lib/units'
+import { WishlistButton } from './WishlistButton'
 
 /** "550 W · 13 mm" — the two specs that matter most, straight from the listing. */
 const keyFacts = (p) =>
@@ -77,7 +78,7 @@ export function ProductCard({ product: p, className }) {
           />
           {p.discountPercent >= 5 && <Sticker className="absolute top-2 left-2">Save {p.discountPercent}%</Sticker>}
           {p.type === 'part' && (
-            <span className="absolute top-2 right-2 rounded-sm bg-secondary px-1.5 py-0.5 text-[10px] font-semibold tracking-wider text-secondary-fg uppercase">
+            <span className="absolute bottom-2 left-2 rounded-sm bg-secondary px-1.5 py-0.5 text-[10px] font-semibold tracking-wider text-secondary-fg uppercase">
               Part
             </span>
           )}
@@ -102,6 +103,7 @@ export function ProductCard({ product: p, className }) {
           </div>
         </div>
       </Link>
+      <WishlistButton product={p} className="absolute top-2 right-2" />
       <Button
         size="sm"
         variant={inCart ? 'soft' : 'strong'}
@@ -121,10 +123,11 @@ export function ProductCard({ product: p, className }) {
 export function ProductRow({ product: p }) {
   const { add, busy, inCart } = useAddToCart(p)
   return (
-    <article className="group grid grid-cols-[96px_1fr] gap-4 border-b border-slate-200 py-4 sm:grid-cols-[120px_1fr_200px]">
+    <article className="group relative grid grid-cols-[96px_1fr] gap-4 border-b border-slate-200 py-4 sm:grid-cols-[120px_1fr_200px]">
       <Link to={`/p/${p.slug}`} className="aspect-square overflow-hidden rounded-md bg-slate-100 p-2">
         <Thumb src={p.image?.url} alt={p.name} className="size-full bg-transparent mix-blend-multiply" />
       </Link>
+      <WishlistButton product={p} className="absolute top-5 left-[66px] size-8 sm:left-[90px]" />
       <div className="min-w-0">
         {p.brand && <p className="text-[11px] font-semibold tracking-[0.08em] text-slate-500 uppercase">{p.brand}</p>}
         <Link to={`/p/${p.slug}`} className="mt-0.5 block font-medium text-slate-900 hover:underline">

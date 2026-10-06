@@ -15,6 +15,7 @@ import { Alert, Card } from '@/ui/Card'
 import { Field, Input } from '@/ui/Field'
 import { userApi } from '../api'
 import { mergeGuestCart } from '../cart/useCart'
+import { mergeGuestWishlist } from '../wishlist/useWishlist'
 
 const schema = z
   .object({
@@ -51,7 +52,7 @@ export default function UserOnboardingPage() {
       }),
     onSuccess: async (data) => {
       sessions.user.getState().signIn(data)
-      await mergeGuestCart(qc)
+      await Promise.all([mergeGuestCart(qc), mergeGuestWishlist(qc)])
       navigate(next, { replace: true })
     },
     onError: (err) => applyFieldErrors(err, form.setError),

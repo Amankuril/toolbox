@@ -15,7 +15,7 @@ const MAX_MB = 8
  *
  * `gridClassName` replaces the default column layout, e.g. `grid-cols-1` for a single wide slot.
  *
- * @param {{ audience: 'admin'|'vendor'|'user', folder: string, value: any[], onChange: (v: any[]) => void, max?: number, aspect?: string, gridClassName?: string }} props
+ * @param {{ audience: 'admin'|'vendor'|'user', folder: string, value: any[], onChange: (v: any[]) => void, max?: number, aspect?: string, gridClassName?: string, cover?: boolean }} props
  */
 export function ImageUploader({
   audience,
@@ -27,6 +27,7 @@ export function ImageUploader({
   label = 'Upload images',
   compact = false,
   gridClassName,
+  cover = true,
 }) {
   const inputRef = useRef(null)
   const [progress, setProgress] = useState(null)
@@ -73,7 +74,7 @@ export function ImageUploader({
         {value.map((img, i) => (
           <div key={img.media} className={cn('group relative overflow-hidden rounded-lg border border-slate-200 bg-slate-50', aspect)}>
             <img src={img.url} alt={img.alt ?? ''} className="size-full object-contain" loading="lazy" />
-            {i === 0 && max > 1 && (
+            {cover && i === 0 && max > 1 && (
               <span className="absolute top-1.5 left-1.5 inline-flex items-center gap-1 rounded bg-slate-900/80 px-1.5 py-0.5 text-[10px] font-semibold text-white">
                 <Star className="size-3" /> Cover
               </span>
@@ -130,7 +131,8 @@ export function ImageUploader({
       <input ref={inputRef} type="file" accept={ACCEPT} multiple={max > 1} hidden onChange={(e) => upload(e.target.files)} />
       {!compact && (
         <p className="mt-2 text-xs text-slate-500">
-          JPG, PNG, WebP or HEIC up to {MAX_MB} MB. Images are optimised automatically. {max > 1 && `Up to ${max} images; the first is the cover.`}
+          JPG, PNG, WebP or HEIC up to {MAX_MB} MB. Images are optimised automatically.{' '}
+          {max > 1 && `Up to ${max} images${cover ? '; the first is the cover' : ''}.`}
         </p>
       )}
     </div>
