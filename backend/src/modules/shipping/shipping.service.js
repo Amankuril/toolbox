@@ -19,10 +19,19 @@ const SHIPPABLE_ORDER_STATUSES = ['placed', 'processing'];
 const RATE_QUOTES_TTL_MS = 60 * 60_000;
 
 /** Status order for forward tracking; sync never moves a shipment backwards. */
-const PROGRESS = ['pending', 'created', 'courier_assigned', 'pickup_scheduled', 'pickup_pending', 'picked_up', 'in_transit', 'out_for_delivery', 'delivered'];
+const PROGRESS = [
+  'pending',
+  'created',
+  'courier_assigned',
+  'pickup_scheduled',
+  'pickup_pending',
+  'picked_up',
+  'in_transit',
+  'out_for_delivery',
+  'delivered',
+];
 
-const activeLines = (order, vendorId) =>
-  order.items.filter((i) => String(i.vendor) === String(vendorId) && i.status !== 'cancelled');
+const activeLines = (order, vendorId) => order.items.filter((i) => String(i.vendor) === String(vendorId) && i.status !== 'cancelled');
 
 function forwardProviderOrderId(order, vendorId, attempt) {
   // A single-seller order uses the website order number as-is, as Shipmozo recommends.
@@ -121,7 +130,11 @@ async function syncOrderItems(shipment) {
       const next = steps[item.status];
       const updated = await orderService.updateItem(
         { orderId: shipment.order, itemId: ref.itemId },
-        { status: next, ...(next === 'shipped' ? { tracking } : {}), note: `Shipment ${shipment.providerOrderId}: ${shipment.tracking?.currentStatus ?? shipment.status}` },
+        {
+          status: next,
+          ...(next === 'shipped' ? { tracking } : {}),
+          note: `Shipment ${shipment.providerOrderId}: ${shipment.tracking?.currentStatus ?? shipment.status}`,
+        },
         SYSTEM,
       );
       item = updated.items.id(ref.itemId);
@@ -185,7 +198,8 @@ export const shippingService = {
     const provider = await shippingProvider.require();
     const shipment = await claim(shipmentId, 'push', ['pending']);
     try {
-      if (shipment.type !== 'forward') throw ApiError.conflict('Use the return push for return shipments', { code: 'INVALID_SHIPMENT_STATE' });
+      if (shipment.type !== 'forward')
+        throw ApiError.conflict('Use the return push for return shipments', { code: 'INVALID_SHIPMENT_STATE' });
       const order = await Order.findById(shipment.order).populate('user', 'email').lean();
       if (!order) throw ApiError.notFound('Order not found');
       if (!SHIPPABLE_ORDER_STATUSES.includes(order.status) && order.status !== 'cancelled') {
@@ -222,7 +236,12 @@ export const shippingService = {
         : await provider.pushOrder({
             providerOrderId: shipment.providerOrderId,
             orderDate: order.createdAt,
-            consignee: { name: order.shippingAddress.name, phone: order.shippingAddress.phone, email: order.user?.email, address: order.shippingAddress },
+            consignee: {
+              name: order.shippingAddress.name,
+              phone: order.shippingAddress.phone,
+              email: order.user?.email,
+              address: order.shippingAddress,
+            },
             items: lines,
             paymentType: shipment.paymentType,
             codAmount: shipment.codAmount,
@@ -258,7 +277,10 @@ export const shippingService = {
     const provider = await shippingProvider.require();
     const shipment = await Shipment.findById(shipmentId);
     if (!shipment) throw ApiError.notFound('Shipment not found');
-    if (shipment.status !== 'created') throw ApiError.conflict('Courier rates are available once the shipment is created and before a courier is assigned', { code: 'INVALID_SHIPMENT_STATE' });
+    if (shipment.status !== 'created')
+      throw ApiError.conflict('Courier rates are available once the shipment is created and before a courier is assigned', {
+        code: 'INVALID_SHIPMENT_STATE',
+      });
 
     const [order, vendor] = await Promise.all([Order.findById(shipment.order).lean(), Vendor.findById(shipment.vendor, 'address').lean()]);
     const lines = order.items.filter((i) => shipment.items.some((r) => String(r.itemId) === String(i._id)));
@@ -426,11 +448,16 @@ export const shippingService = {
         shipment.cancelledAt ??= now;
         shipment.active = false;
       }
-      logger.info({ shipmentId: shipment._id, orderId: shipment.order, status: next, providerStatus: t.currentStatus }, 'Shipment status changed');
+      logger.info(
+        { shipmentId: shipment._id, orderId: shipment.order, status: next, providerStatus: t.currentStatus },
+        'Shipment status changed',
+      );
     }
     await shipment.save();
     if (changed) {
-      await syncOrderItems(shipment).catch((err) => logger.error({ err, shipmentId: shipment._id }, 'Could not sync order items from tracking'));
+      await syncOrderItems(shipment).catch((err) =>
+        logger.error({ err, shipmentId: shipment._id }, 'Could not sync order items from tracking'),
+      );
     }
     return shipment;
   },
@@ -454,12 +481,14 @@ export const shippingService = {
     const provider = await shippingProvider.require();
     const parent = await Shipment.findOne({ _id: parentId, type: 'forward' }).lean();
     if (!parent) throw ApiError.notFound('Shipment not found');
-    if (parent.status !== 'delivered') throw ApiError.conflict('Returns can be booked once the shipment is delivered', { code: 'INVALID_SHIPMENT_STATE' });
+    if (parent.status !== 'delivered')
+      throw ApiError.conflict('Returns can be booked once the shipment is delivered', { code: 'INVALID_SHIPMENT_STATE' });
 
     const order = await Order.findById(parent.order).populate('user', 'email').lean();
     const chosen = itemIds?.length ? itemIds.map(String) : parent.items.map((r) => String(r.itemId));
     const lines = order.items.filter((i) => chosen.includes(String(i._id)) && parent.items.some((r) => String(r.itemId) === String(i._id)));
-    if (lines.length !== chosen.length) throw ApiError.unprocessable('Some items are not part of this shipment', { code: 'ITEM_NOT_IN_SHIPMENT' });
+    if (lines.length !== chosen.length)
+      throw ApiError.unprocessable('Some items are not part of this shipment', { code: 'ITEM_NOT_IN_SHIPMENT' });
 
     const reasons = await this.returnReasons();
     const reason = reasons.find((r) => r.id === returnReasonId);
@@ -511,7 +540,12 @@ export const shippingService = {
         const r = await provider.pushReturnOrder({
           providerOrderId: shipment.providerOrderId,
           orderDate: order.createdAt,
-          pickup: { name: order.shippingAddress.name, phone: order.shippingAddress.phone, email: order.user?.email, address: order.shippingAddress },
+          pickup: {
+            name: order.shippingAddress.name,
+            phone: order.shippingAddress.phone,
+            email: order.user?.email,
+            address: order.shippingAddress,
+          },
           items: lines,
           package: shipment.package,
           warehouseId: shipment.warehouseId,
@@ -568,7 +602,10 @@ export const shippingService = {
       if (warehouseId) {
         const known = (await provider.warehouses()).some((w) => w.id === String(warehouseId));
         if (!known) throw ApiError.unprocessable('That warehouse id does not exist in Shipmozo', { code: 'INVALID_WAREHOUSE' });
-        await Vendor.updateOne({ _id: vendorId }, { 'shipping.warehouseId': String(warehouseId), 'shipping.warehouseSyncedAt': new Date() });
+        await Vendor.updateOne(
+          { _id: vendorId },
+          { 'shipping.warehouseId': String(warehouseId), 'shipping.warehouseSyncedAt': new Date() },
+        );
         return { warehouseId: String(warehouseId) };
       }
       await Vendor.updateOne({ _id: vendorId }, { $unset: { 'shipping.warehouseId': 1 } });
@@ -621,7 +658,8 @@ export const shippingService = {
     const order = await Order.exists({ _id: orderId, user: userId });
     if (!order) throw ApiError.notFound('Order not found');
     const shipments = await Shipment.find({ order: orderId, user: userId, status: { $ne: 'pending' } }).sort({ createdAt: 1 });
-    const stale = (s) => TRACKABLE_STATUSES.includes(s.status) && (!s.tracking?.lastSyncedAt || Date.now() - s.tracking.lastSyncedAt > CUSTOMER_REFRESH_MS);
+    const stale = (s) =>
+      TRACKABLE_STATUSES.includes(s.status) && (!s.tracking?.lastSyncedAt || Date.now() - s.tracking.lastSyncedAt > CUSTOMER_REFRESH_MS);
     return Promise.all(shipments.map((s) => (stale(s) ? this.refreshTracking(s._id, { throwOnError: false }) : s)));
   },
 
@@ -636,14 +674,24 @@ export const shippingService = {
     const since = new Date(Date.now() - 14 * 24 * 60 * 60_000);
     const fresh = await Order.aggregate([
       { $match: { status: { $in: SHIPPABLE_ORDER_STATUSES }, createdAt: { $gte: since } } },
-      { $lookup: { from: Shipment.collection.name, localField: '_id', foreignField: 'order', as: 's', pipeline: [{ $project: { _id: 1 } }] } },
+      {
+        $lookup: {
+          from: Shipment.collection.name,
+          localField: '_id',
+          foreignField: 'order',
+          as: 's',
+          pipeline: [{ $project: { _id: 1 } }],
+        },
+      },
       { $match: { s: { $size: 0 } } },
       { $limit: limit },
       { $project: { _id: 1 } },
     ]);
     for (const { _id } of fresh) await this.planForOrder(_id);
 
-    const retryable = await Shipment.find({ type: 'forward', status: 'pending', active: true, failedAttempts: { $lt: MAX_AUTO_RETRIES } }).limit(limit).lean();
+    const retryable = await Shipment.find({ type: 'forward', status: 'pending', active: true, failedAttempts: { $lt: MAX_AUTO_RETRIES } })
+      .limit(limit)
+      .lean();
     let pushed = 0;
     for (const s of retryable) {
       // Exponential backoff: 1, 2, 4, 8 minutes after each failure.

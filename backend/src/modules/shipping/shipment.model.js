@@ -32,13 +32,19 @@ export const TERMINAL_SHIPMENT_STATUSES = ['delivered', 'returned', 'cancelled']
 /** Shipments the courier hasn't collected yet; these can still be cancelled. */
 export const PRE_PICKUP_STATUSES = ['created', 'courier_assigned', 'pickup_scheduled', 'pickup_pending'];
 /** Statuses tracking sync keeps polling. */
-export const TRACKABLE_STATUSES = ['courier_assigned', 'pickup_scheduled', 'pickup_pending', 'picked_up', 'in_transit', 'out_for_delivery', 'exception', 'return_in_transit'];
+export const TRACKABLE_STATUSES = [
+  'courier_assigned',
+  'pickup_scheduled',
+  'pickup_pending',
+  'picked_up',
+  'in_transit',
+  'out_for_delivery',
+  'exception',
+  'return_in_transit',
+];
 export const SHIPMENT_TYPES = ['forward', 'return'];
 
-const packageSchema = new Schema(
-  { weightGrams: Number, lengthCm: Number, widthCm: Number, heightCm: Number },
-  { _id: false },
-);
+const packageSchema = new Schema({ weightGrams: Number, lengthCm: Number, widthCm: Number, heightCm: Number }, { _id: false });
 
 const historySchema = new Schema(
   {
@@ -140,7 +146,10 @@ shipmentSchema.index(
   { order: 1, vendor: 1, type: 1 },
   { unique: true, partialFilterExpression: { active: true, type: 'forward' }, name: 'one_active_forward_per_vendor' },
 );
-shipmentSchema.index({ parent: 1 }, { unique: true, partialFilterExpression: { active: true, type: 'return' }, name: 'one_active_return_per_parent' });
+shipmentSchema.index(
+  { parent: 1 },
+  { unique: true, partialFilterExpression: { active: true, type: 'return' }, name: 'one_active_return_per_parent' },
+);
 shipmentSchema.index({ status: 1, 'tracking.lastSyncedAt': 1 });
 shipmentSchema.index({ awbNumber: 1 }, { sparse: true });
 

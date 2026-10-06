@@ -30,7 +30,10 @@ export function toApiError(err, { audience = 'admin', fallback = 'Shipping reque
     return ApiError.unprocessable(message, { code: 'SHIPPING_REJECTED', cause: err });
   }
   if (err.kind === 'auth') {
-    return ApiError.serviceUnavailable('Shipping provider is misconfigured. Please contact support.', { code: 'SHIPPING_AUTH_FAILED', cause: err });
+    return ApiError.serviceUnavailable('Shipping provider is misconfigured. Please contact support.', {
+      code: 'SHIPPING_AUTH_FAILED',
+      cause: err,
+    });
   }
   return ApiError.serviceUnavailable('The shipping provider is not reachable right now. Please try again shortly.', {
     code: err.kind === 'timeout' ? 'SHIPPING_TIMEOUT' : 'SHIPPING_UNAVAILABLE',

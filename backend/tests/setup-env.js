@@ -23,4 +23,7 @@ Object.assign(process.env, {
   RAZORPAY_KEY_ID: 'rzp_test_key',
   RAZORPAY_KEY_SECRET: 'rzp_test_secret',
   RAZORPAY_WEBHOOK_SECRET: 'rzp_webhook_secret',
+  // Same idea for Shipmozo: lets the toggle be switched on; tests swap in a fake provider.
+  SHIPMOZO_PUBLIC_KEY: 'smz_test_public',
+  SHIPMOZO_PRIVATE_KEY: 'smz_test_private',
 });

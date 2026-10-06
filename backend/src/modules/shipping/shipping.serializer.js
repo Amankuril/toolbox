@@ -79,7 +79,10 @@ export function serializeAdminShipment(doc) {
     provider: s.provider,
     referenceId: s.referenceId ?? null,
     warehouseId: s.warehouseId ?? null,
-    courier: s.courier?.name || s.courier?.id ? { id: s.courier.id ?? null, name: s.courier.name ?? null, service: s.courier.service ?? null } : null,
+    courier:
+      s.courier?.name || s.courier?.id
+        ? { id: s.courier.id ?? null, name: s.courier.name ?? null, service: s.courier.service ?? null }
+        : null,
     pickupsAutomaticallyScheduled: s.pickupsAutomaticallyScheduled ?? null,
     rateQuotes: s.rateQuotes ?? [],
     ratesFetchedAt: s.ratesFetchedAt ?? null,

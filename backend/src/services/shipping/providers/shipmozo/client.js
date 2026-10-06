@@ -41,15 +41,22 @@ export function createShipmozoClient({ baseUrl, publicKey, privateKey, timeoutMs
     const json = await response.json().catch(() => null);
 
     if (response.status === 401 || response.status === 403) {
-      throw new ShippingProviderError('auth', `Shipmozo rejected the API keys (${response.status})`, { operation, status: response.status });
-    }
-    if (!json || typeof json !== 'object') {
-      throw new ShippingProviderError(response.ok ? 'invalid_response' : 'http', `Shipmozo ${operation} returned ${response.status} without JSON`, {
+      throw new ShippingProviderError('auth', `Shipmozo rejected the API keys (${response.status})`, {
         operation,
         status: response.status,
-        // A 5xx on a write may have been partially applied.
-        outcomeUnknown: method !== 'GET' && response.status >= 500,
       });
+    }
+    if (!json || typeof json !== 'object') {
+      throw new ShippingProviderError(
+        response.ok ? 'invalid_response' : 'http',
+        `Shipmozo ${operation} returned ${response.status} without JSON`,
+        {
+          operation,
+          status: response.status,
+          // A 5xx on a write may have been partially applied.
+          outcomeUnknown: method !== 'GET' && response.status >= 500,
+        },
+      );
     }
     if (String(json.result) !== '1') {
       const providerMessage = describeFailure(json);

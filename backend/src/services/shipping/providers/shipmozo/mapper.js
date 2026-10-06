@@ -13,7 +13,12 @@ import {
  * Amounts arrive in paise and leave in rupees; phones arrive as +91XXXXXXXXXX and leave as 10 digits.
  */
 
-const phoneNumber = (phone) => Number(String(phone ?? '').replace(/\D/g, '').slice(-10)) || undefined;
+const phoneNumber = (phone) =>
+  Number(
+    String(phone ?? '')
+      .replace(/\D/g, '')
+      .slice(-10),
+  ) || undefined;
 const pin = (pincode) => Number(pincode);
 const ymd = (date) => new Date(date).toISOString().slice(0, 10);
 
@@ -100,7 +105,9 @@ export function rateCalculatorBody(q) {
     rov_type: DEFAULT_ROV_TYPE,
     cod_amount: cod ? String(toRupees(q.codAmount ?? q.orderAmount)) : '',
     weight: q.package.weightGrams,
-    dimensions: [{ no_of_box: '1', length: String(q.package.lengthCm), width: String(q.package.widthCm), height: String(q.package.heightCm) }],
+    dimensions: [
+      { no_of_box: '1', length: String(q.package.lengthCm), width: String(q.package.widthCm), height: String(q.package.heightCm) },
+    ],
   };
 }
 

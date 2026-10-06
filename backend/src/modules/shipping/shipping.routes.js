@@ -17,7 +17,15 @@ const awbNumber = z
   .string()
   .trim()
   .regex(/^[A-Za-z0-9-]{4,40}$/, 'Enter a valid AWB number');
-const warehouseId = z.union([z.string().trim().regex(/^\d{1,12}$/, 'Invalid warehouse id'), z.number().int().positive()]).transform(String);
+const warehouseId = z
+  .union([
+    z
+      .string()
+      .trim()
+      .regex(/^\d{1,12}$/, 'Invalid warehouse id'),
+    z.number().int().positive(),
+  ])
+  .transform(String);
 
 const perUser = (keyPrefix, points) => rateLimit({ keyPrefix, points, duration: 60, key: (req) => String(req.auth.id) });
 
@@ -85,13 +93,18 @@ export const adminShippingRoutes = Router()
     const planned = await shippingService.planForOrder(req.params.id);
     const errors = [];
     for (const s of planned) {
-      await shippingService.push(s._id, actorOf(req)).catch((err) => errors.push({ shipment: s._id, message: err.message, code: err.code }));
+      await shippingService
+        .push(s._id, actorOf(req))
+        .catch((err) => errors.push({ shipment: s._id, message: err.message, code: err.code }));
     }
     ok(res, { shipments: (await shippingService.forOrder(req.params.id)).map(serializeAdminShipment), errors });
   })
   .post('/shipments/:id/push', validate({ params: idParams }), async (req, res) => {
     const current = await shippingService.get(req.params.id);
-    const s = current.type === 'return' ? await shippingService.pushReturn(current._id, actorOf(req)) : await shippingService.push(current._id, actorOf(req));
+    const s =
+      current.type === 'return'
+        ? await shippingService.pushReturn(current._id, actorOf(req))
+        : await shippingService.push(current._id, actorOf(req));
     ok(res, serializeAdminShipment(s));
   })
   .post('/shipments/:id/rates', validate({ params: idParams }), async (req, res) => {

@@ -88,7 +88,8 @@ export function createShipmozoProvider(config) {
       const data = await http.get(ENDPOINTS.orderLabel(awbNumber));
       const entry = Array.isArray(data) ? data[0] : data;
       const match = /^data:(image\/[a-z]+);base64,(.+)$/s.exec(entry?.label ?? '');
-      if (!match) throw new ShippingProviderError('invalid_response', 'Shipmozo label response had no image', { operation: 'GET /get-order-label' });
+      if (!match)
+        throw new ShippingProviderError('invalid_response', 'Shipmozo label response had no image', { operation: 'GET /get-order-label' });
       return { contentType: match[1], buffer: Buffer.from(match[2], 'base64'), createdAt: entry.created_at ?? null };
     },
 
@@ -107,14 +108,22 @@ export function createShipmozoProvider(config) {
       const data = await http.post(ENDPOINTS.createWarehouse, {
         address_title: title,
         name,
-        phone: Number(String(phone ?? '').replace(/\D/g, '').slice(-10)) || undefined,
+        phone:
+          Number(
+            String(phone ?? '')
+              .replace(/\D/g, '')
+              .slice(-10),
+          ) || undefined,
         email,
         address_line_one: address.line1,
         address_line_two: [address.line2, address.landmark].filter(Boolean).join(', '),
         pin_code: Number(address.pincode),
       });
       const id = str(data?.warehouse_id);
-      if (!id) throw new ShippingProviderError('invalid_response', 'Shipmozo did not return a warehouse id', { operation: 'POST /create-warehouse' });
+      if (!id)
+        throw new ShippingProviderError('invalid_response', 'Shipmozo did not return a warehouse id', {
+          operation: 'POST /create-warehouse',
+        });
       return { warehouseId: id };
     },
 
