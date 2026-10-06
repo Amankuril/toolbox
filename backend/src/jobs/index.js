@@ -1,6 +1,7 @@
 import { logger } from '#config/logger.js';
 import { redis } from '#config/redis.js';
 import { orderService } from '#modules/orders/order.service.js';
+import { productImportService } from '#modules/products/imports/import.service.js';
 import { quoteLifecycle } from '#modules/quotes/quote.lifecycle.js';
 import { shippingService } from '#modules/shipping/shipping.service.js';
 
@@ -39,6 +40,23 @@ const JOBS = [
     async run() {
       const pushed = await shippingService.autoCreate();
       if (pushed) logger.info({ pushed }, 'Pushed shipments to the shipping provider');
+    },
+  },
+  {
+    name: 'process-product-imports',
+    everyMs: 10_000,
+    async run() {
+      // Budget below the tick so the Redis lock never outlives the run; leases make overlap harmless anyway.
+      const processed = await productImportService.processQueued({ budgetMs: 8_000 });
+      if (processed) logger.info({ processed }, 'Processed product import items');
+    },
+  },
+  {
+    name: 'purge-product-imports',
+    everyMs: 60 * 60_000,
+    async run() {
+      const purged = await productImportService.purge();
+      if (purged) logger.info({ purged }, 'Purged old product imports');
     },
   },
   {

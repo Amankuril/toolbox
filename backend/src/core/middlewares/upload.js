@@ -24,3 +24,23 @@ const imageUpload = multer({
 });
 
 export const uploadImages = (field = 'files') => imageUpload.array(field, env.UPLOAD_MAX_FILES);
+
+/** One spreadsheet (CSV) for bulk imports. Excel on Windows labels CSVs as vnd.ms-excel. */
+const CSV_TYPES = new Set(['text/csv', 'application/csv', 'text/plain', 'application/vnd.ms-excel', 'application/octet-stream']);
+const csvUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024, files: 1, fields: 5, parts: 6 },
+  fileFilter(_req, file, cb) {
+    if (!/\.csv$/i.test(file.originalname ?? '') || !CSV_TYPES.has(file.mimetype)) {
+      cb(
+        ApiError.badRequest('Upload a .csv file. In Excel or Google Sheets use File → Download / Save as → CSV.', {
+          code: 'UNSUPPORTED_FILE',
+        }),
+      );
+      return;
+    }
+    cb(null, true);
+  },
+});
+
+export const uploadCsv = (field = 'file') => csvUpload.single(field);
