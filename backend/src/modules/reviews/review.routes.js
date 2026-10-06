@@ -4,9 +4,9 @@ import { rateLimit } from '#core/middlewares/rateLimit.js';
 import { validate } from '#core/middlewares/validate.js';
 import { noContent, ok } from '#core/utils/response.js';
 import { paginationQuery } from '#core/utils/pagination.js';
-import { idParams, objectId, optionalText } from '#core/validation/common.js';
+import { idParams, imageInput, objectId, optionalText, queryBool } from '#core/validation/common.js';
 import { actorOf } from '#modules/auth/auth.middleware.js';
-import { REVIEW_STATUSES } from './review.model.js';
+import { MAX_REVIEW_IMAGES, REVIEW_STATUSES } from './review.model.js';
 import { reviewService } from './review.service.js';
 
 const rating = z.coerce.number().int().min(1).max(5);
@@ -17,12 +17,17 @@ export const publicReviewRoutes = Router().get(
   '/:productId/reviews',
   validate({
     params: productParams,
-    query: z.object({ ...paginationQuery, sort: z.enum(['recent', 'highest', 'lowest']).optional(), rating: rating.optional() }),
+    query: z.object({
+      ...paginationQuery,
+      sort: z.enum(['recent', 'highest', 'lowest']).optional(),
+      rating: rating.optional(),
+      withImages: queryBool,
+    }),
   }),
   async (req, res) => {
     res.set('Cache-Control', 'public, max-age=30');
-    const { summary, items, meta } = await reviewService.listForProduct(req.params.productId, req.query);
-    ok(res, { summary, items }, meta);
+    const { summary, photos, items, meta } = await reviewService.listForProduct(req.params.productId, req.query);
+    ok(res, { summary, photos, items }, meta);
   },
 );
 
@@ -36,7 +41,15 @@ export const userReviewRoutes = Router()
   .put(
     '/:productId/review',
     writeLimit,
-    validate({ params: productParams, body: z.object({ rating, title: optionalText(120), body: optionalText(2000) }) }),
+    validate({
+      params: productParams,
+      body: z.object({
+        rating,
+        title: optionalText(120),
+        body: optionalText(2000),
+        images: z.array(imageInput).max(MAX_REVIEW_IMAGES).optional(),
+      }),
+    }),
     async (req, res) => ok(res, await reviewService.upsert(req.account, req.params.productId, req.body)),
   )
   .delete('/:productId/review', validate({ params: productParams }), async (req, res) => {

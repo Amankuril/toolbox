@@ -8,6 +8,7 @@ import '#modules/admins/admin.model.js';
 import '#modules/auth/session.model.js';
 import '#modules/banners/banner.model.js';
 import '#modules/cart/cart.model.js';
+import '#modules/wishlist/wishlist.model.js';
 import '#modules/categories/category.model.js';
 import '#modules/media/media.model.js';
 import '#modules/orders/order.model.js';

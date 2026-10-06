@@ -1,7 +1,18 @@
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Product } from '#modules/products/product.model.js';
-import { API, approvedVendor, bearer, createAdmin, otpSignIn, setModeration, startTestApp, stopTestApp } from './helpers.js';
+import {
+  API,
+  approvedVendor,
+  bearer,
+  createAdmin,
+  otpSignIn,
+  setModeration,
+  startTestApp,
+  stopTestApp,
+  testImage,
+  upload,
+} from './helpers.js';
 
 let app;
 let admin;
@@ -112,6 +123,48 @@ describe('reviews', () => {
     expect(list.summary).toMatchObject({ average: 5, count: 1 });
     expect((await Product.findById(product._id).lean()).rating.count).toBe(1);
     await request(app).get(`${API}/admin/reviews`).set(bearer(buyer.accessToken)).expect(401);
+  });
+
+  it("attaches the reviewer's own photos, shows them publicly and keeps them across edits", async () => {
+    const B = bearer(buyer.accessToken);
+    const [a, b] = (
+      await upload(app, buyer.accessToken, 'reviews', [
+        await testImage({ width: 800, height: 600 }),
+        await testImage({ width: 800, height: 600 }),
+      ])
+    ).body.data;
+    // Someone else's upload can't be attached.
+    const [foreign] = (await upload(app, other.accessToken, 'reviews', [await testImage({ width: 800, height: 600 })])).body.data;
+    const denied = await request(app)
+      .put(`${API}/user/products/${product._id}/review`)
+      .set(B)
+      .send({ rating: 5, images: [{ media: foreign._id }] })
+      .expect(403);
+    expect(denied.body.error.code).toBe('MEDIA_FORBIDDEN');
+    await request(app)
+      .put(`${API}/user/products/${product._id}/review`)
+      .set(B)
+      .send({ rating: 5, images: Array.from({ length: 6 }, () => ({ media: a._id })) })
+      .expect(422);
+
+    const saved = (
+      await request(app)
+        .put(`${API}/user/products/${product._id}/review`)
+        .set(B)
+        .send({ rating: 5, title: 'With photos', images: [{ media: a._id }, { media: b._id }] })
+        .expect(200)
+    ).body.data.review;
+    expect(saved.images.map((i) => i.url)).toEqual([a.url, b.url]);
+
+    // Editing text without sending images keeps them.
+    await request(app).put(`${API}/user/products/${product._id}/review`).set(B).send({ rating: 4, title: 'Still good' }).expect(200);
+    const list = (await request(app).get(`${API}/public/products/${product._id}/reviews?withImages=true`).expect(200)).body.data;
+    expect(list.items).toHaveLength(1);
+    expect(list.items[0].images).toHaveLength(2);
+    expect(list.photos.map((p) => p.url)).toEqual([a.url, b.url]);
+
+    await request(app).put(`${API}/user/products/${product._id}/review`).set(B).send({ rating: 4, images: [] }).expect(200);
+    expect((await request(app).get(`${API}/public/products/${product._id}/reviews`).expect(200)).body.data.photos).toEqual([]);
   });
 
   it('deletes your own review', async () => {

@@ -2,6 +2,8 @@ import mongoose, { Schema } from 'mongoose';
 import { baseOptions } from '#core/db/schemas.js';
 
 /** published → visible on the product page; hidden → removed by an admin (kept for audit). */
+export const MAX_REVIEW_IMAGES = 5;
+
 export const REVIEW_STATUSES = ['published', 'hidden'];
 
 /**
@@ -19,6 +21,11 @@ const reviewSchema = new Schema(
     rating: { type: Number, required: true, min: 1, max: 5 },
     title: { type: String, trim: true, maxlength: 120 },
     body: { type: String, trim: true, maxlength: 2000 },
+    // Customer photos (uploaded to the "reviews" media folder by the reviewer).
+    images: {
+      type: [{ _id: false, media: { type: Schema.Types.ObjectId, ref: 'Media' }, url: String, alt: String }],
+      default: [],
+    },
     status: { type: String, enum: REVIEW_STATUSES, default: 'published' },
     moderation: {
       note: { type: String, trim: true, maxlength: 500 },

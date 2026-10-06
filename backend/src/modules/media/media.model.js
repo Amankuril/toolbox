@@ -1,7 +1,7 @@
 import mongoose, { Schema } from 'mongoose';
 import { actorSchema } from '#core/db/schemas.js';
 
-export const MEDIA_FOLDERS = ['products', 'categories', 'vendors', 'documents', 'banners', 'branding', 'favicons', 'users'];
+export const MEDIA_FOLDERS = ['products', 'categories', 'vendors', 'documents', 'banners', 'branding', 'favicons', 'users', 'reviews'];
 
 /**
  * Registry of every stored file. `provider` records where the bytes actually live, so files

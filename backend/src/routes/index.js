@@ -11,6 +11,7 @@ import { authenticate } from '#modules/auth/auth.middleware.js';
 import authRoutes from '#modules/auth/auth.routes.js';
 import { adminBannerRoutes, publicBannerRoutes } from '#modules/banners/banner.routes.js';
 import { cartRoutes } from '#modules/cart/cart.routes.js';
+import { wishlistRoutes } from '#modules/wishlist/wishlist.routes.js';
 import { adminCategoryRoutes, publicCategoryRoutes, vendorCategoryRoutes } from '#modules/categories/category.routes.js';
 import { dashboardService } from '#modules/dashboard/dashboard.service.js';
 import { adminMediaRouter, mediaUploadRouter } from '#modules/media/media.routes.js';
@@ -65,6 +66,7 @@ export function buildRoutes() {
     .use(authenticate('user'))
     .use(userSelfRoutes)
     .use('/cart', cartRoutes)
+    .use('/wishlist', wishlistRoutes)
     .use('/orders', userOrderRoutes)
     .use('/quotes', userQuoteRoutes)
     .use('/products', userReviewRoutes)

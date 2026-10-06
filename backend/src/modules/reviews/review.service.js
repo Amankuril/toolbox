@@ -3,6 +3,7 @@ import { ApiError } from '#core/errors/ApiError.js';
 import { Order } from '#modules/orders/order.model.js';
 import { Product } from '#modules/products/product.model.js';
 import { VISIBLE } from '#modules/products/product.service.js';
+import { mediaService } from '#modules/media/media.service.js';
 import { Review } from './review.model.js';
 
 const SORTS = {
@@ -27,6 +28,7 @@ export function serializeReview(r, { admin = false } = {}) {
     rating: r.rating,
     title: r.title ?? null,
     body: r.body ?? null,
+    images: (r.images ?? []).map((i) => ({ url: i.url, alt: i.alt ?? null, media: i.media })),
     author: displayName(r.user?.name),
     verified: true,
     purchasedAt: r.purchasedAt ?? null,
@@ -70,11 +72,16 @@ async function refreshRating(productId) {
 }
 
 export const reviewService = {
-  async listForProduct(productId, { page, limit, sort = 'recent', rating }) {
+  async listForProduct(productId, { page, limit, sort = 'recent', rating, withImages }) {
     const product = await Product.findOne({ _id: productId, ...VISIBLE }, 'rating').lean();
     if (!product) throw ApiError.notFound('Product not found');
-    const filter = { product: productId, status: 'published', ...(rating ? { rating } : {}) };
-    const [rows, total] = await Promise.all([
+    const filter = {
+      product: productId,
+      status: 'published',
+      ...(rating ? { rating } : {}),
+      ...(withImages ? { 'images.0': { $exists: true } } : {}),
+    };
+    const [rows, total, photos] = await Promise.all([
       Review.find(filter)
         .sort(SORTS[sort] ?? SORTS.recent)
         .skip((page - 1) * limit)
@@ -82,10 +89,20 @@ export const reviewService = {
         .populate('user', 'name')
         .lean(),
       Review.countDocuments(filter),
+      // Gallery strip above the list: the latest customer photos across all reviews.
+      Review.aggregate([
+        { $match: { product: new mongoose.Types.ObjectId(String(productId)), status: 'published', 'images.0': { $exists: true } } },
+        { $sort: { createdAt: -1 } },
+        { $limit: 20 },
+        { $unwind: '$images' },
+        { $limit: 20 },
+        { $project: { _id: 0, review: '$_id', url: '$images.url', alt: '$images.alt' } },
+      ]),
     ]);
     const summary = product.rating ?? { average: 0, count: 0, breakdown: [0, 0, 0, 0, 0] };
     return {
       summary: { average: summary.average, count: summary.count, breakdown: summary.breakdown },
+      photos,
       items: rows.map((r) => serializeReview(r)),
       meta: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
     };
@@ -100,7 +117,7 @@ export const reviewService = {
     return { review: review ? { ...serializeReview(review), status: review.status } : null, canReview: Boolean(purchase) };
   },
 
-  async upsert(user, productId, { rating, title, body }) {
+  async upsert(user, productId, { rating, title, body, images }) {
     const product = await Product.findOne({ _id: productId, ...VISIBLE }, 'vendor').lean();
     if (!product) throw ApiError.notFound('Product not found');
     const purchase = await deliveredPurchase(user._id, productId);
@@ -108,9 +125,11 @@ export const reviewService = {
       throw ApiError.forbidden('Only customers who received this item can review it.', { code: 'REVIEW_NOT_ELIGIBLE' });
     }
     const existing = await Review.findOne({ product: productId, user: user._id });
+    // Omitted → keep the current photos; [] → remove them all.
+    const photos = images === undefined ? undefined : await mediaService.resolve(images, { kind: 'user', id: user._id });
     // An admin-hidden review stays hidden even if edited; the customer can't re-publish it.
     const review = existing ?? new Review({ product: productId, vendor: product.vendor, user: user._id });
-    review.set({ order: purchase.order, purchasedAt: purchase.purchasedAt, rating, title, body });
+    review.set({ order: purchase.order, purchasedAt: purchase.purchasedAt, rating, title, body, ...(photos ? { images: photos } : {}) });
     try {
       await review.save();
     } catch (err) {
