@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Boxes, FileText, FolderTree, Image, KeyRound, LayoutDashboard, Package, Settings, ShieldCheck, ShoppingBag, Star, Store, Users } from 'lucide-react'
+import { BadgeCheck, Boxes, FileText, FolderTree, Image, KeyRound, LayoutDashboard, Package, PackageOpen, Settings, ShieldCheck, ShoppingBag, SlidersHorizontal, Star, Store, Users } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { useSession } from '@/core/auth/session'
@@ -38,6 +38,16 @@ export default function AdminLayout() {
         allow('orders', { to: '/admin/orders', label: 'Orders', icon: ShoppingBag }),
         allow('quotes', { to: '/admin/quotes', label: 'Bulk quotes', icon: FileText }),
         allow('reviews', { to: '/admin/reviews', label: 'Reviews', icon: Star }),
+      ],
+    },
+    {
+      title: 'Our store',
+      items: [
+        allow('store', { to: '/admin/store', end: true, label: 'Store overview', icon: BadgeCheck }),
+        allow('store', { to: '/admin/store/products', label: 'Store products', icon: PackageOpen }),
+        allow('store', { to: '/admin/store/orders', label: 'Store orders', icon: ShoppingBag }),
+        allow('store', { to: '/admin/store/quotes', label: 'Store quotes', icon: FileText }),
+        allow('store', { to: '/admin/store/settings', label: 'Store settings', icon: SlidersHorizontal }),
       ],
     },
     {

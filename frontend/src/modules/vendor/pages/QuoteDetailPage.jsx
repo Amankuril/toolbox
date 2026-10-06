@@ -14,24 +14,25 @@ import { Field, Textarea } from '@/ui/Field'
 import { PriceInput } from '@/ui/inputs'
 import { DescriptionList, PageHeader } from '@/ui/PageHeader'
 import { ReasonDialog } from '@/ui/ReasonDialog'
-import { vendorApi, vendorKeys } from '../api'
+import { useSeller } from '../seller'
 
 const VALIDITY = [3, 7, 14, 30].map((d) => ({ value: d, label: `${d} days` }))
 
 export default function VendorQuoteDetailPage() {
+  const seller = useSeller()
   const { id } = useParams()
   const qc = useQueryClient()
-  const { data: q, isLoading } = useQuery({ queryKey: vendorKeys.quote(id), queryFn: () => vendorApi.quote(id) })
+  const { data: q, isLoading } = useQuery({ queryKey: seller.keys.quote(id), queryFn: () => seller.api.quote(id) })
   const [revising, setRevising] = useState(false)
 
   const onSaved = (message) => (updated) => {
-    qc.setQueryData(vendorKeys.quote(id), updated)
-    qc.invalidateQueries({ queryKey: ['vendor', 'quotes'] })
+    qc.setQueryData(seller.keys.quote(id), updated)
+    qc.invalidateQueries({ queryKey: [...seller.keys.all, 'quotes'] })
     setRevising(false)
     toast.success(message)
   }
   const decline = useMutation({
-    mutationFn: (reason) => vendorApi.declineQuote(id, { reason }),
+    mutationFn: (reason) => seller.api.declineQuote(id, { reason }),
     onSuccess: onSaved('Request declined'),
     onError: (e) => toast.error(errorMessage(e)),
   })
@@ -41,7 +42,7 @@ export default function VendorQuoteDetailPage() {
 
   return (
     <>
-      <PageHeader back={{ to: '/vendor/quotes', label: 'Quote requests' }} title={`Request ${q.number}`} meta={<QuoteStatus status={q.status} />} />
+      <PageHeader back={{ to: `${seller.base}/quotes`, label: 'Quote requests' }} title={`Request ${q.number}`} meta={<QuoteStatus status={q.status} />} />
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="flex flex-col gap-6 lg:col-span-2">
           <Card>
@@ -137,11 +138,12 @@ export default function VendorQuoteDetailPage() {
 }
 
 function OfferForm({ quote, onSaved, onCancel }) {
+  const seller = useSeller()
   const [unitPrice, setUnitPrice] = useState(quote.offer?.unitPrice ?? quote.targetUnitPrice ?? undefined)
   const [validDays, setValidDays] = useState(7)
   const [note, setNote] = useState(quote.offer?.note ?? '')
   const send = useMutation({
-    mutationFn: () => vendorApi.sendOffer(quote._id, { unitPrice, validDays, note: note.trim() || undefined }),
+    mutationFn: () => seller.api.sendOffer(quote._id, { unitPrice, validDays, note: note.trim() || undefined }),
     onSuccess: onSaved,
     onError: (e) => toast.error(errorMessage(e)),
   })

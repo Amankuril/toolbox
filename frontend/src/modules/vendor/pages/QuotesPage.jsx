@@ -11,7 +11,7 @@ import { DataTable, Pagination } from '@/ui/DataTable'
 import { PageHeader } from '@/ui/PageHeader'
 import { RowActions } from '@/ui/RowActions'
 import { SearchField } from '@/ui/SearchField'
-import { vendorApi, vendorKeys } from '../api'
+import { useSeller } from '../seller'
 
 const TABS = [
   { value: 'requested', label: 'New requests' },
@@ -22,10 +22,11 @@ const TABS = [
 ]
 
 export default function VendorQuotesPage() {
+  const seller = useSeller()
   const navigate = useNavigate()
   const [filters, setFilters] = useSearchParamsState({ status: 'requested' })
   const params = { page: Number(filters.page ?? 1), limit: 20, status: filters.status === 'all' ? undefined : filters.status || undefined, q: filters.q || undefined }
-  const { data, isLoading } = useQuery({ queryKey: vendorKeys.quotes(params), queryFn: () => vendorApi.quotes(params), placeholderData: keepPreviousData })
+  const { data, isLoading } = useQuery({ queryKey: seller.keys.quotes(params), queryFn: () => seller.api.quotes(params), placeholderData: keepPreviousData })
   const nothingYet = !isLoading && data?.meta?.total === 0 && !filters.q && !Object.keys(data?.meta?.counts ?? {}).length
 
   return (
@@ -91,7 +92,7 @@ export default function VendorQuotesPage() {
                 className: 'w-px',
                 cell: (q) => (
                   <RowActions
-                    items={[{ label: q.status === 'requested' ? 'Reply with a quote' : 'View', icon: Eye, onSelect: () => navigate(`/vendor/quotes/${q._id}`) }]}
+                    items={[{ label: q.status === 'requested' ? 'Reply with a quote' : 'View', icon: Eye, onSelect: () => navigate(`${seller.base}/quotes/${q._id}`) }]}
                   />
                 ),
               },

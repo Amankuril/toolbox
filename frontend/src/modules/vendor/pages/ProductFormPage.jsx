@@ -19,7 +19,7 @@ import { Checkbox, Field, Input, Select, Textarea } from '@/ui/Field'
 import { ImageUploader } from '@/ui/ImageUploader'
 import { NumberInput, PriceInput, TagInput } from '@/ui/inputs'
 import { PageHeader } from '@/ui/PageHeader'
-import { useVendor, vendorApi, vendorKeys } from '../api'
+import { useSeller } from '../seller'
 import { CategoryDialog } from '../components/CategoryDialog'
 import { useCategoryOptions } from '../components/categoryOptions'
 import { BulkPricingCard } from '../components/BulkPricingCard'
@@ -260,17 +260,19 @@ function toPayload(v) {
 }
 
 export default function ProductFormPage() {
+  const seller = useSeller()
   const { id } = useParams()
   const isNew = !id
-  const vendor = useVendor()
-  const { data: product, isLoading } = useQuery({ queryKey: vendorKeys.product(id), queryFn: () => vendorApi.product(id), enabled: !isNew })
+  const vendor = seller.useAccount()
+  const { data: product, isLoading } = useQuery({ queryKey: seller.keys.product(id), queryFn: () => seller.api.product(id), enabled: !isNew })
 
-  if (vendor && vendor.status !== 'approved') return <Navigate to="/vendor/products" replace />
+  if (vendor && vendor.status !== 'approved') return <Navigate to={`${seller.base}/products`} replace />
   if (!isNew && (isLoading || !product)) return <Skeleton className="h-[60vh]" />
   return <ProductForm key={product?._id ?? 'new'} product={product} />
 }
 
 function ProductForm({ product }) {
+  const seller = useSeller()
   const isNew = !product
   const navigate = useNavigate()
   const qc = useQueryClient()
@@ -299,16 +301,16 @@ function ProductForm({ product }) {
   const save = useMutation({
     mutationFn: ({ values, publish }) => {
       const body = { ...toPayload(values), ...(publish !== undefined ? { publish } : {}) }
-      return isNew ? vendorApi.createProduct(body) : vendorApi.updateProduct(product._id, body)
+      return isNew ? seller.api.createProduct(body) : seller.api.updateProduct(product._id, body)
     },
     onSuccess: (saved) => {
-      qc.invalidateQueries({ queryKey: ['vendor', 'products'] })
-      qc.setQueryData(vendorKeys.product(saved._id), saved)
-      qc.invalidateQueries({ queryKey: vendorKeys.dashboard })
+      qc.invalidateQueries({ queryKey: [...seller.keys.all, 'products'] })
+      qc.setQueryData(seller.keys.product(saved._id), saved)
+      qc.invalidateQueries({ queryKey: seller.keys.dashboard })
       form.reset(toForm(saved))
       const messages = { active: 'Saved — your product is live', pending: 'Submitted for review', draft: 'Draft saved' }
       toast.success(messages[saved.status] ?? 'Product saved')
-      navigate(`/vendor/products/${saved._id}`, { replace: true })
+      navigate(`${seller.base}/products/${saved._id}`, { replace: true })
     },
     onError: (err) => {
       if (!applyFieldErrors(err, form.setError)) toast.error(errorMessage(err))
@@ -328,10 +330,12 @@ function ProductForm({ product }) {
   return (
     <form onSubmit={(ev) => ev.preventDefault()} noValidate className="pb-24">
       <PageHeader
-        back={{ to: '/vendor/products', label: 'Products' }}
+        back={{ to: `${seller.base}/products`, label: 'Products' }}
         title={isNew ? 'Add product' : product.name}
         meta={status && <StatusBadge status={status} />}
-        description={isNew ? 'New listings are reviewed before they go live.' : undefined}
+        description={
+          isNew ? (seller.isStore ? 'Published products go live in your store straight away.' : 'New listings are reviewed before they go live.') : undefined
+        }
       />
 
       {status === 'rejected' && product.moderation?.note && (
@@ -418,7 +422,16 @@ function ProductForm({ product }) {
               <Controller
                 name="images"
                 control={control}
-                render={({ field }) => <ImageUploader audience="vendor" folder="products" max={10} value={field.value} onChange={field.onChange} />}
+                render={({ field }) => (
+                  <ImageUploader
+                    audience={seller.audience}
+                    uploadPath={seller.uploadPath}
+                    folder="products"
+                    max={10}
+                    value={field.value}
+                    onChange={field.onChange}
+                  />
+                )}
               />
             </CardBody>
           </Card>
@@ -734,12 +747,12 @@ function ProductForm({ product }) {
 
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 backdrop-blur lg:left-64">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-end gap-2 px-4 py-3 sm:px-6">
-          {!isNew && ['active', 'inactive', 'pending'].includes(status) && (
+          {!isNew && !seller.isStore && ['active', 'inactive', 'pending'].includes(status) && (
             <p className="mr-auto hidden text-xs text-slate-500 md:block">
               Changes to name, photos, description or specs may be re-reviewed before going live.
             </p>
           )}
-          <Button variant="ghost" onClick={() => navigate('/vendor/products')}>
+          <Button variant="ghost" onClick={() => navigate(`${seller.base}/products`)}>
             Cancel
           </Button>
           {canSubmit ? (
@@ -748,7 +761,7 @@ function ProductForm({ product }) {
                 Save draft
               </Button>
               <Button loading={save.isPending && save.variables?.publish === true} onClick={submit(true)}>
-                <Send /> Submit for review
+                <Send /> {seller.isStore ? 'Publish' : 'Submit for review'}
               </Button>
             </>
           ) : (

@@ -8,7 +8,7 @@ import { FilterTabs } from '@/ui/Controls'
 import { DataTable, Pagination } from '@/ui/DataTable'
 import { PageHeader } from '@/ui/PageHeader'
 import { SearchField } from '@/ui/SearchField'
-import { vendorApi, vendorKeys } from '../api'
+import { useSeller } from '../seller'
 
 const TABS = [
   { value: '', label: 'All' },
@@ -32,10 +32,11 @@ function lineSummary(items) {
 }
 
 export default function VendorOrdersPage() {
+  const seller = useSeller()
   const navigate = useNavigate()
   const [filters, setFilters] = useSearchParamsState()
   const params = { page: Number(filters.page ?? 1), limit: 20, status: filters.status || undefined, q: filters.q || undefined }
-  const { data, isLoading } = useQuery({ queryKey: vendorKeys.orders(params), queryFn: () => vendorApi.orders(params), placeholderData: keepPreviousData })
+  const { data, isLoading } = useQuery({ queryKey: seller.keys.orders(params), queryFn: () => seller.api.orders(params), placeholderData: keepPreviousData })
 
   return (
     <>
@@ -50,7 +51,7 @@ export default function VendorOrdersPage() {
         <DataTable
           loading={isLoading}
           rows={data?.items}
-          onRowClick={(o) => navigate(`/vendor/orders/${o._id}`)}
+          onRowClick={(o) => navigate(`${seller.base}/orders/${o._id}`)}
           empty={{
             title: 'No orders here',
             description: filters.status ? 'Nothing with this status right now.' : 'Orders show up as soon as customers buy your products.',

@@ -360,7 +360,14 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related, fro
               <span className="min-w-0 flex-1">
                 <span className="block text-[11px] text-slate-500">Sold by</span>
                 <span className="flex items-center gap-1.5 text-sm font-semibold text-slate-900">
-                  {p.vendor.store.name} <BadgeCheck className="size-3.5 text-accent-ink" aria-label="Reviewed seller" />
+                  {p.vendor.store.name}
+                  {p.vendor.official ? (
+                    <span className="inline-flex items-center gap-1 rounded-sm bg-primary px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-primary-fg uppercase">
+                      <BadgeCheck className="size-3" /> Official
+                    </span>
+                  ) : (
+                    <BadgeCheck className="size-3.5 text-accent-ink" aria-label="Reviewed seller" />
+                  )}
                 </span>
                 {p.vendor.city && <span className="block text-[11px] text-slate-500">{[p.vendor.city, p.vendor.state].join(', ')}</span>}
               </span>

@@ -15,7 +15,7 @@ const MAX_MB = 8
  *
  * `gridClassName` replaces the default column layout, e.g. `grid-cols-1` for a single wide slot.
  *
- * @param {{ audience: 'admin'|'vendor'|'user', folder: string, value: any[], onChange: (v: any[]) => void, max?: number, aspect?: string, gridClassName?: string, cover?: boolean }} props
+ * @param {{ audience: 'admin'|'vendor'|'user', folder: string, value: any[], onChange: (v: any[]) => void, max?: number, aspect?: string, gridClassName?: string, cover?: boolean, uploadPath?: string }} props
  */
 export function ImageUploader({
   audience,
@@ -28,6 +28,7 @@ export function ImageUploader({
   compact = false,
   gridClassName,
   cover = true,
+  uploadPath = '/media',
 }) {
   const inputRef = useRef(null)
   const [progress, setProgress] = useState(null)
@@ -46,7 +47,7 @@ export function ImageUploader({
     files.forEach((f) => form.append('files', f))
     setProgress(0)
     try {
-      const res = await api[audience].post(`/media?folder=${folder}`, form, {
+      const res = await api[audience].post(`${uploadPath}?folder=${folder}`, form, {
         onUploadProgress: (e) => e.total && setProgress(Math.round((e.loaded / e.total) * 100)),
         timeout: 120_000,
       })

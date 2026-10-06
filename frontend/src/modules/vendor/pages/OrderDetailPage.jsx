@@ -7,20 +7,21 @@ import { ActivityTimeline, NoteCard, OrderFacts, OrderHeader, OrderProgress, Pay
 import { ItemStatusActions, OrderItemRow } from '@/modules/shared/orders'
 import { LabelButton, ScanList, ShipmentFacts, ShipmentStatusBadge } from '@/modules/shared/shipments'
 import { Card, CardBody, CardHeader, Skeleton } from '@/ui/Card'
-import { vendorApi, vendorKeys } from '../api'
+import { useSeller } from '../seller'
 
 export default function VendorOrderDetailPage() {
+  const seller = useSeller()
   const { id } = useParams()
   const qc = useQueryClient()
-  const { data: o, isLoading } = useQuery({ queryKey: vendorKeys.order(id), queryFn: () => vendorApi.order(id) })
-  const { data: shipments = [] } = useQuery({ queryKey: vendorKeys.shipments(id), queryFn: () => vendorApi.shipments(id) })
+  const { data: o, isLoading } = useQuery({ queryKey: seller.keys.order(id), queryFn: () => seller.api.order(id) })
+  const { data: shipments = [] } = useQuery({ queryKey: seller.keys.shipments(id), queryFn: () => seller.api.shipments(id) })
 
   const updateItem = (itemId) => async (body) => {
     try {
-      const updated = await vendorApi.updateOrderItem(id, itemId, body)
-      qc.setQueryData(vendorKeys.order(id), updated)
-      qc.invalidateQueries({ queryKey: ['vendor', 'orders'] })
-      qc.invalidateQueries({ queryKey: vendorKeys.dashboard })
+      const updated = await seller.api.updateOrderItem(id, itemId, body)
+      qc.setQueryData(seller.keys.order(id), updated)
+      qc.invalidateQueries({ queryKey: [...seller.keys.all, 'orders'] })
+      qc.invalidateQueries({ queryKey: seller.keys.dashboard })
       toast.success('Order updated')
     } catch (err) {
       toast.error(errorMessage(err))
@@ -34,7 +35,7 @@ export default function VendorOrderDetailPage() {
 
   return (
     <>
-      <OrderHeader order={o} back={{ to: '/vendor/orders', label: 'Orders' }} />
+      <OrderHeader order={o} back={{ to: `${seller.base}/orders`, label: 'Orders' }} />
       <OrderProgress order={o} />
       <OrderFacts order={o} total={o.amounts.subtotal} label="Your items" />
 
@@ -66,7 +67,7 @@ export default function VendorOrderDetailPage() {
                   />
                   <ScanList scans={s.tracking.scans} />
                   <div className="print:hidden">
-                    <LabelButton shipment={s} fetchLabel={vendorApi.shipmentLabel} />
+                    <LabelButton shipment={s} fetchLabel={seller.api.shipmentLabel} />
                   </div>
                 </CardBody>
               </Card>

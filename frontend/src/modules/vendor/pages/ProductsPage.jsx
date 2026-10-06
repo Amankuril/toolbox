@@ -18,7 +18,7 @@ import { Field, Select } from '@/ui/Field'
 import { NumberInput, PriceInput } from '@/ui/inputs'
 import { PageHeader } from '@/ui/PageHeader'
 import { SearchField } from '@/ui/SearchField'
-import { useVendor, vendorApi, vendorKeys } from '../api'
+import { useSeller } from '../seller'
 
 const TABS = [
   { value: '', label: 'All' },
@@ -30,7 +30,8 @@ const TABS = [
 ]
 
 export default function VendorProductsPage() {
-  const vendor = useVendor()
+  const seller = useSeller()
+  const vendor = seller.useAccount()
   const navigate = useNavigate()
   const qc = useQueryClient()
   const [filters, setFilters] = useSearchParamsState()
@@ -38,31 +39,31 @@ export default function VendorProductsPage() {
   const [archiving, setArchiving] = useState(null)
   const approved = vendor?.status === 'approved'
   const params = { page: Number(filters.page ?? 1), limit: 20, status: filters.status || undefined, type: filters.type || undefined, q: filters.q || undefined }
-  const { data, isLoading } = useQuery({ queryKey: vendorKeys.products(params), queryFn: () => vendorApi.products(params), placeholderData: keepPreviousData })
+  const { data, isLoading } = useQuery({ queryKey: seller.keys.products(params), queryFn: () => seller.api.products(params), placeholderData: keepPreviousData })
 
   const refresh = () => {
-    qc.invalidateQueries({ queryKey: ['vendor', 'products'] })
-    qc.invalidateQueries({ queryKey: vendorKeys.dashboard })
+    qc.invalidateQueries({ queryKey: [...seller.keys.all, 'products'] })
+    qc.invalidateQueries({ queryKey: seller.keys.dashboard })
   }
   const onError = (err) => toast.error(errorMessage(err))
   const visibility = useMutation({
-    mutationFn: ({ id, visible }) => vendorApi.setVisibility(id, visible),
+    mutationFn: ({ id, visible }) => seller.api.setVisibility(id, visible),
     onSuccess: (_d, v) => (refresh(), toast.success(v.visible ? 'Product is live' : 'Product hidden')),
     onError,
   })
   const availability = useMutation({
-    mutationFn: ({ id, available }) => vendorApi.quickUpdate(id, { available }),
+    mutationFn: ({ id, available }) => seller.api.quickUpdate(id, { available }),
     onSuccess: (_d, v) => (refresh(), toast.success(v.available ? 'Marked available' : 'Marked not available')),
     onError,
   })
-  const archive = useMutation({ mutationFn: (id) => vendorApi.archiveProduct(id), onSuccess: () => (refresh(), toast.success('Product archived')), onError })
+  const archive = useMutation({ mutationFn: (id) => seller.api.archiveProduct(id), onSuccess: () => (refresh(), toast.success('Product archived')), onError })
 
   const addButton = (
     <Tooltip content={!approved && 'You can add products once your store is approved'}>
       <span>
         <Button asChild={approved} disabled={!approved}>
           {approved ? (
-            <Link to="/vendor/products/new">
+            <Link to={`${seller.base}/products/new`}>
               <PackagePlus /> Add product
             </Link>
           ) : (
@@ -77,12 +78,12 @@ export default function VendorProductsPage() {
 
   const headerActions = (
     <div className="flex flex-wrap gap-2">
-      <Button variant="outline" onClick={() => vendorApi.productImports.exportProducts('xlsx').catch(onError)}>
+      <Button variant="outline" onClick={() => seller.api.productImports.exportProducts('xlsx').catch(onError)}>
         <Download /> Export (Excel)
       </Button>
       {approved && (
         <Button variant="outline" asChild>
-          <Link to="/vendor/products/import">
+          <Link to={`${seller.base}/products/import`}>
             <Upload /> Bulk upload
           </Link>
         </Button>
@@ -107,7 +108,7 @@ export default function VendorProductsPage() {
                 {addButton}
                 {approved && (
                   <Button variant="outline" asChild>
-                    <Link to="/vendor/products/import">
+                    <Link to={`${seller.base}/products/import`}>
                       <Upload /> Bulk upload from a spreadsheet
                     </Link>
                   </Button>
@@ -135,7 +136,7 @@ export default function VendorProductsPage() {
           <DataTable
             loading={isLoading}
             rows={data?.items}
-            onRowClick={(p) => navigate(`/vendor/products/${p._id}`)}
+            onRowClick={(p) => navigate(`${seller.base}/products/${p._id}`)}
             empty={{ title: 'No products match', description: 'Try a different filter.' }}
             columns={[
               {
@@ -227,7 +228,7 @@ export default function VendorProductsPage() {
                         </Button>
                       }
                       items={[
-                        { label: 'Edit', icon: Pencil, onSelect: () => navigate(`/vendor/products/${p._id}`) },
+                        { label: 'Edit', icon: Pencil, onSelect: () => navigate(`${seller.base}/products/${p._id}`) },
                         // Variant products are priced per variant in the editor.
                         approved && !p.variants?.length && { label: 'Update price & stock', icon: IndianRupee, onSelect: () => setQuickEdit(p) },
                         approved &&
@@ -261,12 +262,13 @@ export default function VendorProductsPage() {
 }
 
 function QuickEditDialog({ product, onClose, onSaved }) {
+  const seller = useSeller()
   const [v, setV] = useState(null)
   const current =
     product && (v?.id === product._id ? v : { id: product._id, stock: product.inventory.stock, price: product.pricing.price, mrp: product.pricing.mrp })
   const save = useMutation({
     mutationFn: () =>
-      vendorApi.quickUpdate(product._id, {
+      seller.api.quickUpdate(product._id, {
         ...(product.inventory.trackQuantity !== false ? { stock: current.stock ?? 0 } : {}),
         price: current.price,
         mrp: current.mrp,

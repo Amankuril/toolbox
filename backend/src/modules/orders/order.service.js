@@ -567,7 +567,7 @@ export const orderService = {
   async adminGet(id) {
     const order = await Order.findById(id)
       .populate('user', 'name phone email')
-      .populate('items.vendor', 'store.name store.slug phone')
+      .populate('items.vendor', 'store.name store.slug phone isPlatform')
       .lean();
     if (!order) throw ApiError.notFound('Order not found');
     // user and items.vendor are populated, and the serializer passes them through.

@@ -8,7 +8,7 @@ import { Combobox } from '@/ui/Combobox'
 import { Dialog } from '@/ui/Dialog'
 import { Field, Input, Textarea } from '@/ui/Field'
 import { ImageUploader } from '@/ui/ImageUploader'
-import { vendorApi, vendorKeys } from '../api'
+import { useSeller } from '../seller'
 import { useCategoryOptions } from './categoryOptions'
 
 /**
@@ -16,6 +16,7 @@ import { useCategoryOptions } from './categoryOptions'
  * New categories need admin approval before they appear on the storefront, but can be used immediately.
  */
 export function CategoryDialog({ open, onOpenChange, category, defaultParent, onSaved }) {
+  const seller = useSeller()
   const qc = useQueryClient()
   const isEdit = Boolean(category)
   const parents = useCategoryOptions({ maxLevel: 1, excludeId: category?._id })
@@ -36,10 +37,10 @@ export function CategoryDialog({ open, onOpenChange, category, defaultParent, on
         description: values.description,
         image: values.image[0] ? { media: values.image[0].media } : null,
       }
-      return isEdit ? vendorApi.updateCategory(category._id, body) : vendorApi.createCategory(body)
+      return isEdit ? seller.api.updateCategory(category._id, body) : seller.api.createCategory(body)
     },
     onSuccess: (saved) => {
-      qc.invalidateQueries({ queryKey: vendorKeys.categories })
+      qc.invalidateQueries({ queryKey: seller.keys.categories })
       toast.success(
         saved.status === 'active'
           ? 'Category added'
@@ -102,7 +103,7 @@ export function CategoryDialog({ open, onOpenChange, category, defaultParent, on
         </Field>
         <div>
           <p className="mb-1.5 text-sm font-medium text-slate-800">Image (optional)</p>
-          <ImageUploader audience="vendor" folder="categories" max={1} value={values.image} onChange={(image) => set({ image })} compact />
+          <ImageUploader audience={seller.audience} uploadPath={seller.uploadPath} folder="categories" max={1} value={values.image} onChange={(image) => set({ image })} compact />
         </div>
         {apiError && !Object.keys(apiError.fields).length && <Alert tone="danger">{apiError.message}</Alert>}
       </div>

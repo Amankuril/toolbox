@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useParams } from 'react-router'
+import { BadgeCheck } from 'lucide-react'
+import { Link, useParams } from 'react-router'
 import { toast } from 'sonner'
 import { errorMessage } from '@/core/api/errors'
 import { formatDateTime, formatINR } from '@/core/lib/format'
@@ -16,12 +17,14 @@ import {
 } from '@/modules/shared/orderDetail'
 import { ItemStatusActions, OrderItemRow } from '@/modules/shared/orders'
 import { Alert, Skeleton } from '@/ui/Card'
+import { useAdminAccess } from '../access'
 import { adminApi, adminKeys } from '../api'
 import { VendorShipments } from '../shipping'
 
 export default function OrderDetailPage() {
   const { id } = useParams()
   const qc = useQueryClient()
+  const { can } = useAdminAccess()
   const { data: o, isLoading } = useQuery({ queryKey: adminKeys.order(id), queryFn: () => adminApi.order(id) })
   // Only needs to know whether shipping is on: doesn't require the Settings permission.
   const { data: shipping } = useQuery({ queryKey: adminKeys.shippingStatus, queryFn: adminApi.shippingStatus, staleTime: 60_000 })
@@ -70,8 +73,24 @@ export default function OrderDetailPage() {
           {groups.map((g) => (
             <SellerItems
               key={g.vendor?._id ?? 'unknown'}
-              title={g.vendor?.store?.name ?? 'Seller'}
-              subtitle={`${g.items.length} ${g.items.length === 1 ? 'line' : 'lines'} fulfilled by this seller`}
+              title={
+                g.vendor?.isPlatform ? (
+                  <span className="flex flex-wrap items-center gap-2">
+                    {g.vendor.store?.name}
+                    <span className="inline-flex items-center gap-1 rounded-sm bg-primary px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-primary-fg uppercase">
+                      <BadgeCheck className="size-3" /> Our store
+                    </span>
+                    {can('store') && (
+                      <Link to={`/admin/store/orders/${o._id}`} className="text-xs font-semibold text-primary hover:underline">
+                        Open in store orders
+                      </Link>
+                    )}
+                  </span>
+                ) : (
+                  (g.vendor?.store?.name ?? 'Seller')
+                )
+              }
+              subtitle={`${g.items.length} ${g.items.length === 1 ? 'line' : 'lines'} fulfilled by ${g.vendor?.isPlatform ? 'your store' : 'this seller'}`}
               contactPhone={g.vendor?.phone}
               items={g.items}
               footer={

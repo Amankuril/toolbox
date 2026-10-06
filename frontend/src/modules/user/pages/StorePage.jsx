@@ -40,9 +40,15 @@ export default function StorePage() {
             <div className="min-w-0 flex-1">
               <h1 className="flex flex-wrap items-center gap-3 font-display text-4xl font-bold text-slate-900">
                 {store.store.name}
-                <span className="inline-flex items-center gap-1 rounded-full bg-accent-soft px-2 py-0.5 text-xs font-semibold text-accent-ink">
-                  <BadgeCheck className="size-3.5" /> Reviewed seller
-                </span>
+                {store.official ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-0.5 text-xs font-bold text-primary-fg">
+                    <BadgeCheck className="size-3.5" /> Official store
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-accent-soft px-2 py-0.5 text-xs font-semibold text-accent-ink">
+                    <BadgeCheck className="size-3.5" /> Reviewed seller
+                  </span>
+                )}
               </h1>
               <p className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-500">
                 {store.city && (
@@ -59,7 +65,11 @@ export default function StorePage() {
           </div>
         )}
       </div>
-      <ProductListing key={slug} base={{ vendor: slug }} heading={<h2 className="font-display text-2xl font-bold text-slate-900">All products from this seller</h2>} />
+      <ProductListing
+        key={slug}
+        base={{ vendor: slug }}
+        heading={<h2 className="font-display text-2xl font-bold text-slate-900">All products from this seller</h2>}
+      />
     </div>
   )
 }

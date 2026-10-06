@@ -1,10 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { buildTree, flattenTree } from '@/core/lib/tree'
-import { vendorApi, vendorKeys } from '../api'
+import { useSeller } from '../seller'
 
 export function useVendorCategories() {
-  return useQuery({ queryKey: vendorKeys.categories, queryFn: vendorApi.categories, staleTime: 60_000 })
+  const seller = useSeller()
+  return useQuery({ queryKey: seller.keys.categories, queryFn: seller.api.categories, staleTime: 60_000 })
 }
 
 /** Category rows as combobox options, depth-first with full paths. */

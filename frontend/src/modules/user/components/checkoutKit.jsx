@@ -1,4 +1,4 @@
-import { Check, FileText, PackageCheck, ShieldCheck, Store, Truck } from 'lucide-react'
+import { BadgeCheck, Check, FileText, PackageCheck, ShieldCheck, Store, Truck } from 'lucide-react'
 import { Link } from 'react-router'
 import { cn } from '@/core/lib/cn'
 import { formatINR, formatNumber } from '@/core/lib/format'
@@ -129,6 +129,11 @@ export function SellerGroupHeader({ seller, lines, index, count }) {
                   </Link>
                 ) : (
                   seller.name
+                )}
+                {seller.official && (
+                  <span className="ml-2 inline-flex items-center gap-1 rounded-sm bg-primary px-1.5 py-0.5 align-middle text-[10px] font-bold tracking-wide text-primary-fg uppercase">
+                    <BadgeCheck className="size-3" /> Official
+                  </span>
                 )}
               </>
             ) : (

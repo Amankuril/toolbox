@@ -7,18 +7,19 @@ import { cn } from '@/core/lib/cn'
 import { Thumb } from '@/ui/Brand'
 import { controlClass } from '@/ui/controlClass'
 import { Spinner } from '@/ui/Spinner'
-import { vendorApi } from '../api'
+import { useSeller } from '../seller'
 
 /**
  * Links a spare part to the machines/tools it fits. Searches every vendor's catalogue,
  * so a part can fit machines sold by someone else.
  */
 export function CompatibilityPicker({ value = [], onChange, excludeId }) {
+  const seller = useSeller()
   const [q, setQ] = useState('')
   const term = useDebounce(q.trim(), 300)
   const { data = [], isFetching } = useQuery({
-    queryKey: ['vendor', 'compat-search', term],
-    queryFn: () => vendorApi.compatibilitySearch(term),
+    queryKey: [...seller.keys.all, 'compat-search', term],
+    queryFn: () => seller.api.compatibilitySearch(term),
     enabled: term.length >= 2,
     staleTime: 60_000,
   })

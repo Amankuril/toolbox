@@ -33,6 +33,28 @@ export const adminRoutes = {
                 { path: 'products/:id', ...page(() => import('./pages/ProductDetailPage')) },
               ],
             },
+            {
+              // The platform's own store: the seller pages, run for the house store (see store/seller.js).
+              element: <RequireSection section="store" />,
+              children: [
+                {
+                  path: 'store',
+                  ...page(() => import('./store/StoreRoot')),
+                  children: [
+                    { index: true, ...page(() => import('@/modules/vendor/pages/DashboardPage')) },
+                    { path: 'products', ...page(() => import('@/modules/vendor/pages/ProductsPage')) },
+                    { path: 'products/import', ...page(() => import('@/modules/vendor/pages/ProductImportPage')) },
+                    { path: 'products/new', ...page(() => import('@/modules/vendor/pages/ProductFormPage')) },
+                    { path: 'products/:id', ...page(() => import('@/modules/vendor/pages/ProductFormPage')) },
+                    { path: 'orders', ...page(() => import('@/modules/vendor/pages/OrdersPage')) },
+                    { path: 'orders/:id', ...page(() => import('@/modules/vendor/pages/OrderDetailPage')) },
+                    { path: 'quotes', ...page(() => import('@/modules/vendor/pages/QuotesPage')) },
+                    { path: 'quotes/:id', ...page(() => import('@/modules/vendor/pages/QuoteDetailPage')) },
+                    { path: 'settings', ...page(() => import('./store/StoreSettingsPage')) },
+                  ],
+                },
+              ],
+            },
             { element: <RequireSection section="categories" />, children: [{ path: 'categories', ...page(() => import('./pages/CategoriesPage')) }] },
             {
               element: <RequireSection section="vendors" />,

@@ -6,6 +6,7 @@ const all = (level) => Object.fromEntries(SECTIONS.map((s) => [s.key, level]))
 export const PRESETS = [
   { label: 'Customer support', value: { ...all('none'), orders: 'manage', customers: 'view', quotes: 'view', reviews: 'manage' } },
   { label: 'Catalogue manager', value: { ...all('none'), products: 'manage', categories: 'manage', vendors: 'view', banners: 'manage', media: 'manage' } },
+  { label: 'Store manager', value: { ...all('none'), store: 'manage', categories: 'view' } },
   { label: 'Seller onboarding', value: { ...all('none'), vendors: 'manage', products: 'manage', categories: 'view' } },
   { label: 'View everything', value: all('view') },
   { label: 'Manage everything', value: all('manage') },

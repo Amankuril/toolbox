@@ -7,6 +7,7 @@ export const SECTIONS = [
   { key: 'dashboard', label: 'Dashboard', help: 'Sales and order figures', to: '/admin' },
   { key: 'orders', label: 'Orders & shipping', help: 'Orders, fulfilment, shipments, labels and returns', to: '/admin/orders' },
   { key: 'products', label: 'Products', help: 'Listings, moderation and bulk upload', to: '/admin/products' },
+  { key: 'store', label: 'Our store', help: "The platform's own store: its products, orders, shipping and store settings", to: '/admin/store' },
   { key: 'vendors', label: 'Vendors', help: 'Seller applications, approvals and bank details', to: '/admin/vendors' },
   { key: 'customers', label: 'Customers', help: 'Customer accounts and blocking', to: '/admin/customers' },
   { key: 'categories', label: 'Categories', help: 'Category tree and proposals', to: '/admin/categories' },

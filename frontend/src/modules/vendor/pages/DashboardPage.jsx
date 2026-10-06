@@ -9,13 +9,14 @@ import { Alert, Card, CardBody, CardHeader, Skeleton } from '@/ui/Card'
 import { ColumnChart } from '@/ui/ColumnChart'
 import { DataTable } from '@/ui/DataTable'
 import { PageHeader, StatCard } from '@/ui/PageHeader'
-import { useVendor, vendorApi, vendorKeys } from '../api'
+import { useSeller } from '../seller'
 
 export default function VendorDashboardPage() {
-  const vendor = useVendor()
+  const seller = useSeller()
+  const vendor = seller.useAccount()
   const navigate = useNavigate()
   const approved = vendor?.status === 'approved'
-  const { data, isLoading } = useQuery({ queryKey: vendorKeys.dashboard, queryFn: vendorApi.dashboard, enabled: approved })
+  const { data, isLoading } = useQuery({ queryKey: seller.keys.dashboard, queryFn: seller.api.dashboard, enabled: approved })
 
   if (!approved) {
     return (
@@ -44,7 +45,7 @@ export default function VendorDashboardPage() {
           {['onboarding', 'rejected'].includes(vendor?.status) && (
             <div className="border-t border-slate-100 px-5 py-4">
               <Button asChild>
-                <Link to="/vendor/onboarding">{vendor.status === 'rejected' ? 'Update your details' : 'Continue setup'}</Link>
+                <Link to={`${seller.base}/onboarding`}>{vendor.status === 'rejected' ? 'Update your details' : 'Continue setup'}</Link>
               </Button>
             </div>
           )}
@@ -71,11 +72,11 @@ export default function VendorDashboardPage() {
   return (
     <>
       <PageHeader
-        title="Dashboard"
+        title={seller.isStore ? 'Store overview' : 'Dashboard'}
         description={vendor.store?.name}
         actions={
           <Button asChild>
-            <Link to="/vendor/products/new">
+            <Link to={`${seller.base}/products/new`}>
               <PackagePlus /> Add product
             </Link>
           </Button>
@@ -90,7 +91,7 @@ export default function VendorDashboardPage() {
           className="mb-6"
           action={
             <Button size="sm" asChild>
-              <Link to="/vendor/quotes">Reply</Link>
+              <Link to={`${seller.base}/quotes`}>Reply</Link>
             </Button>
           }
         >
@@ -104,14 +105,14 @@ export default function VendorDashboardPage() {
           hint={`${formatNumber(data.last30Days.units)} units sold`}
           icon={IndianRupee}
         />
-        <StatCard label="Orders, last 30 days" value={formatNumber(data.last30Days.orders)} icon={ShoppingBag} tone="accent" to="/vendor/orders" />
+        <StatCard label="Orders, last 30 days" value={formatNumber(data.last30Days.orders)} icon={ShoppingBag} tone="accent" to={`${seller.base}/orders`} />
         <StatCard
           label="To ship"
           value={formatNumber(toShip)}
           hint="Items awaiting dispatch"
           icon={Truck}
           tone={toShip ? 'warning' : 'neutral'}
-          to="/vendor/orders?status=pending"
+          to={`${seller.base}/orders?status=pending`}
         />
         <StatCard
           label="Live products"
@@ -119,7 +120,7 @@ export default function VendorDashboardPage() {
           hint={data.productsByStatus.pending ? `${data.productsByStatus.pending} awaiting approval` : undefined}
           icon={Package}
           tone="neutral"
-          to="/vendor/products"
+          to={`${seller.base}/products`}
         />
       </div>
 
@@ -146,7 +147,7 @@ export default function VendorDashboardPage() {
             <ul className="divide-y divide-slate-100">
               {data.lowStock.map((p) => (
                 <li key={p._id}>
-                  <Link to={`/vendor/products/${p._id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50">
+                  <Link to={`${seller.base}/products/${p._id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50">
                     <Thumb src={p.image?.url} className="size-10 shrink-0 rounded-md border border-slate-200" />
                     <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-800">{p.name}</span>
                     <span className={`tabular inline-flex items-center gap-1 text-sm font-semibold ${p.stock === 0 ? 'text-red-600' : 'text-amber-700'}`}>
@@ -169,14 +170,14 @@ export default function VendorDashboardPage() {
         <CardHeader
           title="Recent orders"
           action={
-            <Link to="/vendor/orders" className="text-sm font-medium text-primary hover:underline">
+            <Link to={`${seller.base}/orders`} className="text-sm font-medium text-primary hover:underline">
               View all
             </Link>
           }
         />
         <DataTable
           rows={data.recentOrders}
-          onRowClick={(o) => navigate(`/vendor/orders/${o._id}`)}
+          onRowClick={(o) => navigate(`${seller.base}/orders/${o._id}`)}
           empty={{ title: 'No orders yet', description: 'When customers buy your products, orders show up here.' }}
           columns={[
             { key: 'no', header: 'Order', cell: (o) => <span className="font-medium text-slate-900">{o.orderNumber}</span> },

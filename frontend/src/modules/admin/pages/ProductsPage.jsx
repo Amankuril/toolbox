@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, ExternalLink, Eye, EyeOff, Layers, MessageSquareWarning, Star, Upload, X } from 'lucide-react'
+import { Check, ExternalLink, Eye, EyeOff, Layers, MessageSquareWarning, Plus, Star, Upload, X } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { toast } from 'sonner'
@@ -17,6 +17,7 @@ import { Select } from '@/ui/Field'
 import { PageHeader } from '@/ui/PageHeader'
 import { ActionDialog, RowActions } from '@/ui/RowActions'
 import { SearchField } from '@/ui/SearchField'
+import { useAdminAccess } from '../access'
 import { adminApi, adminKeys } from '../api'
 
 const TABS = [
@@ -34,6 +35,7 @@ export default function ProductsPage() {
   const qc = useQueryClient()
   const [filters, setFilters] = useSearchParamsState()
   const [action, setAction] = useState(null)
+  const { can } = useAdminAccess()
   const params = {
     page: Number(filters.page ?? 1),
     limit: 20,
@@ -66,11 +68,20 @@ export default function ProductsPage() {
         title="Products"
         description="Moderate listings from every vendor."
         actions={
-          <Button variant="outline" asChild>
-            <Link to="/admin/products/import">
-              <Upload /> Bulk upload
-            </Link>
-          </Button>
+          <>
+            <Button variant="outline" asChild>
+              <Link to="/admin/products/import">
+                <Upload /> Bulk upload
+              </Link>
+            </Button>
+            {can('store', 'manage') && (
+              <Button asChild>
+                <Link to="/admin/store/products/new">
+                  <Plus /> Add to our store
+                </Link>
+              </Button>
+            )}
+          </>
         }
       />
       <Card>
