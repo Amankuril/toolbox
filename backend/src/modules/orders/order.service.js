@@ -8,6 +8,7 @@ import { gstFromInclusive } from '#core/utils/money.js';
 import { escapeRegex } from '#core/utils/strings.js';
 import { cartService } from '#modules/cart/cart.service.js';
 import { couponService } from '#modules/coupons/coupon.service.js';
+import { invoiceService } from '#modules/invoices/invoice.service.js';
 import { Product } from '#modules/products/product.model.js';
 import { VISIBLE } from '#modules/products/product.service.js';
 import { quoteLifecycle } from '#modules/quotes/quote.lifecycle.js';
@@ -558,6 +559,8 @@ export const orderService = {
 
     await order.save();
     if (changingStatus && status === 'cancelled') await releaseStock([stockLine(item)]);
+    // The seller's tax invoice is issued once all of their lines have shipped (still inside the order lock).
+    if (changingStatus && ['shipped', 'delivered'].includes(status)) await invoiceService.issueIfReady(order, item.vendor);
     return order;
   },
 

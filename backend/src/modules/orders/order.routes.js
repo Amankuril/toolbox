@@ -1,12 +1,27 @@
 import express, { Router } from 'express';
 import { z } from 'zod';
+import { rateLimit } from '#core/middlewares/rateLimit.js';
 import { validate } from '#core/middlewares/validate.js';
 import { created, ok } from '#core/utils/response.js';
 import { paginationQuery } from '#core/utils/pagination.js';
 import { gstin, idParams, objectId, optionalText } from '#core/validation/common.js';
 import { actorOf } from '#modules/auth/auth.middleware.js';
 import { ITEM_STATUSES, ORDER_STATUSES, PAYMENT_METHODS, PAYMENT_STATUSES } from './order.model.js';
+import { invoiceService } from '#modules/invoices/invoice.service.js';
 import { orderService } from './order.service.js';
+
+const invoiceParams = z.object({ id: objectId, vendorId: objectId });
+// Rendering a PDF costs real CPU; this is far above what a person downloads.
+const pdfLimit = rateLimit({ keyPrefix: 'invoice-pdf', points: 30, duration: 60, key: (req) => String(req.auth.id) });
+
+function sendPdf(res, { filename, pdf }) {
+  res.set({
+    'Content-Type': 'application/pdf',
+    'Content-Disposition': `attachment; filename="${filename}"`,
+    'Cache-Control': 'private, no-store',
+  });
+  res.send(pdf);
+}
 
 const itemParams = z.object({ id: objectId, itemId: objectId });
 const tracking = z
@@ -53,6 +68,12 @@ export const userOrderRoutes = Router()
     await orderService.recordPaymentFailure(req.account, req.params.id, req.body.reason);
     ok(res, { recorded: true });
   })
+  .get('/:id/invoices', validate({ params: idParams }), async (req, res) =>
+    ok(res, await invoiceService.forOrder(req.params.id, { userId: req.auth.id })),
+  )
+  .get('/:id/invoices/:vendorId/pdf', pdfLimit, validate({ params: invoiceParams }), async (req, res) =>
+    sendPdf(res, await invoiceService.pdf(req.params.id, req.params.vendorId, { userId: req.auth.id })),
+  )
   .post('/:id/items/:itemId/cancel', validate({ params: itemParams, body: z.object({ reason: optionalText(500) }) }), async (req, res) => {
     const order = await orderService.updateItem(
       { orderId: req.params.id, itemId: req.params.itemId, userId: req.auth.id },
@@ -74,6 +95,13 @@ export const vendorOrderRoutes = Router()
     ok(res, items, meta);
   })
   .get('/:id', validate({ params: idParams }), async (req, res) => ok(res, await orderService.vendorGet(req.auth.id, req.params.id)))
+  .get('/:id/invoice', validate({ params: idParams }), async (req, res) => {
+    const [mine] = await invoiceService.forOrder(req.params.id, { vendorId: req.auth.id });
+    ok(res, mine ?? null);
+  })
+  .get('/:id/invoice/pdf', pdfLimit, validate({ params: idParams }), async (req, res) =>
+    sendPdf(res, await invoiceService.pdf(req.params.id, req.auth.id)),
+  )
   .patch('/:id/items/:itemId', validate({ params: itemParams, body: itemUpdateBody }), async (req, res) => {
     const order = await orderService.updateItem(
       { orderId: req.params.id, itemId: req.params.itemId, vendorId: req.auth.id },
@@ -101,6 +129,10 @@ export const adminOrderRoutes = Router()
     ok(res, items, meta);
   })
   .get('/:id', validate({ params: idParams }), async (req, res) => ok(res, await orderService.adminGet(req.params.id)))
+  .get('/:id/invoices', validate({ params: idParams }), async (req, res) => ok(res, await invoiceService.forOrder(req.params.id)))
+  .get('/:id/invoices/:vendorId/pdf', pdfLimit, validate({ params: invoiceParams }), async (req, res) =>
+    sendPdf(res, await invoiceService.pdf(req.params.id, req.params.vendorId)),
+  )
   .patch('/:id/items/:itemId', validate({ params: itemParams, body: itemUpdateBody }), async (req, res) => {
     await orderService.updateItem({ orderId: req.params.id, itemId: req.params.itemId }, req.body, actorOf(req));
     ok(res, await orderService.adminGet(req.params.id));
