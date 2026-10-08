@@ -1,5 +1,6 @@
 import mongoose, { Schema } from 'mongoose';
 import { actorSchema, baseOptions, imageSchema } from '#core/db/schemas.js';
+import { bumpOnWrite, catalogGeneration } from '#core/cache/cached.js';
 
 /** Root (0) → sub (1) → leaf (2), mirroring the reference catalogue. */
 export const MAX_CATEGORY_LEVEL = 2;
@@ -41,5 +42,8 @@ categorySchema.index({ parent: 1, sortOrder: 1, name: 1 });
 categorySchema.index({ status: 1, level: 1 });
 categorySchema.index({ ancestors: 1 });
 categorySchema.index({ owner: 1, status: 1 });
+
+// Cached public listings include these documents; any write retires them.
+bumpOnWrite(categorySchema, catalogGeneration);
 
 export const Category = mongoose.models.Category ?? mongoose.model('Category', categorySchema);

@@ -1,5 +1,6 @@
 import mongoose, { Schema } from 'mongoose';
 import { baseOptions, imageSchema } from '#core/db/schemas.js';
+import { bumpOnWrite, catalogGeneration } from '#core/cache/cached.js';
 
 export const PRODUCT_TYPES = ['tool', 'machinery', 'part'];
 export const PRODUCT_CONDITIONS = ['new', 'refurbished', 'used'];
@@ -177,6 +178,10 @@ productSchema.index({ status: 1, vendorApproved: 1, isFeatured: 1, publishedAt: 
 productSchema.index({ vendor: 1, status: 1, updatedAt: -1 });
 productSchema.index({ vendor: 1, sku: 1 }, { unique: true, partialFilterExpression: { sku: { $type: 'string' } } });
 productSchema.index({ compatibleWith: 1 });
+// Product page "similar items" (category + sort), and re-pathing products when a category moves.
+productSchema.index({ category: 1, status: 1, vendorApproved: 1, isFeatured: -1, publishedAt: -1 });
+// Product page "more from this seller", sorted without loading all of the seller's listings.
+productSchema.index({ vendor: 1, status: 1, 'rating.count': -1, publishedAt: -1 });
 productSchema.index(
   { name: 'text', brand: 'text', modelNumber: 'text', compatibleModels: 'text', tags: 'text', shortDescription: 'text' },
   {
@@ -186,5 +191,8 @@ productSchema.index(
     default_language: 'english',
   },
 );
+
+// Cached public listings include these documents; any write retires them.
+bumpOnWrite(productSchema, catalogGeneration);
 
 export const Product = mongoose.models.Product ?? mongoose.model('Product', productSchema);

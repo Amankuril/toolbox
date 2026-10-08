@@ -2,7 +2,9 @@ import { Router } from 'express';
 import { validate } from '#core/middlewares/validate.js';
 import { ok } from '#core/utils/response.js';
 import { idParams } from '#core/validation/common.js';
+import { accessOf } from '#modules/admins/permissions.js';
 import { actorOf } from '#modules/auth/auth.middleware.js';
+import { serializeVendorLookup } from './vendor.serializer.js';
 import { vendorService } from './vendor.service.js';
 import {
   addressStep,
@@ -28,12 +30,18 @@ export const vendorSelfRoutes = Router()
   )
   .post('/onboarding/submit', async (req, res) => ok(res, await vendorService.submit(req.auth.id)));
 
+/** Admins reaching these reads through another section (see routes/index.js) only get the lookup view. */
+const lookupOnly = (req) => accessOf(req.account, 'vendors') === 'none';
+
 export const adminVendorRoutes = Router()
   .get('/', validate(adminListVendors), async (req, res) => {
     const { items, meta } = await vendorService.adminList(req.query);
-    ok(res, items, meta);
+    ok(res, lookupOnly(req) ? items.map(serializeVendorLookup) : items, meta);
   })
-  .get('/:id', validate({ params: idParams }), async (req, res) => ok(res, await vendorService.adminGet(req.params.id)))
+  .get('/:id', validate({ params: idParams }), async (req, res) => {
+    const vendor = await vendorService.adminGet(req.params.id);
+    ok(res, lookupOnly(req) ? serializeVendorLookup(vendor) : vendor);
+  })
   .get('/:id/bank-account', validate({ params: idParams }), async (req, res) => {
     res.set('Cache-Control', 'no-store');
     ok(res, await vendorService.adminRevealBank(req.params.id, actorOf(req)));

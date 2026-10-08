@@ -24,5 +24,7 @@ export function useSessionBootstrap(audience, { always = false } = {}) {
 
 /** Only allows internal redirect targets, so ?next= can't send people off-site. */
 export function safeNext(next, fallback) {
-  return typeof next === 'string' && next.startsWith('/') && !next.startsWith('//') ? next : fallback
+  // A single leading slash, not followed by another slash or a backslash (browsers read "/\\host" as "//host"), and no control characters.
+  // eslint-disable-next-line no-control-regex
+  return typeof next === 'string' && /^\/(?![/\\])/.test(next) && !/[\x00-\x1f\\]/.test(next) ? next : fallback
 }

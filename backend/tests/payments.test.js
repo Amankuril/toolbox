@@ -269,3 +269,100 @@ describe('Zombie Payment Protection & Reconciliation', () => {
     expect(updatedOrder.payment.providerPaymentId).toBe('pay_reconciled_1');
   });
 });
+
+describe('Concurrency guards', () => {
+  async function paidOrder(quantity, paymentId) {
+    await request(app).put(`${API}/user/cart/items/${product._id}`).set(user()).send({ quantity }).expect(200);
+    const { order, payment } = (
+      await request(app).post(`${API}/user/orders/checkout`).set(user()).send({ addressId, paymentMethod: 'razorpay' }).expect(201)
+    ).body.data;
+    const signature = hmacSha256(KEY_SECRET, `${payment.providerOrderId}|${paymentId}`);
+    await request(app)
+      .post(`${API}/user/orders/${order._id}/payment/verify`)
+      .set(user())
+      .send({ providerOrderId: payment.providerOrderId, paymentId, signature })
+      .expect(200);
+    return Order.findById(order._id).lean();
+  }
+
+  it('refunds and restocks once when the same line is cancelled twice at the same time', async () => {
+    const order = await paidOrder(2, 'pay_double_cancel');
+    const stockBefore = (await Product.findById(product._id).lean()).inventory.stock;
+    const refundsBefore = razorpay.refunds.length;
+    const cancel = () =>
+      request(app).post(`${API}/user/orders/${order._id}/items/${order.items[0]._id}/cancel`).set(user()).send({ reason: 'double click' });
+
+    const results = await Promise.all([cancel(), cancel(), cancel()]);
+    // Serialised per order: the first cancels, the others find it already cancelled (a no-op).
+    expect(results.map((r) => r.status)).toEqual([200, 200, 200]);
+    expect(razorpay.refunds.length - refundsBefore).toBe(1);
+    expect((await Product.findById(product._id).lean()).inventory.stock).toBe(stockBefore + 2);
+    const after = await Order.findById(order._id).lean();
+    expect(after.amounts.refunded).toBe(order.amounts.total);
+    expect(after.refunds).toHaveLength(1);
+  });
+
+  it('never calls the gateway for a refund that is already in flight', async () => {
+    const order = await paidOrder(1, 'pay_refund_inflight');
+    const key = `inflight_${order._id}`;
+    await Refund.create({
+      orderId: order._id,
+      provider: 'razorpay',
+      providerPaymentId: 'pay_refund_inflight',
+      amount: 100,
+      status: 'pending',
+      idempotencyKey: key,
+    });
+    const before = razorpay.refunds.length;
+    await expect(paymentService.processRefund({ order, amount: 100, reason: 'x', idempotencyKey: key })).rejects.toMatchObject({
+      code: 'REFUND_IN_PROGRESS',
+    });
+    expect(razorpay.refunds.length).toBe(before);
+  });
+
+  it('settles a late payment once when several gateway events arrive together', async () => {
+    await request(app).put(`${API}/user/cart/items/${product._id}`).set(user()).send({ quantity: 1 }).expect(200);
+    const { order, payment } = (
+      await request(app).post(`${API}/user/orders/checkout`).set(user()).send({ addressId, paymentMethod: 'razorpay' }).expect(201)
+    ).body.data;
+    await Order.updateOne({ _id: order._id }, { expiresAt: new Date(Date.now() - 1000) });
+    await orderService.expireUnpaid();
+    const stockAfterExpiry = (await Product.findById(product._id).lean()).inventory.stock;
+
+    const event = (type, id) => {
+      const body = JSON.stringify({
+        event: type,
+        payload: { payment: { entity: { id: 'pay_late_concurrent', order_id: payment.providerOrderId } } },
+      });
+      return request(app)
+        .post(`${API}/webhooks/razorpay`)
+        .set('content-type', 'application/json')
+        .set('x-razorpay-signature', hmacSha256(WEBHOOK_SECRET, body))
+        .set('x-razorpay-event-id', id)
+        .send(body);
+    };
+    const results = await Promise.all([event('payment.captured', 'evt_late_1'), event('order.paid', 'evt_late_2')]);
+    expect(results.map((r) => r.status)).toEqual([200, 200]);
+
+    const after = await Order.findById(order._id).lean();
+    expect(after.status).toBe('placed');
+    expect(after.payment.status).toBe('paid');
+    // Re-reserved exactly once.
+    expect((await Product.findById(product._id).lean()).inventory.stock).toBe(stockAfterExpiry - 1);
+  });
+
+  it('acknowledges webhooks for orders that are not ours instead of failing them forever', async () => {
+    const body = JSON.stringify({
+      event: 'payment.captured',
+      payload: { payment: { entity: { id: 'pay_foreign', order_id: 'order_foreign' } } },
+    });
+    const res = await request(app)
+      .post(`${API}/webhooks/razorpay`)
+      .set('content-type', 'application/json')
+      .set('x-razorpay-signature', hmacSha256(WEBHOOK_SECRET, body))
+      .set('x-razorpay-event-id', 'evt_foreign')
+      .send(body)
+      .expect(200);
+    expect(res.body.data).toEqual({ ignored: true });
+  });
+});

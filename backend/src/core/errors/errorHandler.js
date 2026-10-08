@@ -80,6 +80,12 @@ function normalize(err) {
   if (err?.type === 'entity.too.large') {
     return new ApiError(413, 'Request body too large');
   }
+  // Other client errors raised by Express / body-parser (unsupported charset or encoding, aborted
+  // request…) carry a 4xx status; they are the client's fault, not a 500 to page someone about.
+  const status = err?.status ?? err?.statusCode;
+  if (err?.expose && Number.isInteger(status) && status >= 400 && status < 500) {
+    return new ApiError(status, err.message);
+  }
 
   return new ApiError(500, err?.message || 'Internal server error', { code: 'INTERNAL_ERROR' });
 }

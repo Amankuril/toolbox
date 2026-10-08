@@ -694,12 +694,27 @@ export const shippingService = {
         },
       },
       { $match: { s: { $size: 0 } } },
+      // Newest first: an older order that plans to nothing keeps matching, and must not crowd out new ones.
+      { $sort: { createdAt: -1 } },
       { $limit: limit },
       { $project: { _id: 1 } },
     ]);
     for (const { _id } of fresh) await this.planForOrder(_id);
 
-    const retryable = await Shipment.find({ type: 'forward', status: 'pending', active: true, failedAttempts: { $lt: MAX_AUTO_RETRIES } })
+    // Backoff is part of the query, so shipments still waiting can't fill the batch and starve due ones.
+    const now = Date.now();
+    const due = [{ failedAttempts: { $in: [0, null] } }, { 'lastError.at': { $exists: false } }];
+    for (let n = 1; n < MAX_AUTO_RETRIES; n += 1) {
+      due.push({ failedAttempts: n, 'lastError.at': { $lte: new Date(now - 2 ** (n - 1) * 60_000) } });
+    }
+    const retryable = await Shipment.find({
+      type: 'forward',
+      status: 'pending',
+      active: true,
+      failedAttempts: { $lt: MAX_AUTO_RETRIES },
+      $or: due,
+    })
+      .sort({ createdAt: 1 })
       .limit(limit)
       .lean();
     let pushed = 0;

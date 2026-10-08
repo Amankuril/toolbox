@@ -18,6 +18,21 @@ const WORKER_ID = `${process.pid}-${crypto.randomBytes(3).toString('hex')}`;
 const LEASE_MS = 60_000;
 const ITEM_CONCURRENCY = 4;
 const MAX_ITEM_ATTEMPTS = 3;
+const IMAGE_CONCURRENCY = 3;
+
+/** Promise.all over `items` with at most `limit` running at once; results keep their order. */
+async function mapLimit(items, limit, fn) {
+  const out = new Array(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const i = next++;
+      out[i] = await fn(items[i]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return out;
+}
 const MAX_ACTIVE_IMPORTS = 3;
 const MAX_STORED_ISSUES = 50;
 
@@ -88,8 +103,11 @@ async function resolveItemImages(item, actor) {
       return null;
     }
   };
-  const images = (await Promise.all(item.imageUrls.map(attempt))).filter(Boolean).map(({ media }) => ({ media: String(media) }));
-  const variantImages = await Promise.all(item.variantImageUrls.map((u) => (u ? attempt(u) : null)));
+  // A few downloads at a time: each buffers up to the upload limit and then goes through sharp.
+  const images = (await mapLimit(item.imageUrls, IMAGE_CONCURRENCY, attempt))
+    .filter(Boolean)
+    .map(({ media }) => ({ media: String(media) }));
+  const variantImages = await mapLimit(item.variantImageUrls, IMAGE_CONCURRENCY, (u) => (u ? attempt(u) : null));
   return { images, variantImages, warnings };
 }
 
@@ -116,6 +134,16 @@ async function processItem(imp, vendor, itemId) {
     await ProductImportItem.updateOne({ _id: item._id }, { $set: { status, ...patch } });
     await ProductImport.updateOne({ _id: imp._id }, { $inc: { [`counts.${counter}`]: 1 } });
   };
+
+  // Claimed again and again without finishing (the worker crashed or hung on it): stop retrying.
+  if (item.attempts > MAX_ITEM_ATTEMPTS) {
+    logger.error({ importId: imp._id, itemId: item._id }, 'Import item abandoned after repeated attempts');
+    return finish(
+      'failed',
+      { issues: [{ row: item.rows[0], message: 'This product could not be processed. Check its image links and try again.' }] },
+      'failed',
+    );
+  }
 
   try {
     const existing = item.sku
@@ -398,7 +426,18 @@ export const productImportService = {
           drained = true;
           break;
         }
-        await Promise.all(batch.map((b) => processItem(imp, vendor, b._id)));
+        // Keep the lease alive while a slow batch (image downloads) runs, so no other worker takes over mid-batch.
+        const renew = () =>
+          ProductImport.updateOne(
+            { _id: imp._id, 'lease.owner': WORKER_ID },
+            { $set: { 'lease.until': new Date(Date.now() + LEASE_MS) } },
+          ).catch(() => {});
+        const heartbeat = setInterval(renew, LEASE_MS / 3);
+        try {
+          await Promise.all(batch.map((b) => processItem(imp, vendor, b._id)));
+        } finally {
+          clearInterval(heartbeat);
+        }
         processed += batch.length;
         await ProductImport.updateOne(
           { _id: imp._id, 'lease.owner': WORKER_ID },

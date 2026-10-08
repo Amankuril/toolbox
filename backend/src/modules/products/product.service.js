@@ -85,6 +85,25 @@ async function buildChanges(input, actor, selfId) {
   return changes;
 }
 
+/**
+ * Edit forms send back every quantity they loaded. Where a quantity still equals what the form loaded,
+ * the seller didn't change it: keep the live count, so sales made while the form was open aren't undone.
+ */
+function keepUntouchedStock(changes, product, base) {
+  if (!base) return;
+  if (changes.inventory && base.stock !== undefined && changes.inventory.stock === base.stock) {
+    changes.inventory = { ...changes.inventory, stock: product.inventory?.stock ?? 0 };
+  }
+  if (changes.variants && base.variants?.length) {
+    const loaded = new Map(base.variants.map((v) => [String(v._id), v.stock]));
+    const live = new Map((product.variants ?? []).map((v) => [String(v._id), v.stock]));
+    changes.variants = changes.variants.map((v) => {
+      const id = v._id && String(v._id);
+      return id && live.has(id) && loaded.get(id) === v.stock ? { ...v, stock: live.get(id) } : v;
+    });
+  }
+}
+
 /** Cross-field rules, derived fields and auto SKUs; runs before every product save. */
 function prepareForSave(product) {
   assertValidVariants(product);
@@ -185,6 +204,7 @@ export const productService = {
 
     const actor = { kind: 'vendor', id: vendor._id };
     const changes = await buildChanges(input, actor, product._id);
+    keepUntouchedStock(changes, product, input.stockBase);
     const before = product.toObject();
     const reviewedChange = REVIEWED_FIELDS.some((f) => f in changes && toComparable(before[f]) !== toComparable(changes[f]));
     product.set(changes);
@@ -274,13 +294,17 @@ export const productService = {
   },
 
   /** Lightweight search used by the "compatible with" picker (any vendor's tools/machinery). */
-  async compatibilityCandidates(q) {
+  /** Machines a part can be linked to: anything live, plus the seller's own not-yet-live listings. */
+  async compatibilityCandidates(q, vendorId) {
     const rx = new RegExp(escapeRegex(q), 'i');
     const rows = await Product.find({
       type: { $in: ['machinery', 'tool'] },
-      status: { $in: ['active', 'pending', 'inactive'] },
-      $or: [{ name: rx }, { modelNumber: rx }, { brand: rx }],
+      $and: [
+        { $or: [{ status: 'active' }, { vendor: vendorId, status: { $in: ['pending', 'inactive'] } }] },
+        { $or: [{ name: rx }, { modelNumber: rx }, { brand: rx }] },
+      ],
     })
+      .maxTimeMS(2_000)
       .limit(20)
       .select('name slug type brand modelNumber images')
       .lean();
@@ -328,7 +352,9 @@ export const productService = {
     const product = await Product.findById(id);
     if (!product) throw ApiError.notFound('Product not found');
 
-    product.set(await buildChanges(input, { kind: 'admin', id: admin.id }, product._id));
+    const changes = await buildChanges(input, { kind: 'admin', id: admin.id }, product._id);
+    keepUntouchedStock(changes, product, input.stockBase);
+    product.set(changes);
     if (input.isFeatured !== undefined) product.isFeatured = input.isFeatured;
     if (input.seo !== undefined) product.seo = input.seo;
     if (input.status !== undefined) {
@@ -499,7 +525,13 @@ export const productService = {
         .sort({ isFeatured: -1, publishedAt: -1 })
         .limit(6)
         .select('name slug images pricing')
-        .lean(),
+        // Unanchored regex can't use an index; cap the scan a rare no-match query causes.
+        .maxTimeMS(1_500)
+        .lean()
+        .catch((err) => {
+          if (err?.code === 50) return []; // MaxTimeMSExpired: no suggestions beats a failed search box
+          throw err;
+        }),
       Category.find({ status: 'active', name: rx }).limit(4).select('name slug').lean(),
     ]);
     return {

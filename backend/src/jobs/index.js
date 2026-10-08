@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { logger } from '#config/logger.js';
 import { redis } from '#config/redis.js';
 import { orderService } from '#modules/orders/order.service.js';
@@ -69,16 +70,30 @@ const JOBS = [
   },
 ];
 
+// Extends the lock only while we still own it.
+const EXTEND = `if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('pexpire', KEYS[1], ARGV[2]) else return 0 end`;
+
 export function startJobs() {
   const timers = JOBS.map((job) => {
+    let running = false;
     const tick = async () => {
+      // A run that outlasts its interval must not overlap with itself on this instance...
+      if (running) return;
+      const key = `lock:job:${job.name}`;
+      const token = `${process.pid}:${crypto.randomUUID()}`;
       const lockMs = Math.max(1000, job.everyMs - 1000);
-      const acquired = await redis.set(`lock:job:${job.name}`, process.pid, 'PX', lockMs, 'NX').catch(() => null);
+      const acquired = await redis.set(key, token, 'PX', lockMs, 'NX').catch(() => null);
       if (!acquired) return;
+      running = true;
+      // ...or with another instance once the lock would have expired.
+      const heartbeat = setInterval(() => redis.eval(EXTEND, 1, key, token, lockMs).catch(() => {}), Math.max(500, lockMs / 2));
       try {
         await job.run();
       } catch (err) {
         logger.error({ err, job: job.name }, 'Job failed');
+      } finally {
+        clearInterval(heartbeat);
+        running = false;
       }
     };
     const timer = setInterval(tick, job.everyMs);

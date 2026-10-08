@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import { env } from '#config/env.js';
 import { logger } from '#config/logger.js';
 import { ApiError } from '#core/errors/ApiError.js';
+import { withLock } from '#core/utils/lock.js';
 import { gstFromInclusive } from '#core/utils/money.js';
 import { escapeRegex } from '#core/utils/strings.js';
 import { cartService } from '#modules/cart/cart.service.js';
@@ -15,7 +16,7 @@ import { userService } from '#modules/users/user.service.js';
 import { paymentService } from '#services/payment/payment.service.js';
 import { settingsService } from '#services/settings/settings.service.js';
 import { ITEM_TRANSITIONS, Order, PaymentEvent } from './order.model.js';
-import { onlineAmount, splitPartial } from './partialPayment.js';
+import { onlineAmount, PAID_ONLINE, splitPartial } from './partialPayment.js';
 import { serializeOrder, serializeVendorOrder } from './order.serializer.js';
 
 const CURRENCY = 'INR';
@@ -107,8 +108,18 @@ async function markPaid({ providerOrderId, paymentId }) {
   return paymentService.markPaid({ providerOrderId, paymentId, latePaymentHandler: handleLatePayment });
 }
 
-/** Payment landed after the order expired and released its stock: re-reserve, or refund in full. */
-async function handleLatePayment(order, paymentId) {
+/**
+ * Payment landed after the order expired and released its stock: re-reserve, or refund in full.
+ * Gateways send several events for one payment (payment.captured, order.paid) and the reconcile job
+ * may find it too, so this runs under the order lock and re-checks the order before acting.
+ */
+function handleLatePayment(stale, paymentId) {
+  return withLock(`order:${stale._id}`, () => settleLatePayment(stale._id, paymentId), { waitMs: 15_000 });
+}
+
+async function settleLatePayment(orderId, paymentId) {
+  const order = await Order.findById(orderId);
+  if (order.status !== 'cancelled' || PAID_ONLINE.includes(order.payment.status)) return order;
   const lines = order.items.map(stockLine);
   try {
     await reserveStock(lines);
@@ -194,7 +205,16 @@ async function refundForCancellation(order, item) {
 export const orderService = {
   /* ─────────────────────────── Checkout ─────────────────────────── */
 
-  async checkout(user, { addressId, paymentMethod, notes, gstin, businessName, idempotencyKey }) {
+  /** One checkout per buyer at a time, so a double submit can't reserve stock and create orders twice. */
+  checkout(user, body) {
+    return withLock(`checkout:${user._id}`, () => this.placeOrder(user, body), {
+      ttlMs: 60_000,
+      message: 'Your order is already being placed. Please wait a moment.',
+      code: 'CHECKOUT_IN_PROGRESS',
+    });
+  },
+
+  async placeOrder(user, { addressId, paymentMethod, notes, gstin, businessName, idempotencyKey }) {
     if (idempotencyKey) {
       const existing = await Order.findOne({ user: user._id, idempotencyKey });
       if (existing) {
@@ -339,7 +359,11 @@ export const orderService = {
   },
 
   /** Re-opens checkout for an unpaid, unexpired order. */
-  async retryPayment(user, orderId) {
+  retryPayment(user, orderId) {
+    return withLock(`order:${orderId}`, () => this.reopenPayment(user, orderId), { waitMs: 10_000 });
+  },
+
+  async reopenPayment(user, orderId) {
     const order = await Order.findOne({ _id: orderId, user: user._id });
     if (!order) throw ApiError.notFound('Order not found');
     if (order.status !== 'pending_payment' || !order.payment.providerOrderId) {
@@ -413,7 +437,12 @@ export const orderService = {
    * Moves one line item through fulfilment. Handles restock + refund on cancellation.
    * @param {{ orderId: string, itemId: string, vendorId?: any, userId?: any }} scope
    */
-  async updateItem(scope, { status, tracking, note }, actor) {
+  updateItem(scope, changes, actor) {
+    // Serialised per order: a cancellation refunds and restocks, so two concurrent updates must never both act on the same snapshot.
+    return withLock(`order:${scope.orderId}`, () => this.applyItemUpdate(scope, changes, actor), { waitMs: 10_000 });
+  },
+
+  async applyItemUpdate(scope, { status, tracking, note }, actor) {
     const filter = { _id: scope.orderId };
     if (scope.userId) filter.user = scope.userId;
     if (scope.vendorId) filter.vendors = scope.vendorId;

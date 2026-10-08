@@ -2,14 +2,25 @@ import Razorpay from 'razorpay';
 import { ApiError } from '#core/errors/ApiError.js';
 import { hmacSha256, safeEqual } from '#core/utils/crypto.js';
 
+const TIMEOUT_MS = 20_000;
+
 export function createRazorpayProvider({ keyId, keySecret, webhookSecret }) {
   const client = new Razorpay({ key_id: keyId, key_secret: keySecret });
 
+  // The SDK sets no request timeout; a hung gateway call would otherwise stall checkout or a job tick indefinitely.
   const wrap = async (fn, message) => {
+    let timer;
     try {
-      return await fn();
+      return await Promise.race([
+        fn(),
+        new Promise((_, reject) => {
+          timer = setTimeout(() => reject(new Error(`Razorpay request timed out after ${TIMEOUT_MS}ms`)), TIMEOUT_MS);
+        }),
+      ]);
     } catch (err) {
       throw ApiError.serviceUnavailable(message, { cause: err, code: 'PAYMENT_GATEWAY_ERROR' });
+    } finally {
+      clearTimeout(timer);
     }
   };
 

@@ -126,11 +126,15 @@ export const authService = {
 
   async adminLogin({ email, password }, req, res) {
     const lockKey = email;
-    const state = await adminFailures.get(lockKey);
-    if (state && state.consumedPoints >= MAX_ADMIN_FAILURES) {
+    // Each attempt reserves a point before the password is checked (and gets it back on success),
+    // so parallel guesses can't all get past the lockout before the first failure is counted.
+    try {
+      await adminFailures.consume(lockKey);
+    } catch (rejection) {
+      if (rejection instanceof Error) throw rejection;
       throw ApiError.tooManyRequests('Too many failed attempts. Please try again later.', {
         code: 'LOGIN_LOCKED',
-        details: { retryAfter: Math.ceil(state.msBeforeNext / 1000) },
+        details: { retryAfter: Math.ceil(rejection.msBeforeNext / 1000) },
       });
     }
 
@@ -138,7 +142,6 @@ export const authService = {
     const valid = await argon2.verify(admin?.passwordHash ?? DUMMY_HASH, password);
 
     if (!admin || !valid) {
-      await adminFailures.consume(lockKey).catch(() => {});
       throw ApiError.unauthorized('Incorrect email or password', { code: 'INVALID_CREDENTIALS' });
     }
 

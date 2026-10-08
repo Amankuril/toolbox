@@ -6,6 +6,7 @@ import { env } from '#config/env.js';
 
 const MAX_REDIRECTS = 3;
 const TIMEOUT_MS = 15_000;
+const TOTAL_TIMEOUT_MS = 30_000;
 
 /** Ranges that must never be fetched on a user's behalf (loopback, private, link-local/metadata, CGNAT, multicast…). */
 const blocked = new net.BlockList();
@@ -95,6 +96,9 @@ function get(url, maxBytes) {
       },
     );
     req.on('timeout', () => req.destroy(new RemoteImageError('Image download timed out')));
+    // `timeout` above only fires on an idle socket; a server trickling bytes needs an overall deadline too.
+    const deadline = setTimeout(() => req.destroy(new RemoteImageError('Image download took too long')), TOTAL_TIMEOUT_MS);
+    req.on('close', () => clearTimeout(deadline));
     req.on('error', (err) =>
       reject(err instanceof RemoteImageError ? err : new RemoteImageError(`Could not download image (${err.code ?? err.message})`)),
     );

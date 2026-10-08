@@ -1,3 +1,5 @@
+import { promisify } from 'node:util';
+import zlib from 'node:zlib';
 import ExcelJS from 'exceljs';
 import { parse as parseCsv } from 'csv-parse/sync';
 import { stringify } from 'csv-stringify/sync';
@@ -13,11 +15,15 @@ export const formatOf = (fileName) => (/\.xlsx$/i.test(fileName ?? '') ? 'xlsx' 
 
 const unsupported = (message) => ApiError.badRequest(message, { code: 'UNSUPPORTED_FILE' });
 
+const inflateRaw = promisify(zlib.inflateRaw);
+
 /**
- * Reads the zip central directory and refuses archives that would inflate beyond the limit
- * ("zip bombs") before any decompression happens. ZIP64 isn't needed for spreadsheets this size.
+ * Refuses archives that would inflate beyond the limit ("zip bombs") before ExcelJS sees them.
+ * The sizes an archive declares are written by whoever made it, so each entry is actually inflated
+ * with a hard output cap: a bomb fails at the cap instead of after filling memory.
+ * ZIP64 isn't needed for spreadsheets this size.
  */
-export function assertSafeZip(buffer) {
+export async function assertSafeZip(buffer) {
   const minEocd = 22;
   let eocd = -1;
   for (let i = buffer.length - minEocd; i >= Math.max(0, buffer.length - minEocd - 0xffff); i -= 1) {
@@ -31,14 +37,38 @@ export function assertSafeZip(buffer) {
   let offset = buffer.readUInt32LE(eocd + 16);
   if (entries > MAX_ZIP_ENTRIES || offset === 0xffffffff) throw unsupported('This Excel file is too complex to import.');
 
+  const tooLarge = () => unsupported('This Excel file is too large to import. Split it into smaller files.');
+  const damaged = () => unsupported('This Excel file is damaged.');
   let total = 0;
+  let declared = 0;
   for (let n = 0; n < entries; n += 1) {
-    if (offset + 46 > buffer.length || buffer.readUInt32LE(offset) !== 0x02014b50) throw unsupported('This Excel file is damaged.');
-    const size = buffer.readUInt32LE(offset + 24);
-    if (size === 0xffffffff) throw unsupported('This Excel file is too large to import.');
-    total += size;
-    if (total > MAX_UNZIPPED_BYTES) throw unsupported('This Excel file is too large to import. Split it into smaller files.');
+    if (offset + 46 > buffer.length || buffer.readUInt32LE(offset) !== 0x02014b50) throw damaged();
+    const method = buffer.readUInt16LE(offset + 10);
+    const compressedSize = buffer.readUInt32LE(offset + 20);
+    const declaredSize = buffer.readUInt32LE(offset + 24);
+    const localHeader = buffer.readUInt32LE(offset + 42);
+    if (declaredSize === 0xffffffff || compressedSize === 0xffffffff) throw tooLarge();
+    declared += declaredSize;
+    if (declared > MAX_UNZIPPED_BYTES) throw tooLarge(); // cheap early reject for honest-but-huge archives
     offset += 46 + buffer.readUInt16LE(offset + 28) + buffer.readUInt16LE(offset + 30) + buffer.readUInt16LE(offset + 32);
+
+    if (localHeader + 30 > buffer.length || buffer.readUInt32LE(localHeader) !== 0x04034b50) throw damaged();
+    const dataStart = localHeader + 30 + buffer.readUInt16LE(localHeader + 26) + buffer.readUInt16LE(localHeader + 28);
+    if (dataStart + compressedSize > buffer.length) throw damaged();
+
+    const remaining = MAX_UNZIPPED_BYTES - total;
+    if (method === 0) {
+      total += compressedSize;
+    } else if (method === 8) {
+      try {
+        total += (await inflateRaw(buffer.subarray(dataStart, dataStart + compressedSize), { maxOutputLength: remaining + 1 })).length;
+      } catch (err) {
+        throw err?.code === 'ERR_BUFFER_TOO_LARGE' || err instanceof RangeError ? tooLarge() : damaged();
+      }
+    } else {
+      throw unsupported('This Excel file uses an unsupported compression. Open it in Excel and save it again.');
+    }
+    if (total > MAX_UNZIPPED_BYTES) throw tooLarge();
   }
 }
 
@@ -67,7 +97,9 @@ export async function readSheet(buffer, fileName, { maxRows }) {
     // A CSV is text; NUL bytes mean a binary file (e.g. .xls renamed to .csv).
     if (buffer.includes(0)) throw unsupported('This is not a CSV file. Save the sheet as CSV or Excel (.xlsx) and try again.');
     try {
-      return parseCsv(buffer, { bom: true, skip_empty_lines: true, relax_column_count: true, trim: false, to: maxRows });
+      const rows = parseCsv(buffer, { bom: true, skip_empty_lines: true, relax_column_count: true, trim: false, to: maxRows });
+      // Undo toCsv's formula guard so exported files round-trip unchanged.
+      return rows.map((row) => row.map((cell) => (/^'[=+\-@\t\r]/.test(cell) ? cell.slice(1) : cell)));
     } catch (err) {
       throw ApiError.unprocessable(`This file isn't valid CSV (line ${err.lines ?? '?'}): ${String(err.message).slice(0, 160)}`, {
         code: 'INVALID_FILE',
@@ -77,7 +109,7 @@ export async function readSheet(buffer, fileName, { maxRows }) {
   if (format === 'xlsx') {
     if (!buffer.subarray(0, 4).equals(XLSX_MAGIC))
       throw unsupported('This is not an Excel (.xlsx) file. Old .xls files: open in Excel and save as .xlsx.');
-    assertSafeZip(buffer);
+    await assertSafeZip(buffer);
     const workbook = new ExcelJS.Workbook();
     try {
       await workbook.xlsx.load(buffer);
@@ -101,7 +133,19 @@ export async function readSheet(buffer, fileName, { maxRows }) {
 
 /* ─────────────── Writing ─────────────── */
 
-export const toCsv = (rows) => stringify(rows, { bom: true });
+/**
+ * Spreadsheet apps run cells that start with = + - @ as formulas, so a product name like
+ * `=HYPERLINK(...)` would execute for whoever opens the export. Such text cells get a leading
+ * apostrophe (shown as text), which readSheet strips again when the file is re-imported.
+ */
+const FORMULA_START = /^[=+\-@\t\r]/;
+const neutralise = (cell) => (typeof cell === 'string' && FORMULA_START.test(cell) ? `'${cell}` : cell);
+
+export const toCsv = (rows) =>
+  stringify(
+    rows.map((row) => (Array.isArray(row) ? row.map(neutralise) : row)),
+    { bom: true },
+  );
 
 /**
  * Builds an .xlsx. `sheets`: [{ name, rows, header?: { required: Set }, widths?, textColumns?, lists?, freeze? }]

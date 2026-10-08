@@ -24,7 +24,11 @@ async function performRefresh(audience) {
           /* fall through to sign out */
         }
       }
-      sessions[audience].getState().signOut()
+      // A network blip, 5xx or 429 doesn't mean the session is gone: keep a signed-in user signed in
+      // (the next request retries the refresh). Only the server saying no (401) ends it.
+      const state = sessions[audience].getState()
+      if (err.response?.status !== 401 && state.accessToken) return false
+      state.signOut()
       return false
     }
   }

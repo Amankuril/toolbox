@@ -10,6 +10,8 @@ import { Vendor } from '#modules/vendors/vendor.model.js';
 const TIMEZONE = 'Asia/Kolkata';
 const DAY = 24 * 60 * 60 * 1000;
 const COUNTED = { $nin: ['pending_payment', 'cancelled'] };
+// Same set as `$ne: 'pending_payment'`, spelled as $in so the {…, status, createdAt} indexes can serve the sort.
+const NOT_AWAITING_PAYMENT = { $in: ['placed', 'processing', 'completed', 'cancelled'] };
 
 const byStatus = (rows) => Object.fromEntries(rows.map((r) => [r._id, r.count]));
 const groupStatus = [{ $group: { _id: '$status', count: { $sum: 1 } } }];
@@ -31,7 +33,8 @@ export const dashboardService = {
     const since14 = new Date(Date.now() - 14 * DAY);
 
     const [users, vendors, products, pendingCategories, orders, revenue, recent, daily] = await Promise.all([
-      User.countDocuments(),
+      // Whole-collection count: the metadata estimate is exact here and doesn't scan.
+      User.estimatedDocumentCount(),
       Vendor.aggregate([{ $match: { isPlatform: { $ne: true } } }, ...groupStatus]),
       Product.aggregate(groupStatus),
       Category.countDocuments({ status: 'pending' }),
@@ -40,11 +43,7 @@ export const dashboardService = {
         { $match: { createdAt: { $gte: since30 }, status: COUNTED } },
         { $group: { _id: null, gmv: { $sum: '$amounts.total' }, orders: { $sum: 1 } } },
       ]),
-      Order.find({ status: { $ne: 'pending_payment' } })
-        .sort({ createdAt: -1 })
-        .limit(8)
-        .populate('user', 'name phone')
-        .lean(),
+      Order.find({ status: NOT_AWAITING_PAYMENT }).sort({ createdAt: -1 }).limit(8).populate('user', 'name phone').lean(),
       Order.aggregate([
         { $match: { createdAt: { $gte: since14 }, status: COUNTED } },
         {
@@ -117,10 +116,7 @@ export const dashboardService = {
         },
         { $project: { revenue: 1, orders: { $size: '$orderIds' } } },
       ]),
-      Order.find({ vendors: id, status: { $ne: 'pending_payment' } })
-        .sort({ createdAt: -1 })
-        .limit(6)
-        .lean(),
+      Order.find({ vendors: id, status: NOT_AWAITING_PAYMENT }).sort({ createdAt: -1 }).limit(6).lean(),
       Quote.aggregate([{ $match: { vendor: id, status: { $in: ['requested', 'quoted', 'accepted'] } } }, ...groupStatus]),
     ]);
 

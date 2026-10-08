@@ -57,7 +57,14 @@ describe('admin permissions', () => {
     await request(app).get(`${API}/admin/shipping/status`).set(A).expect(200);
     // Products view can look vendors up (bulk upload picker) but never see bank details.
     await request(app).get(`${API}/admin/vendors`).set(A).expect(200);
-    await request(app).get(`${API}/admin/vendors/${vendor.account._id}`).set(A).expect(200);
+    const lookup = (await request(app).get(`${API}/admin/vendors/${vendor.account._id}`).set(A).expect(200)).body.data;
+    expect(lookup.store.name).toBeTruthy();
+    for (const kyc of ['business', 'bank', 'documents', 'address', 'email']) expect(lookup).not.toHaveProperty(kyc);
+    const listed = (await request(app).get(`${API}/admin/vendors`).set(A).expect(200)).body.data;
+    expect(listed.every((v) => !('bank' in v) && !('business' in v) && !('documents' in v))).toBe(true);
+    // Admins with Vendors access still get the full record.
+    const full = (await request(app).get(`${API}/admin/vendors/${vendor.account._id}`).set(bearer(root.accessToken)).expect(200)).body.data;
+    expect(full).toHaveProperty('business');
     await request(app).get(`${API}/admin/vendors/${vendor.account._id}/bank-account`).set(A).expect(403);
     await request(app).post(`${API}/admin/vendors/${vendor.account._id}/suspend`).set(A).send({ reason: 'x' }).expect(403);
 

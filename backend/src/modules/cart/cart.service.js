@@ -182,14 +182,25 @@ export const cartService = {
     const view = await this.view(userId);
     // Store names let the cart group lines the way orders are split: one parcel per seller.
     const vendorIds = [...new Set(view.items.map((i) => i.vendor && String(i.vendor)).filter(Boolean))];
-    const vendors = vendorIds.length ? await Vendor.find({ _id: { $in: vendorIds } }, 'store.name store.slug address.city isPlatform').lean() : [];
+    const vendors = vendorIds.length
+      ? await Vendor.find({ _id: { $in: vendorIds } }, 'store.name store.slug address.city isPlatform').lean()
+      : [];
     const sellers = Object.fromEntries(
-      vendors.map((v) => [String(v._id), { name: v.store?.name ?? 'Seller', slug: v.store?.slug ?? null, city: v.address?.city ?? null, official: Boolean(v.isPlatform) }]),
+      vendors.map((v) => [
+        String(v._id),
+        { name: v.store?.name ?? 'Seller', slug: v.store?.slug ?? null, city: v.address?.city ?? null, official: Boolean(v.isPlatform) },
+      ]),
     );
     return { ...view, sellers, items: view.items.map(({ _product, _quote, _sellable, ...rest }) => rest) };
   },
 
   async setItem(userId, productId, quantity, variantId) {
+    await this.putLine(userId, productId, quantity, variantId);
+    return this.get(userId);
+  },
+
+  /** Adds or updates one line without building the priced cart (callers decide when to read it). */
+  async putLine(userId, productId, quantity, variantId) {
     const quoted = await Cart.exists({ user: userId, items: { $elemMatch: { product: productId, quote: { $exists: true } } } });
     if (quoted) {
       throw ApiError.conflict('This item is in your cart at a quoted price. Remove it first to buy at the listed price.', {
@@ -211,7 +222,6 @@ export const cartService = {
         { $push: { items: { product: productId, ...(variantId ? { variant: variantId } : {}), quantity } } },
       );
     }
-    return this.get(userId);
   },
 
   /** Puts an accepted quote in the cart, replacing any regular line for the same product. */
@@ -231,14 +241,18 @@ export const cartService = {
 
   /** Merges a guest (localStorage) cart after sign-in. Invalid lines are skipped, not fatal. */
   async merge(userId, lines) {
-    for (const { productId, variantId, quantity } of lines.slice(0, MAX_CART_ITEMS)) {
-      const product = await Product.findOne({ _id: productId, ...VISIBLE })
-        .select(PRICING_FIELDS)
-        .lean();
+    const wanted = lines.slice(0, MAX_CART_ITEMS);
+    // One read for all products, and the priced cart is built once at the end, not per line.
+    const products = await Product.find({ _id: { $in: wanted.map((l) => l.productId) }, ...VISIBLE })
+      .select(PRICING_FIELDS)
+      .lean();
+    const byId = new Map(products.map((p) => [String(p._id), p]));
+    for (const { productId, variantId, quantity } of wanted) {
+      const product = byId.get(String(productId));
       const sellable = sellableOrNull(product, variantId);
       if (!sellable || sellable.available <= 0) continue;
       const qty = Math.max(product.inventory.moq, Math.min(quantity, maxOrderable(product, sellable)));
-      await this.setItem(userId, productId, qty, variantId).catch(() => {});
+      await this.putLine(userId, productId, qty, variantId).catch(() => {});
     }
     return this.get(userId);
   },

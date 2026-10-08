@@ -156,9 +156,23 @@ export const vendorCreateProduct = {
   body: z.object({ ...createShape, publish: z.boolean().default(false) }),
 };
 
+/**
+ * Stock values the edit form loaded. A submitted quantity equal to its base wasn't touched by the
+ * seller, so the live count (which orders may have moved since) is kept instead of the stale one.
+ */
+const stockBase = z
+  .object({
+    stock: z.number().int().min(0).optional(),
+    variants: z
+      .array(z.object({ _id: objectId, stock: z.number().int().min(0) }))
+      .max(MAX_VARIANTS)
+      .optional(),
+  })
+  .optional();
+
 export const vendorUpdateProduct = {
   params: idParams,
-  body: z.object({ ...fields, publish: z.boolean() }).partial(),
+  body: z.object({ ...fields, publish: z.boolean(), stockBase }).partial(),
 };
 
 export const vendorVisibility = {
@@ -180,7 +194,7 @@ export const vendorStockUpdate = {
 
 export const adminUpdateProduct = {
   params: idParams,
-  body: z.object({ ...fields, ...adminFields }).partial(),
+  body: z.object({ ...fields, ...adminFields, stockBase }).partial(),
 };
 
 export const reviewProduct = {
@@ -220,7 +234,8 @@ export const PUBLIC_SORTS = ['relevance', 'newest', 'price_asc', 'price_desc', '
 
 export const publicListProducts = {
   query: z.object({
-    page: paginationQuery.page,
+    // Bounded: each page past the first makes the database sort and skip everything before it.
+    page: paginationQuery.page.pipe(z.number().max(500)),
     limit: z.coerce.number().int().min(1).max(60).default(24),
     q: z.string().trim().max(100).optional(),
     category: z.string().trim().max(120).optional(),

@@ -59,7 +59,6 @@ const paymentSchema = new Schema(
 
 paymentSchema.index({ orderId: 1, attemptNumber: 1 }, { unique: true });
 paymentSchema.index({ idempotencyKey: 1 }, { unique: true });
-paymentSchema.index({ providerOrderId: 1 });
 paymentSchema.index({ providerOrderId: 1, status: 1 });
 paymentSchema.index({ providerPaymentId: 1 }, { partialFilterExpression: { providerPaymentId: { $type: 'string' } } });
 paymentSchema.index({ userId: 1, createdAt: -1 });

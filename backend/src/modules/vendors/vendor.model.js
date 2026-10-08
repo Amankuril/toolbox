@@ -1,5 +1,6 @@
 import mongoose, { Schema } from 'mongoose';
 import { addressSchema, baseOptions, imageSchema } from '#core/db/schemas.js';
+import { bumpOnWrite, catalogGeneration } from '#core/cache/cached.js';
 
 /**
  * onboarding     → account created after OTP, wizard not yet submitted
@@ -92,5 +93,8 @@ vendorSchema.index({ isPlatform: 1 }, { unique: true, partialFilterExpression: {
 // and new registrations/profile edits can't reuse another seller's email.
 vendorSchema.index({ email: 1 });
 vendorSchema.index({ 'business.gstin': 1 }, { unique: true, partialFilterExpression: { 'business.gstin': { $type: 'string' } } });
+
+// Cached public listings include these documents; any write retires them.
+bumpOnWrite(vendorSchema, catalogGeneration);
 
 export const Vendor = mongoose.models.Vendor ?? mongoose.model('Vendor', vendorSchema);

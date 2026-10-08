@@ -215,21 +215,29 @@ export const paymentService = {
     }
 
     // Atomically transition order. A partial order has only paid its advance: the courier collects the rest.
-    const order = await Order.findOneAndUpdate(
-      { 'payment.providerOrderId': providerOrderId, status: 'pending_payment' },
-      [
-        {
-          $set: {
-            status: 'placed',
-            'payment.status': { $cond: [{ $eq: ['$payment.method', 'partial'] }, 'partially_paid', 'paid'] },
-            'payment.providerPaymentId': paymentId,
-            'payment.paidAt': now,
+    const settle = (filter) =>
+      Order.findOneAndUpdate(
+        { ...filter, status: 'pending_payment' },
+        [
+          {
+            $set: {
+              status: 'placed',
+              'payment.status': { $cond: [{ $eq: ['$payment.method', 'partial'] }, 'partially_paid', 'paid'] },
+              'payment.providerOrderId': providerOrderId,
+              'payment.providerPaymentId': paymentId,
+              'payment.paidAt': now,
+              ...(payment ? { 'payment.currentPaymentId': payment._id } : {}),
+            },
           },
-        },
-        { $unset: ['expiresAt', 'payment.failureReason'] },
-      ],
-      { returnDocument: 'after', updatePipeline: true },
-    );
+          { $unset: ['expiresAt', 'payment.failureReason'] },
+        ],
+        { returnDocument: 'after', updatePipeline: true },
+      );
+
+    // An earlier attempt (e.g. paid from a second tab after a retry created a new gateway order) is
+    // still this order's payment: find the order through the attempt record.
+    const order =
+      (await settle({ 'payment.providerOrderId': providerOrderId })) ?? (payment ? await settle({ _id: payment.orderId }) : null);
 
     if (order) {
       await cartService.removeProducts(
@@ -239,9 +247,19 @@ export const paymentService = {
       return order;
     }
 
-    const existing = await Order.findOne({ 'payment.providerOrderId': providerOrderId });
-    if (!existing) throw ApiError.notFound('Order not found for this payment');
-    if (PAID_ONLINE.includes(existing.payment.status)) return existing;
+    const existing =
+      (await Order.findOne({ 'payment.providerOrderId': providerOrderId })) ?? (payment ? await Order.findById(payment.orderId) : null);
+    if (!existing) throw ApiError.notFound('Order not found for this payment', { code: 'PAYMENT_ORDER_UNKNOWN' });
+    if (PAID_ONLINE.includes(existing.payment.status)) {
+      if (paymentId && existing.payment.providerPaymentId && existing.payment.providerPaymentId !== paymentId) {
+        // A second captured payment for an order that's already paid: needs a manual refund in the gateway dashboard.
+        logger.error(
+          { orderId: existing._id, orderNumber: existing.orderNumber, paymentId, paidWith: existing.payment.providerPaymentId },
+          'DUPLICATE_PAYMENT: order already paid by another payment',
+        );
+      }
+      return existing;
+    }
 
     if (existing.status === 'cancelled' && latePaymentHandler) {
       return latePaymentHandler(existing, paymentId);
@@ -285,10 +303,19 @@ export const paymentService = {
     const provider = this.webhookProvider('razorpay');
     if (!provider) throw ApiError.serviceUnavailable('Refunds are unavailable: payment gateway not configured');
 
-    // 2. Create pending refund record
-    let refundRecord =
-      existing ||
-      (await Refund.create({
+    // 2. Claim the refund record. Only the caller that creates it (or flips a failed one back to pending)
+    //    may call the gateway; anyone else would issue the same refund twice.
+    const inProgress = () => ApiError.conflict('A refund for this is already in progress', { code: 'REFUND_IN_PROGRESS' });
+    let refundRecord;
+    if (existing) {
+      refundRecord = await Refund.findOneAndUpdate(
+        { _id: existing._id, status: 'failed' },
+        { status: 'pending', $unset: { failureReason: 1 } },
+        { returnDocument: 'after' },
+      );
+      if (!refundRecord) throw inProgress();
+    } else {
+      refundRecord = await Refund.create({
         orderId: order._id,
         paymentId: order.payment.currentPaymentId,
         itemId,
@@ -299,7 +326,10 @@ export const paymentService = {
         status: 'pending',
         reason,
         idempotencyKey: finalKey,
-      }));
+      }).catch((err) => {
+        throw err?.code === 11000 ? inProgress() : err;
+      });
+    }
 
     // 3. Execute gateway refund
     try {
@@ -379,6 +409,13 @@ export const paymentService = {
       await PaymentEvent.updateOne({ provider: 'razorpay', eventId: id }, { processedAt: new Date() });
       return { processed: true };
     } catch (err) {
+      if (err instanceof ApiError && err.code === 'PAYMENT_ORDER_UNKNOWN') {
+        // Not one of our orders (e.g. a payment link on the same Razorpay account). Acknowledge it, or the
+        // gateway retries for a day and then disables the webhook.
+        logger.warn({ eventId: id, type: event.event, providerOrderId }, 'Webhook for an unknown order ignored');
+        await PaymentEvent.updateOne({ provider: 'razorpay', eventId: id }, { processedAt: new Date(), error: 'unknown order' });
+        return { ignored: true };
+      }
       // Allow retry on unhandled exception
       await PaymentEvent.deleteOne({ provider: 'razorpay', eventId: id });
       throw err;

@@ -301,7 +301,13 @@ function ProductForm({ product }) {
   const save = useMutation({
     mutationFn: ({ values, publish }) => {
       const body = { ...toPayload(values), ...(publish !== undefined ? { publish } : {}) }
-      return isNew ? seller.api.createProduct(body) : seller.api.updateProduct(product._id, body)
+      if (isNew) return seller.api.createProduct(body)
+      // The quantities this form loaded: untouched ones keep the live count, so orders placed meanwhile aren't undone.
+      const stockBase = {
+        stock: product.inventory?.stock ?? 0,
+        variants: (product.variants ?? []).map((v) => ({ _id: v._id, stock: v.stock ?? 0 })),
+      }
+      return seller.api.updateProduct(product._id, { ...body, stockBase })
     },
     onSuccess: (saved) => {
       qc.invalidateQueries({ queryKey: [...seller.keys.all, 'products'] })

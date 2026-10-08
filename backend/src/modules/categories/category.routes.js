@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { validate } from '#core/middlewares/validate.js';
 import { created, noContent, ok } from '#core/utils/response.js';
 import { idParams } from '#core/validation/common.js';
-import { actorOf } from '#modules/auth/auth.middleware.js';
+import { actorOf, requireApprovedVendor } from '#modules/auth/auth.middleware.js';
 import { categoryService } from './category.service.js';
 import {
   adminCreateCategory,
@@ -27,10 +27,11 @@ export const vendorCategoryRoutes = Router()
   .get('/', async (req, res) => {
     ok(res, await categoryService.listForVendor(req.auth.id));
   })
-  .post('/', validate(vendorCreateCategory), async (req, res) => {
+  // Proposals go into the shared public tree (immediately, with auto-approve on), so only approved sellers make them.
+  .post('/', requireApprovedVendor, validate(vendorCreateCategory), async (req, res) => {
     created(res, await categoryService.create(req.body, actorOf(req)));
   })
-  .patch('/:id', validate(vendorUpdateCategory), async (req, res) => {
+  .patch('/:id', requireApprovedVendor, validate(vendorUpdateCategory), async (req, res) => {
     ok(res, await categoryService.update(req.params.id, req.body, actorOf(req)));
   })
   .delete('/:id', validate({ params: idParams }), async (req, res) => {

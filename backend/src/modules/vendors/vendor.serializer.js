@@ -38,6 +38,22 @@ export function serializeVendor(vendor) {
   };
 }
 
+/**
+ * What admins without Vendors access get when they look a seller up (e.g. to import products for
+ * them): enough to pick the right store, no KYC, bank details or documents.
+ */
+export function serializeVendorLookup(vendor) {
+  if (!vendor) return null;
+  return {
+    _id: vendor._id,
+    role: 'vendor',
+    phone: vendor.phone,
+    contactName: vendor.contactName,
+    status: vendor.status,
+    store: vendor.store ? { name: vendor.store.name, slug: vendor.store.slug, logo: vendor.store.logo ?? null } : null,
+  };
+}
+
 /** Public storefront view of a vendor. */
 export function serializePublicVendor(vendor) {
   if (!vendor) return null;

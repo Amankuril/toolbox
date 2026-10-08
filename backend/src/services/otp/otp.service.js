@@ -27,6 +27,19 @@ const keys = {
 
 const hashOtp = (aud, target, otp) => hmacSha256(env.OTP_HMAC_SECRET, `${aud}:${target}:${otp}`);
 
+/**
+ * Reserves one verification attempt atomically and returns [attemptsUsed, hash], or [-1] when no code exists.
+ * Counting before comparing means parallel requests can't each get a guess in before the counter moves.
+ */
+const RESERVE_ATTEMPT = `
+if redis.call('exists', KEYS[1]) == 0 then return {-1} end
+local n = redis.call('hincrby', KEYS[1], 'attempts', 1)
+return {n, redis.call('hget', KEYS[1], 'hash')}`;
+
+/** "123456" works in local development only when codes aren't really being delivered (console providers). */
+const devBypass = (target, otp) =>
+  env.isDevelopment && otp === '123456' && (isEmail(target) ? env.MAIL_PROVIDER === 'console' : env.SMS_PROVIDER === 'console');
+
 function generateOtp() {
   const max = 10 ** env.OTP_LENGTH;
   return crypto.randomInt(0, max).toString().padStart(env.OTP_LENGTH, '0');
@@ -55,16 +68,19 @@ export const otpService = {
     } else {
       await assertNotLocked(aud, target);
 
-      const cooldownTtl = await redis.ttl(keys.cooldown(aud, target));
-      if (cooldownTtl > 0) {
+      // SET NX claims the cooldown atomically, so parallel sends can't both slip past it.
+      const claimed = await redis.set(keys.cooldown(aud, target), '1', 'EX', env.OTP_RESEND_COOLDOWN_SECONDS, 'NX');
+      if (!claimed) {
+        const cooldownTtl = Math.max(1, await redis.ttl(keys.cooldown(aud, target)));
         throw ApiError.tooManyRequests(`Please wait ${cooldownTtl}s before requesting a new code.`, {
           code: 'OTP_COOLDOWN',
           details: { retryAfter: cooldownTtl },
         });
       }
 
-      const sends = await redis.incr(keys.quota(target));
-      if (sends === 1) await redis.expire(keys.quota(target), 3600);
+      const [[, sends], [, quotaTtl]] = await redis.multi().incr(keys.quota(target)).ttl(keys.quota(target)).exec();
+      // Also repairs a counter left without an expiry, which would otherwise block the number for good.
+      if (quotaTtl < 0) await redis.expire(keys.quota(target), 3600);
       if (sends > env.OTP_MAX_SENDS_PER_HOUR) {
         const ttl = await redis.ttl(keys.quota(target));
         throw ApiError.tooManyRequests(
@@ -118,17 +134,16 @@ export const otpService = {
     await assertNotLocked(aud, target);
 
     const key = keys.code(aud, target);
-    const stored = await redis.hgetall(key);
-    if (!stored?.hash) {
-      throw ApiError.badRequest('This code has expired. Please request a new one.', { code: 'OTP_EXPIRED' });
-    }
+    const expired = () => ApiError.badRequest('This code has expired. Please request a new one.', { code: 'OTP_EXPIRED' });
+    const [attempts, hash] = await redis.eval(RESERVE_ATTEMPT, 1, key);
+    if (attempts === -1 || !hash) throw expired();
 
-    if (safeEqual(stored.hash, hashOtp(aud, target, otp)) || (env.isDevelopment && otp === '123456')) {
-      await redis.del(key);
+    if (attempts <= env.OTP_MAX_ATTEMPTS && (safeEqual(hash, hashOtp(aud, target, otp)) || devBypass(target, otp))) {
+      // Single use: if a concurrent request consumed it first, this one doesn't get a second session.
+      if (!(await redis.del(key))) throw expired();
       return true;
     }
 
-    const attempts = await redis.hincrby(key, 'attempts', 1);
     const remaining = env.OTP_MAX_ATTEMPTS - attempts;
     if (remaining <= 0) {
       await redis
