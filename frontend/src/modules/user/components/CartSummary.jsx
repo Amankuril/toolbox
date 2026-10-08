@@ -5,10 +5,11 @@ import { formatINR } from '@/core/lib/format'
  * Totals for cart and checkout. Savings are split so bulk and quote prices are visible.
  * `before` renders above the totals (e.g. the item list on checkout), `children` below them.
  */
-export function CartSummary({ summary, children, before, title = 'Order summary' }) {
+export function CartSummary({ summary, coupon, children, before, title = 'Order summary' }) {
   const bulk = summary.bulkSavings ?? 0
-  const mrpDiscount = Math.max(0, (summary.savings ?? 0) - bulk)
-  const saved = mrpDiscount + bulk
+  const couponDiscount = summary.discount ?? 0
+  const mrpDiscount = Math.max(0, (summary.savings ?? 0) - bulk - couponDiscount)
+  const saved = mrpDiscount + bulk + couponDiscount
 
   return (
     <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
@@ -30,6 +31,14 @@ export function CartSummary({ summary, children, before, title = 'Order summary'
             <div className="flex justify-between">
               <dt className="text-slate-600">Bulk &amp; quote savings</dt>
               <dd className="tabular font-medium text-primary">−{formatINR(bulk)}</dd>
+            </div>
+          )}
+          {couponDiscount > 0 && (
+            <div className="flex justify-between">
+              <dt className="text-slate-600">
+                Coupon <span className="font-mono text-xs font-semibold text-slate-800">{coupon?.code}</span>
+              </dt>
+              <dd className="tabular font-medium text-primary">−{formatINR(couponDiscount)}</dd>
             </div>
           )}
           <div className="flex justify-between">

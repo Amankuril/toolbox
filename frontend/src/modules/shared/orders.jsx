@@ -189,8 +189,12 @@ export function AddressBlock({ address }) {
   )
 }
 
-export function AmountRows({ amounts }) {
-  const rows = [['Subtotal', amounts.subtotal], ['Shipping', amounts.shipping], amounts.discount ? ['Discount', -amounts.discount] : null].filter(Boolean)
+export function AmountRows({ amounts, coupon }) {
+  const rows = [
+    ['Subtotal', amounts.subtotal],
+    ['Shipping', amounts.shipping],
+    amounts.discount ? [coupon?.code ? `Coupon ${coupon.code}` : 'Discount', -amounts.discount] : null,
+  ].filter(Boolean)
   return (
     <dl className="flex flex-col gap-2 text-sm">
       {rows.map(([label, v]) => (

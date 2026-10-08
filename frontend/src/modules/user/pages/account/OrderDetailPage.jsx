@@ -170,7 +170,7 @@ export default function MyOrderDetailPage() {
             <CardHeader title="Payment" action={<StatusBadge status={o.payment.status} />} />
             <CardBody className="flex flex-col gap-4">
               <p className="text-sm text-slate-700">{PAYMENT_METHOD_LABEL[o.payment.method]}</p>
-              <AmountRows amounts={o.amounts} />
+              <AmountRows amounts={o.amounts} coupon={o.coupon} />
             </CardBody>
           </Card>
           <Card>

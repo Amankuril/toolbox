@@ -54,6 +54,9 @@ export const userApi = {
   setCartItem: (productId, quantity, variantId) => one(u.put(`/cart/items/${productId}`, { quantity, ...(variantId ? { variantId } : {}) })),
   removeCartItem: (productId, variantId) => one(u.delete(`/cart/items/${productId}`, { params: variantId ? { variantId } : undefined })),
   mergeCart: (items) => one(u.post('/cart/merge', { items })),
+  applyCoupon: (code) => one(u.put('/cart/coupon', { code })),
+  removeCoupon: () => one(u.delete('/cart/coupon')),
+  whatsappChat: (productId) => one(u.post('/whatsapp-chat', { productId })),
 
   wishlist: () => one(u.get('/wishlist')),
   wishlistIds: () => one(u.get('/wishlist/ids')),

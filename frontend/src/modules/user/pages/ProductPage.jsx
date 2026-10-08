@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
-import { BadgeCheck, ChevronRight, FileText, Receipt, ShieldCheck, ShoppingCart, Truck, Wrench } from 'lucide-react'
+import { BadgeCheck, ChevronRight, FileText, MessageCircle, Receipt, ShieldCheck, ShoppingCart, Truck, Wrench } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
+import { errorMessage } from '@/core/api/errors'
 import { useSession } from '@/core/auth/session'
 import { PRODUCT_TYPE_LABEL } from '@/core/lib/constants'
 import { cn } from '@/core/lib/cn'
@@ -14,7 +15,7 @@ import { Sticker } from '@/ui/Badge'
 import { Button } from '@/ui/Button'
 import { EmptyState, Skeleton } from '@/ui/Card'
 import { QuantityStepper } from '@/ui/inputs'
-import { storeApi, storeKeys } from '../api'
+import { storeApi, storeKeys, userApi } from '../api'
 import { useCart } from '../cart/useCart'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { BulkPricingTable } from '../components/BulkPricingTable'
@@ -177,6 +178,23 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related, fro
     else setQuoteOpen(true)
   }
 
+  // The seller's number comes from the server on tap (which also tells the seller who's interested).
+  // The tab opens inside the click so popup blockers allow it.
+  const chatOnWhatsApp = async () => {
+    if (!signedIn) return navigate(`/login?next=${encodeURIComponent(`/p/${p.slug}`)}`)
+    const tab = window.open('about:blank', '_blank')
+    try {
+      const { url } = await userApi.whatsappChat(p._id)
+      if (tab) {
+        tab.opener = null
+        tab.location.href = url
+      } else window.location.href = url
+    } catch (err) {
+      tab?.close()
+      toast.error(errorMessage(err))
+    }
+  }
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 sm:py-4">
       <title>{`${p.seo?.title || p.name} | ${siteName}`}</title>
@@ -328,6 +346,21 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related, fro
                   Need {formatNumber(p.quotes.threshold)}+ {unitPlural(p.inventory.unit, 2)}?
                 </span>
                 <span className="block text-xs text-slate-600">Request a quote and the seller replies with a price for your quantity.</span>
+              </span>
+              <ChevronRight className="size-4 shrink-0 text-slate-400" />
+            </button>
+          )}
+
+          {p.vendor?.chat && (
+            <button
+              type="button"
+              onClick={chatOnWhatsApp}
+              className="mt-3 flex w-full items-center gap-3 rounded-lg border border-slate-200 p-3 text-left hover:border-emerald-500"
+            >
+              <MessageCircle className="size-5 shrink-0 text-emerald-600" strokeWidth={1.75} />
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold text-slate-900">Chat on WhatsApp</span>
+                <span className="block text-xs text-slate-600">Ask the seller about this product, delivery or a bulk order.</span>
               </span>
               <ChevronRight className="size-4 shrink-0 text-slate-400" />
             </button>

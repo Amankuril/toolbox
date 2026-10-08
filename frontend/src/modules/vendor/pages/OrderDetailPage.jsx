@@ -76,7 +76,14 @@ export default function VendorOrderDetailPage() {
           <PaymentCard
             order={o}
             title="Payment"
-            amounts={{ subtotal: o.amounts.subtotal, shipping: 0, tax: o.amounts.tax, total: o.amounts.subtotal }}
+            // Your lines before and after your coupon; the total is what you're paid for.
+            amounts={{
+              subtotal: o.amounts.subtotal + (o.amounts.discount ?? 0),
+              discount: o.amounts.discount ?? 0,
+              shipping: 0,
+              tax: o.amounts.tax,
+              total: o.amounts.subtotal,
+            }}
             note={
               cod && (
                 <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">

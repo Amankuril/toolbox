@@ -13,6 +13,7 @@ import { QuantityStepper } from '@/ui/inputs'
 import { useCart } from '../cart/useCart'
 import { groupBySeller } from '../cart/groups'
 import { CartSummary } from '../components/CartSummary'
+import { CouponBox } from '../components/CouponBox'
 import { CheckoutHeader, CheckoutSteps, FreeShippingMeter, MobileCheckoutBar, SellerGroupHeader, TrustRow } from '../components/checkoutKit'
 import { ProductCard } from '../components/ProductCard'
 import { useWishlist, useWishlistProducts } from '../wishlist/useWishlist'
@@ -118,8 +119,9 @@ export default function CartPage() {
         </div>
 
         <aside className="flex flex-col gap-4 lg:sticky lg:top-40 lg:self-start">
-          <CartSummary summary={cart.summary}>
-            <Button size="lg" variant="accent" className="mt-5 w-full" disabled={cart.hasIssues} onClick={goCheckout}>
+          <CartSummary summary={cart.summary} coupon={cart.coupon}>
+            <CouponBox coupon={cart.coupon} signedIn={cart.signedIn} />
+            <Button size="lg" variant="accent" className="mt-5 w-full" disabled={cart.hasIssues || Boolean(cart.coupon?.issue)} onClick={goCheckout}>
               {cart.signedIn ? 'Proceed to checkout' : 'Sign in to check out'} <ArrowRight />
             </Button>
             <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-slate-500">
@@ -135,9 +137,9 @@ export default function CartPage() {
       <MobileCheckoutBar
         label={`Total · ${formatNumber(cart.count)} ${cart.count === 1 ? 'unit' : 'units'}`}
         amount={cart.summary.total}
-        note={issues ? 'Fix highlighted items first' : 'Inclusive of GST'}
+        note={issues ? 'Fix highlighted items first' : cart.coupon?.issue ? 'Remove the coupon that no longer applies' : 'Inclusive of GST'}
       >
-        <Button size="lg" variant="accent" disabled={cart.hasIssues} onClick={goCheckout}>
+        <Button size="lg" variant="accent" disabled={cart.hasIssues || Boolean(cart.coupon?.issue)} onClick={goCheckout}>
           {cart.signedIn ? 'Checkout' : 'Sign in'} <ArrowRight />
         </Button>
       </MobileCheckoutBar>

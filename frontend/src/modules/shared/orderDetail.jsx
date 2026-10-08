@@ -223,7 +223,7 @@ export function PaymentCard({ order: o, amounts = o.amounts, title = 'Payment', 
           <span className="font-semibold text-slate-900">{PAYMENT_METHOD_LABEL[o.payment.method] ?? titleCase(o.payment.method)}</span>
           {o.payment.paidAt && <span className="text-xs text-slate-600">Paid {formatDateTime(o.payment.paidAt)}</span>}
         </div>
-        <AmountRows amounts={amounts} />
+        <AmountRows amounts={amounts} coupon={o.coupon} />
         {o.payment.failureReason && o.status === 'pending_payment' && <p className="text-xs text-red-700">Last attempt: {o.payment.failureReason}</p>}
         {note}
       </CardBody>

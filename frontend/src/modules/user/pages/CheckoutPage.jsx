@@ -168,7 +168,7 @@ export default function CheckoutPage() {
     },
     onError: (err) => {
       const e = parseApiError(err)
-      if (['CART_HAS_ISSUES', 'OUT_OF_STOCK'].includes(e.code)) {
+      if (['CART_HAS_ISSUES', 'OUT_OF_STOCK', 'COUPON_INVALID'].includes(e.code)) {
         qc.invalidateQueries({ queryKey: storeKeys.cart })
         toast.error(e.message, { action: { label: 'Review cart', onClick: () => navigate('/cart') } })
       } else toast.error(e.message)
@@ -189,7 +189,7 @@ export default function CheckoutPage() {
     )
   }
 
-  const canPlace = chosenAddress && chosenMethod && !cart.hasIssues && !gstError
+  const canPlace = chosenAddress && chosenMethod && !cart.hasIssues && !cart.coupon?.issue && !gstError
   const groups = groupBySeller(cart.items, cart.sellers)
   const dueNow = chosenMethod === 'razorpay' ? total : chosenMethod === 'partial' && split ? split.advance : 0
   const dueLater = total - dueNow
@@ -423,6 +423,7 @@ export default function CheckoutPage() {
         <aside className="flex flex-col gap-4 lg:sticky lg:top-36 lg:self-start">
           <CartSummary
             summary={cart.summary}
+            coupon={cart.coupon}
             title={
               <span className="flex items-center justify-between gap-3">
                 Your order
