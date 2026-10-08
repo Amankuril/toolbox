@@ -338,16 +338,18 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related, fro
             <button
               type="button"
               onClick={requestQuote}
-              className="mt-3 flex w-full items-center gap-3 rounded-lg border border-slate-200 p-3 text-left hover:border-slate-400"
+              className="mt-3 flex w-full items-center gap-3 rounded-lg border-2 border-primary/40 bg-primary-soft p-3 text-left transition-colors hover:border-primary"
             >
-              <FileText className="size-5 shrink-0 text-slate-500" strokeWidth={1.75} />
+              <span className="grid size-9 shrink-0 place-items-center rounded-full bg-primary text-primary-fg">
+                <FileText className="size-[18px]" strokeWidth={2} />
+              </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-sm font-semibold text-slate-900">
+                <span className="block text-sm font-bold text-slate-900">
                   Need {formatNumber(p.quotes.threshold)}+ {unitPlural(p.inventory.unit, 2)}?
                 </span>
-                <span className="block text-xs text-slate-600">Request a quote and the seller replies with a price for your quantity.</span>
+                <span className="block text-xs text-slate-700">Request a quote and the seller replies with a price for your quantity.</span>
               </span>
-              <ChevronRight className="size-4 shrink-0 text-slate-400" />
+              <ChevronRight className="size-5 shrink-0 text-primary" />
             </button>
           )}
 
@@ -355,14 +357,16 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related, fro
             <button
               type="button"
               onClick={chatOnWhatsApp}
-              className="mt-3 flex w-full items-center gap-3 rounded-lg border border-slate-200 p-3 text-left hover:border-emerald-500"
+              className="mt-3 flex w-full items-center gap-3 rounded-lg border-2 border-emerald-500/40 bg-emerald-50 p-3 text-left transition-colors hover:border-emerald-500"
             >
-              <MessageCircle className="size-5 shrink-0 text-emerald-600" strokeWidth={1.75} />
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-semibold text-slate-900">Chat on WhatsApp</span>
-                <span className="block text-xs text-slate-600">Ask the seller about this product, delivery or a bulk order.</span>
+              <span className="grid size-9 shrink-0 place-items-center rounded-full bg-emerald-500 text-white">
+                <MessageCircle className="size-[18px]" strokeWidth={2} />
               </span>
-              <ChevronRight className="size-4 shrink-0 text-slate-400" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-bold text-slate-900">Chat on WhatsApp</span>
+                <span className="block text-xs text-slate-700">Ask the seller about this product, delivery or a bulk order.</span>
+              </span>
+              <ChevronRight className="size-5 shrink-0 text-emerald-600" />
             </button>
           )}
 
