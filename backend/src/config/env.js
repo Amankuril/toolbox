@@ -214,7 +214,8 @@ if (rawUploadDir) {
   // Auto-correct: user provided the disk path in LOCAL_UPLOAD_PUBLIC_PATH
   localUploadDir = path.resolve(rawPublicPath);
 } else {
-  localUploadDir = path.resolve(isProduction ? '/var/www/toolshubs/uploads' : path.join(backendRoot, 'uploads'));
+  // Must match the folder nginx serves at /uploads/ (deploy/nginx/toolbox.conf).
+  localUploadDir = path.resolve(isProduction ? '/var/www/toolbox/uploads' : path.join(backendRoot, 'uploads'));
 }
 
 if (rawPublicPath && !isFilesystemPath(rawPublicPath)) {

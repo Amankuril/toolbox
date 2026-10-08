@@ -37,6 +37,11 @@ function buildKey(folder) {
  * `storage.cloudinaryEnabled` toggle: ON → Cloudinary, OFF → local disk.
  */
 export const storageService = {
+  /** Checks the local upload folder at boot, so a bad LOCAL_UPLOAD_DIR shows up in the log immediately. */
+  checkLocal() {
+    return providers.local.check();
+  },
+
   async activeProviderName() {
     const { cloudinaryEnabled } = await settingsService.get('storage');
     if (cloudinaryEnabled && providers.cloudinary) return 'cloudinary';

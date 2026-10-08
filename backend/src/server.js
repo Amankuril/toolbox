@@ -4,6 +4,7 @@ import { env } from '#config/env.js';
 import { logger } from '#config/logger.js';
 import { connectRedis, disconnectRedis } from '#config/redis.js';
 import { listenForCacheInvalidation } from '#core/cache/cached.js';
+import { storageService } from '#services/storage/storage.service.js';
 import { createApp } from './app.js';
 import { startJobs } from './jobs/index.js';
 
@@ -12,6 +13,8 @@ const SHUTDOWN_TIMEOUT_MS = 15_000;
 async function main() {
   await Promise.all([connectDatabase(), connectRedis()]);
   await listenForCacheInvalidation();
+  // Not fatal: images may be stored on Cloudinary. But a broken folder would fail every local upload.
+  await storageService.checkLocal().catch((err) => logger.error({ err }, 'Local image uploads will fail'));
 
   const server = http.createServer(createApp());
   // Must exceed nginx's upstream keepalive_timeout so nginx closes idle connections first.

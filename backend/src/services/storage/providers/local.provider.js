@@ -1,9 +1,10 @@
 import crypto from 'node:crypto';
+import { constants as fsConstants } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
 /**
- * Stores files on local disk. In production the directory is /var/www/toolshubs/uploads and nginx
+ * Stores files on local disk. In production the directory is /var/www/toolbox/uploads and nginx
  * serves `publicPath` straight from disk; in development Express serves it.
  */
 export function createLocalProvider({ rootDir, publicPath }) {
@@ -15,6 +16,20 @@ export function createLocalProvider({ rootDir, publicPath }) {
 
   return {
     name: 'local',
+
+    /** Creates the upload folder if needed and proves it's writable; throws a readable error if not. */
+    async check() {
+      try {
+        await fs.mkdir(rootDir, { recursive: true });
+        await fs.access(rootDir, fsConstants.W_OK);
+      } catch (err) {
+        throw new Error(
+          `Upload folder ${rootDir} is not usable (${err.code ?? err.message}). Set LOCAL_UPLOAD_DIR to a folder this process can write to, ` +
+            'or leave it unset (development: backend/uploads, production: /var/www/toolbox/uploads).',
+          { cause: err },
+        );
+      }
+    },
 
     async put(buffer, { key }) {
       const target = resolveSafe(key);

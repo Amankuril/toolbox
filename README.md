@@ -89,7 +89,7 @@ With `SMS_PROVIDER=console` (the dev default), OTPs are printed in the API log i
 
 **Centralised services** (`backend/src/services`). Every upload, SMS and payment goes through one service with swappable providers.
 - **Storage:** each upload is magic-byte checked, auto-rotated, stripped of EXIF data, resized to 1600px at most and encoded as WebP.
-  - **Admin → Settings → Storage** picks the destination: ON stores to Cloudinary, OFF stores on local disk (`backend/uploads` in dev, `/var/www/toolshubs/uploads` served by nginx in production).
+  - **Admin → Settings → Storage** picks the destination: ON stores to Cloudinary, OFF stores on local disk (`backend/uploads` in dev, `/var/www/toolbox/uploads` served by nginx in production).
   - Each file records its provider, so flipping the toggle never breaks existing images.
   - Clients send only media IDs; the server resolves URLs and checks ownership.
 - **Payments:** Razorpay orders, signature verification, idempotent webhooks, refunds on item cancellation, and recovery from late payments.
