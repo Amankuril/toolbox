@@ -13,6 +13,8 @@ import {
   SlidersHorizontal,
   Star,
   Store,
+  TicketPercent,
+  UserRoundSearch,
   Users,
 } from 'lucide-react'
 import { useEffect, useRef } from 'react'
@@ -88,6 +90,12 @@ export default function AdminLayout() {
     enabled: hasStore,
     refetchInterval: 60_000,
   })
+  const { data: storeLeadCounts } = useQuery({
+    queryKey: storeSeller.keys.leadCounts,
+    queryFn: storeSeller.api.leadCounts,
+    enabled: hasStore,
+    refetchInterval: 60_000,
+  })
   // Same menu as the seller panel, so the store has everything a seller has.
   const storeNav = [
     {
@@ -95,6 +103,13 @@ export default function AdminLayout() {
         { to: '/admin/store', end: true, label: 'Overview', icon: LayoutDashboard },
         { to: '/admin/store/orders', label: 'Orders', icon: ShoppingBag },
         { to: '/admin/store/quotes', label: 'Quote requests', icon: FileText, badge: storeQuotes?.meta?.counts?.requested ?? 0 },
+      ],
+    },
+    {
+      title: 'Customers',
+      items: [
+        { to: '/admin/store/leads', label: 'Leads', icon: UserRoundSearch, badge: storeLeadCounts?.abandoned ?? 0 },
+        { to: '/admin/store/coupons', label: 'Coupons', icon: TicketPercent },
       ],
     },
     {

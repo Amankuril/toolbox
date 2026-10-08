@@ -25,7 +25,12 @@ export default function VendorQuotesPage() {
   const seller = useSeller()
   const navigate = useNavigate()
   const [filters, setFilters] = useSearchParamsState({ status: 'requested' })
-  const params = { page: Number(filters.page ?? 1), limit: 20, status: filters.status === 'all' ? undefined : filters.status || undefined, q: filters.q || undefined }
+  const params = {
+    page: Number(filters.page ?? 1),
+    limit: 20,
+    status: filters.status === 'all' ? undefined : filters.status || undefined,
+    q: filters.q || undefined,
+  }
   const { data, isLoading } = useQuery({ queryKey: seller.keys.quotes(params), queryFn: () => seller.api.quotes(params), placeholderData: keepPreviousData })
   const nothingYet = !isLoading && data?.meta?.total === 0 && !filters.q && !Object.keys(data?.meta?.counts ?? {}).length
 
@@ -92,7 +97,13 @@ export default function VendorQuotesPage() {
                 className: 'w-px',
                 cell: (q) => (
                   <RowActions
-                    items={[{ label: q.status === 'requested' ? 'Reply with a quote' : 'View', icon: Eye, onSelect: () => navigate(`${seller.base}/quotes/${q._id}`) }]}
+                    items={[
+                      {
+                        label: q.status === 'requested' ? 'Reply with a quote' : 'View',
+                        icon: Eye,
+                        onSelect: () => navigate(`${seller.base}/quotes/${q._id}`),
+                      },
+                    ]}
                   />
                 ),
               },

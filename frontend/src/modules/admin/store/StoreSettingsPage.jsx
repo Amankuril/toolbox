@@ -23,6 +23,7 @@ function toForm(s) {
     logo: s.store?.logo ? [s.store.logo] : [],
     contactName: s.contactName ?? '',
     phone: (s.phone ?? '').replace(/^\+91/, ''),
+    whatsapp: (s.store?.whatsapp ?? '').replace(/^\+91/, ''),
     email: s.email ?? '',
     legalName: s.business?.legalName ?? '',
     gstin: s.business?.gstin ?? '',
@@ -47,6 +48,8 @@ function toBody(f) {
     gstin: t(f.gstin).toUpperCase(),
   }
   if (t(f.phone)) body.phone = t(f.phone)
+  // Empty clears it: chats then go to the pickup phone.
+  body.whatsapp = t(f.whatsapp)
   if (t(f.email)) body.email = t(f.email)
   if ([f.line1, f.city, f.state, f.pincode].every((v) => t(v))) {
     body.address = {
@@ -163,6 +166,14 @@ function StoreSettingsForm({ store }) {
             </Field>
             <Field label="Pickup phone" error={errors.phone}>
               {input('phone', { prefix: '+91', inputMode: 'numeric', maxLength: 10, className: 'pl-11' })}
+            </Field>
+            <Field
+              label="WhatsApp number"
+              error={errors.whatsapp}
+              hint="For “Chat on WhatsApp” on the store's products. Empty = the pickup phone."
+              className="sm:col-span-2"
+            >
+              {input('whatsapp', { prefix: '+91', inputMode: 'numeric', maxLength: 10, className: 'pl-11' })}
             </Field>
             <Field label="Email" error={errors.email} className="sm:col-span-2">
               {input('email', { type: 'email' })}

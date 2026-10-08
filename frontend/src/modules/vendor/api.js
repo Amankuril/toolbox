@@ -20,6 +20,10 @@ export function createSellerKeys(root) {
     quote: (id) => [...root, 'quote', id],
     order: (id) => [...root, 'order', id],
     shipments: (orderId) => [...root, 'shipments', orderId],
+    coupons: (p) => [...root, 'coupons', p],
+    leads: (tab, p) => [...root, 'leads', tab, p],
+    leadCounts: [...root, 'leads', 'counts'],
+    lead: (userId) => [...root, 'lead', userId],
   }
 }
 
@@ -65,6 +69,17 @@ export function createSellerApi(v) {
     updateOrderItem: (id, itemId, body) => one(v.patch(`/orders/${id}/items/${itemId}`, body)),
     shipments: (orderId) => one(v.get(`/orders/${orderId}/shipments`)),
     shipmentLabel: (id) => v.get(`/shipments/${id}/label`, { responseType: 'blob' }).then((r) => r.data),
+
+    coupons: (params) => list(v.get('/coupons', { params })),
+    createCoupon: (body) => one(v.post('/coupons', body)),
+    updateCoupon: (id, body) => one(v.patch(`/coupons/${id}`, body)),
+    deleteCoupon: (id) => one(v.delete(`/coupons/${id}`)),
+
+    leadCounts: () => one(v.get('/leads/counts')),
+    cartLeads: (params) => list(v.get('/leads/carts', { params })),
+    whatsappLeads: (params) => list(v.get('/leads/whatsapp', { params })),
+    lead: (userId) => one(v.get(`/leads/customers/${userId}`)),
+    contactLead: (userId, body) => one(v.post(`/leads/customers/${userId}/contact`, body)),
   }
 }
 

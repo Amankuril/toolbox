@@ -39,7 +39,11 @@ export default function VendorProductsPage() {
   const [archiving, setArchiving] = useState(null)
   const approved = vendor?.status === 'approved'
   const params = { page: Number(filters.page ?? 1), limit: 20, status: filters.status || undefined, type: filters.type || undefined, q: filters.q || undefined }
-  const { data, isLoading } = useQuery({ queryKey: seller.keys.products(params), queryFn: () => seller.api.products(params), placeholderData: keepPreviousData })
+  const { data, isLoading } = useQuery({
+    queryKey: seller.keys.products(params),
+    queryFn: () => seller.api.products(params),
+    placeholderData: keepPreviousData,
+  })
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: [...seller.keys.all, 'products'] })

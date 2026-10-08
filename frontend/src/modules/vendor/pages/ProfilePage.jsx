@@ -12,6 +12,7 @@ import { Button } from '@/ui/Button'
 import { Card, CardBody, CardHeader } from '@/ui/Card'
 import { Field, Input, Textarea } from '@/ui/Field'
 import { ImageUploader } from '@/ui/ImageUploader'
+import { PhoneInput } from '@/ui/inputs'
 import { DescriptionList, PageHeader } from '@/ui/PageHeader'
 import { useVendor, vendorApi, vendorKeys } from '../api'
 
@@ -27,6 +28,7 @@ export default function VendorProfilePage() {
     logo: vendor.store?.logo ? [vendor.store.logo] : [],
     contactName: vendor.contactName,
     email: vendor.email,
+    whatsapp: vendor.store?.whatsapp?.replace(/^\+91/, '') ?? '',
   }
   const set = (patch) => setDraft({ ...v, ...patch })
 
@@ -38,6 +40,7 @@ export default function VendorProfilePage() {
         logo: v.logo[0] ? { media: v.logo[0].media } : null,
         contactName: v.contactName.trim(),
         email: v.email.trim(),
+        whatsapp: v.whatsapp,
       }),
     onSuccess: (updated) => {
       qc.setQueryData(vendorKeys.me, updated)
@@ -85,6 +88,14 @@ export default function VendorProfilePage() {
             </Field>
             <Field label="Email" required error={fields.email}>
               {(p) => <Input {...p} type="email" value={v.email} onChange={(e) => set({ email: e.target.value })} />}
+            </Field>
+            <Field
+              label="WhatsApp number"
+              error={fields.whatsapp}
+              hint={`Buyers tap “Chat on WhatsApp” on your products to reach this number. Empty = your mobile ${formatPhone(vendor.phone)}.`}
+              className="sm:col-span-2"
+            >
+              {(p) => <PhoneInput {...p} className="max-w-xs" value={v.whatsapp} onChange={(whatsapp) => set({ whatsapp })} />}
             </Field>
             <div className="flex justify-end gap-2 border-t border-slate-100 pt-5 sm:col-span-2">
               <Button variant="outline" disabled={!draft} onClick={() => setDraft(null)}>

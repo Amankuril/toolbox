@@ -1,5 +1,17 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowRight, Clock, FileText, FolderTree, LayoutDashboard, Package, ShoppingBag, Store, TriangleAlert } from 'lucide-react'
+import {
+  ArrowRight,
+  Clock,
+  FileText,
+  FolderTree,
+  LayoutDashboard,
+  Package,
+  ShoppingBag,
+  Store,
+  TicketPercent,
+  TriangleAlert,
+  UserRoundSearch,
+} from 'lucide-react'
 import { Link, useNavigate } from 'react-router'
 import { signOutEverywhere } from '@/core/api/http'
 import { formatPhone } from '@/core/lib/format'
@@ -8,12 +20,19 @@ import { Button } from '@/ui/Button'
 import { PanelShell } from '@/ui/PanelShell'
 import { useVendor, vendorApi, vendorKeys } from './api'
 
-const buildNav = (newQuotes) => [
+const buildNav = (newQuotes, abandonedCarts) => [
   {
     items: [
       { to: '/vendor', end: true, label: 'Dashboard', icon: LayoutDashboard },
       { to: '/vendor/orders', label: 'Orders', icon: ShoppingBag },
       { to: '/vendor/quotes', label: 'Quote requests', icon: FileText, badge: newQuotes },
+    ],
+  },
+  {
+    title: 'Customers',
+    items: [
+      { to: '/vendor/leads', label: 'Leads', icon: UserRoundSearch, badge: abandonedCarts },
+      { to: '/vendor/coupons', label: 'Coupons', icon: TicketPercent },
     ],
   },
   {
@@ -70,12 +89,18 @@ export default function VendorLayout() {
     enabled: vendor?.status === 'approved',
     refetchInterval: 60_000,
   })
+  const { data: leadCounts } = useQuery({
+    queryKey: vendorKeys.leadCounts,
+    queryFn: vendorApi.leadCounts,
+    enabled: vendor?.status === 'approved',
+    refetchInterval: 60_000,
+  })
   const navigate = useNavigate()
   const qc = useQueryClient()
   return (
     <PanelShell
       brand={<Logo to="/vendor" inverted suffix="Seller" />}
-      nav={buildNav(quotes?.meta?.counts?.requested ?? 0)}
+      nav={buildNav(quotes?.meta?.counts?.requested ?? 0, leadCounts?.abandoned ?? 0)}
       user={{ name: vendor?.store?.name ?? 'Your store', subtitle: formatPhone(vendor?.phone) }}
       menuItems={[{ label: 'Store profile', icon: Store, to: '/vendor/profile' }]}
       banner={<StatusBanner vendor={vendor} />}
