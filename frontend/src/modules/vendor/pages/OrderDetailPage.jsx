@@ -3,6 +3,8 @@ import { useParams } from 'react-router'
 import { toast } from 'sonner'
 import { errorMessage } from '@/core/api/errors'
 import { formatINR } from '@/core/lib/format'
+import { downloadPdf } from '@/modules/shared/download'
+import { InvoicesCard } from '@/modules/shared/invoices'
 import { ActivityTimeline, NoteCard, OrderFacts, OrderHeader, OrderProgress, PaymentCard, SellerItems, ShipToCard } from '@/modules/shared/orderDetail'
 import { ItemStatusActions, OrderItemRow } from '@/modules/shared/orders'
 import { LabelButton, ScanList, ShipmentFacts, ShipmentStatusBadge } from '@/modules/shared/shipments'
@@ -15,6 +17,7 @@ export default function VendorOrderDetailPage() {
   const qc = useQueryClient()
   const { data: o, isLoading } = useQuery({ queryKey: seller.keys.order(id), queryFn: () => seller.api.order(id) })
   const { data: shipments = [] } = useQuery({ queryKey: seller.keys.shipments(id), queryFn: () => seller.api.shipments(id) })
+  const { data: invoice } = useQuery({ queryKey: seller.keys.invoice(id), queryFn: () => seller.api.invoice(id) })
 
   const updateItem = (itemId) => async (body) => {
     try {
@@ -22,6 +25,8 @@ export default function VendorOrderDetailPage() {
       qc.setQueryData(seller.keys.order(id), updated)
       qc.invalidateQueries({ queryKey: [...seller.keys.all, 'orders'] })
       qc.invalidateQueries({ queryKey: seller.keys.dashboard })
+      // Shipping the last line issues the invoice.
+      qc.invalidateQueries({ queryKey: seller.keys.invoice(id) })
       toast.success('Order updated')
     } catch (err) {
       toast.error(errorMessage(err))
@@ -72,6 +77,11 @@ export default function VendorOrderDetailPage() {
                 </CardBody>
               </Card>
             ))}
+          <InvoicesCard
+            invoices={invoice ? [invoice] : []}
+            showSeller={false}
+            onDownload={() => downloadPdf(() => seller.api.invoicePdf(id), `Invoice-${o.orderNumber}.pdf`)}
+          />
           <ShipToCard address={o.shippingAddress} billing={o.billing} showGstin />
           <PaymentCard
             order={o}

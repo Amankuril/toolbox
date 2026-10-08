@@ -21,6 +21,7 @@ export const storeKeys = {
   addresses: ['user', 'addresses'],
   orders: (p) => ['user', 'orders', p],
   order: (id) => ['user', 'order', id],
+  invoices: (id) => ['user', 'order', id, 'invoices'],
   tracking: (id) => ['user', 'order', id, 'tracking'],
   quotes: (p) => ['user', 'quotes', p],
   quote: (id) => ['user', 'quote', id],
@@ -66,6 +67,8 @@ export const userApi = {
 
   orders: (params) => list(u.get('/orders', { params })),
   order: (id) => one(u.get(`/orders/${id}`)),
+  invoices: (id) => one(u.get(`/orders/${id}/invoices`)),
+  invoicePdf: (id, vendorId) => u.get(`/orders/${id}/invoices/${vendorId}/pdf`, { responseType: 'blob' }),
   checkout: (body) => one(u.post('/orders/checkout', body)),
   verifyPayment: (id, body) => one(u.post(`/orders/${id}/payment/verify`, body)),
   retryPayment: (id) => one(u.post(`/orders/${id}/payment/retry`)),

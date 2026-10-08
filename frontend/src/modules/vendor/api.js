@@ -19,6 +19,7 @@ export function createSellerKeys(root) {
     quotes: (p) => [...root, 'quotes', p],
     quote: (id) => [...root, 'quote', id],
     order: (id) => [...root, 'order', id],
+    invoice: (orderId) => [...root, 'order', orderId, 'invoice'],
     shipments: (orderId) => [...root, 'shipments', orderId],
     coupons: (p) => [...root, 'coupons', p],
     leads: (tab, p) => [...root, 'leads', tab, p],
@@ -66,6 +67,8 @@ export function createSellerApi(v) {
 
     orders: (params) => list(v.get('/orders', { params })),
     order: (id) => one(v.get(`/orders/${id}`)),
+    invoice: (id) => one(v.get(`/orders/${id}/invoice`)),
+    invoicePdf: (id) => v.get(`/orders/${id}/invoice/pdf`, { responseType: 'blob' }),
     updateOrderItem: (id, itemId, body) => one(v.patch(`/orders/${id}/items/${itemId}`, body)),
     shipments: (orderId) => one(v.get(`/orders/${orderId}/shipments`)),
     shipmentLabel: (id) => v.get(`/shipments/${id}/label`, { responseType: 'blob' }).then((r) => r.data),

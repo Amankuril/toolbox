@@ -1,4 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { downloadPdf } from '@/modules/shared/download'
+import { InvoicesCard } from '@/modules/shared/invoices'
 import { BadgeCheck } from 'lucide-react'
 import { Link, useParams } from 'react-router'
 import { toast } from 'sonner'
@@ -26,6 +28,7 @@ export default function OrderDetailPage() {
   const qc = useQueryClient()
   const { can } = useAdminAccess()
   const { data: o, isLoading } = useQuery({ queryKey: adminKeys.order(id), queryFn: () => adminApi.order(id) })
+  const { data: invoices } = useQuery({ queryKey: adminKeys.orderInvoices(id), queryFn: () => adminApi.orderInvoices(id) })
   // Only needs to know whether shipping is on: doesn't require the Settings permission.
   const { data: shipping } = useQuery({ queryKey: adminKeys.shippingStatus, queryFn: adminApi.shippingStatus, staleTime: 60_000 })
   const shippingOn = Boolean(shipping?.enabled)
@@ -37,6 +40,7 @@ export default function OrderDetailPage() {
       const updated = await adminApi.updateOrderItem(id, itemId, body)
       qc.setQueryData(adminKeys.order(id), updated)
       qc.invalidateQueries({ queryKey: ['admin', 'orders'] })
+      qc.invalidateQueries({ queryKey: adminKeys.orderInvoices(id) })
       toast.success('Order updated')
     } catch (err) {
       toast.error(errorMessage(err))
@@ -122,6 +126,10 @@ export default function OrderDetailPage() {
 
         <aside className="flex flex-col gap-6">
           <NoteCard note={o.notes} />
+          <InvoicesCard
+            invoices={o.status === 'pending_payment' ? [] : invoices}
+            onDownload={(inv) => downloadPdf(() => adminApi.orderInvoicePdf(id, inv.vendor), `Invoice-${o.orderNumber}.pdf`)}
+          />
           <PaymentCard
             order={o}
             note={

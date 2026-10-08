@@ -6,6 +6,8 @@ import { errorMessage } from '@/core/api/errors'
 import { PAYMENT_METHOD_LABEL } from '@/core/lib/constants'
 import { formatDateTime, formatINR } from '@/core/lib/format'
 import { useBranding } from '@/core/settings/usePublicSettings'
+import { downloadPdf } from '@/modules/shared/download'
+import { InvoicesCard } from '@/modules/shared/invoices'
 import { AddressBlock, AmountRows, OrderItemRow } from '@/modules/shared/orders'
 import { ScanList, ShipmentStatusBadge, ShipmentTimeline } from '@/modules/shared/shipments'
 import { StatusBadge } from '@/ui/Badge'
@@ -32,6 +34,12 @@ export default function MyOrderDetailPage() {
     queryKey: storeKeys.tracking(id),
     queryFn: () => userApi.tracking(id),
     enabled: Boolean(o) && !['pending_payment', 'cancelled'].includes(o?.status),
+  })
+
+  const { data: invoices } = useQuery({
+    queryKey: storeKeys.invoices(id),
+    queryFn: () => userApi.invoices(id),
+    enabled: Boolean(o) && o?.status !== 'pending_payment',
   })
 
   const refresh = (updated) => {
@@ -173,6 +181,7 @@ export default function MyOrderDetailPage() {
               <AmountRows amounts={o.amounts} coupon={o.coupon} />
             </CardBody>
           </Card>
+          <InvoicesCard invoices={invoices} onDownload={(inv) => downloadPdf(() => userApi.invoicePdf(id, inv.vendor), `Invoice-${o.orderNumber}.pdf`)} />
           <Card>
             <CardHeader title="Delivery address" />
             <CardBody>

@@ -28,6 +28,7 @@ export const adminKeys = {
   reviews: (p) => ['admin', 'reviews', p],
   quote: (id) => ['admin', 'quote', id],
   order: (id) => ['admin', 'order', id],
+  orderInvoices: (id) => ['admin', 'order', id, 'invoices'],
   shipments: (orderId) => ['admin', 'shipments', orderId],
   returnReasons: ['admin', 'return-reasons'],
   warehouses: ['admin', 'warehouses'],
@@ -67,6 +68,8 @@ export const adminApi = {
 
   orders: (params) => list(a.get('/orders', { params })),
   order: (id) => one(a.get(`/orders/${id}`)),
+  orderInvoices: (id) => one(a.get(`/orders/${id}/invoices`)),
+  orderInvoicePdf: (id, vendorId) => a.get(`/orders/${id}/invoices/${vendorId}/pdf`, { responseType: 'blob' }),
   updateOrderItem: (id, itemId, body) => one(a.patch(`/orders/${id}/items/${itemId}`, body)),
 
   shipments: (orderId) => one(a.get(`/orders/${orderId}/shipments`)),
