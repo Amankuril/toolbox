@@ -21,7 +21,8 @@ export const couponIssueMessage = (issue, coupon) =>
 
 /** Discount (paise) a coupon gives on `eligibleTotal`, never more than the total itself. */
 export function discountFor(coupon, eligibleTotal) {
-  const raw = coupon.type === 'percent' ? Math.floor((eligibleTotal * coupon.value) / 100) : coupon.value;
+  // Percentages round down to whole rupees, so totals (and cash collected on delivery) stay round.
+  const raw = coupon.type === 'percent' ? Math.floor((eligibleTotal * coupon.value) / 100 / 100) * 100 : coupon.value;
   const capped = coupon.type === 'percent' && coupon.maxDiscount ? Math.min(raw, coupon.maxDiscount) : raw;
   return Math.max(0, Math.min(capped, eligibleTotal));
 }

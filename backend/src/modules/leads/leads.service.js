@@ -24,7 +24,9 @@ const oid = (id) => new mongoose.Types.ObjectId(String(id));
 const rupees = (paise) => `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 const date = (d) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
 
-export const whatsappUrl = (phone, text) => `https://wa.me/${phone.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`;
+// Not wa.me: its redirect replaces every emoji with "�" (U+FFFD). api.whatsapp.com passes them through.
+export const whatsappUrl = (phone, text) =>
+  `https://api.whatsapp.com/send?phone=${phone.replace(/\D/g, '')}&text=${encodeURIComponent(text)}`;
 export const smsUrl = (phone, text) => `sms:${phone}?body=${encodeURIComponent(text)}`;
 // SMS apps render emoji inconsistently (and they cost extra characters), so SMS gets the plain text.
 const plain = (text) =>

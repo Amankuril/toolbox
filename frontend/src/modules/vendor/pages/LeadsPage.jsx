@@ -1,4 +1,4 @@
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { MessageCircle, ShoppingCart } from 'lucide-react'
 import { useNavigate } from 'react-router'
 import { useSearchParamsState } from '@/core/hooks/useSearchParamsState'
@@ -18,8 +18,8 @@ const TABS = [
   { value: 'whatsapp', label: 'WhatsApp leads' },
 ]
 const SORTS = [
-  { value: 'newest', label: 'Last updated (newest first)' },
-  { value: 'oldest', label: 'Last updated (oldest first)' },
+  { value: 'newest', label: 'Newest first' },
+  { value: 'oldest', label: 'Oldest first' },
 ]
 const PERIODS = [
   { value: '', label: 'Any time' },
@@ -64,7 +64,8 @@ export default function LeadsPage() {
   const { data, isLoading } = useQuery({
     queryKey: seller.keys.leads(tab, params),
     queryFn: () => (isCart ? seller.api.cartLeads(params) : seller.api.whatsappLeads(params)),
-    placeholderData: keepPreviousData,
+    // Keep rows on screen while paging or searching, but never across tabs: their rows have different shapes.
+    placeholderData: (previous, previousQuery) => (previousQuery?.queryKey.includes(tab) ? previous : undefined),
   })
   const open = (lead) => navigate(`${seller.base}/leads/${lead.userId}`)
 
@@ -115,7 +116,7 @@ export default function LeadsPage() {
               ))}
             </Select>
           )}
-          <Select aria-label="Sort" className="w-60" value={filters.sort ?? 'newest'} onChange={(e) => setFilters({ sort: e.target.value })}>
+          <Select aria-label="Sort" className="w-48" value={filters.sort ?? 'newest'} onChange={(e) => setFilters({ sort: e.target.value })}>
             {SORTS.map((s) => (
               <option key={s.value} value={s.value}>
                 Sort: {s.label}

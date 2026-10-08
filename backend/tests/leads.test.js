@@ -118,8 +118,8 @@ describe('contacting a lead', () => {
         .expect(200)
     ).body.data;
     expect(res.kind).toBe('cart_reminder');
-    expect(res.url.startsWith('https://wa.me/919600000099?text=')).toBe(true);
-    const text = decodeURIComponent(res.url.split('?text=')[1]);
+    expect(res.url.startsWith('https://api.whatsapp.com/send?phone=919600000099&text=')).toBe(true);
+    const text = decodeURIComponent(res.url.split('&text=')[1]);
     expect(text).toBe(res.message);
     expect(text).toContain('Greetings from Arihant Trading');
     expect(text).toContain('🛒');
@@ -179,12 +179,12 @@ describe('WhatsApp leads', () => {
     await request(app).post(`${API}/user/whatsapp-chat`).send({ productId: drill._id }).expect(401);
     const B2 = bearer(buyer2.accessToken);
     const first = (await request(app).post(`${API}/user/whatsapp-chat`).set(B2).send({ productId: drill._id }).expect(200)).body.data;
-    expect(first.url.startsWith('https://wa.me/919600000001?text=')).toBe(true);
+    expect(first.url.startsWith('https://api.whatsapp.com/send?phone=919600000001&text=')).toBe(true);
     expect(decodeURIComponent(first.url)).toContain('Arihant Rotary Hammer');
 
     await request(app).patch(`${API}/vendor/me`).set(A()).send({ whatsapp: '9811122233' }).expect(200);
     const second = (await request(app).post(`${API}/user/whatsapp-chat`).set(B2).send({ productId: drill._id }).expect(200)).body.data;
-    expect(second.url.startsWith('https://wa.me/919811122233?text=')).toBe(true);
+    expect(second.url.startsWith('https://api.whatsapp.com/send?phone=919811122233&text=')).toBe(true);
 
     const rows = (await request(app).get(`${API}/vendor/leads/whatsapp`).set(A()).expect(200)).body.data;
     expect(rows).toHaveLength(1);
