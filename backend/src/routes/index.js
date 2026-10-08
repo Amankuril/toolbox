@@ -11,6 +11,7 @@ import { authenticate } from '#modules/auth/auth.middleware.js';
 import authRoutes from '#modules/auth/auth.routes.js';
 import { adminBannerRoutes, publicBannerRoutes } from '#modules/banners/banner.routes.js';
 import { cartRoutes } from '#modules/cart/cart.routes.js';
+import { vendorCouponRoutes } from '#modules/coupons/coupon.routes.js';
 import { wishlistRoutes } from '#modules/wishlist/wishlist.routes.js';
 import { actAsStore } from '#modules/store/store.service.js';
 import { storeSettingsRoutes } from '#modules/store/store.routes.js';
@@ -85,6 +86,7 @@ export function buildRoutes() {
     .use('/product-imports', vendorProductImportRoutes)
     .use('/orders', vendorOrderRoutes)
     .use('/quotes', vendorQuoteRoutes)
+    .use('/coupons', vendorCouponRoutes)
     .use(vendorShippingRoutes)
     .use('/media', mediaUploadRouter());
   api.use('/vendor', vendorApi);
@@ -98,6 +100,7 @@ export function buildRoutes() {
     .use('/product-imports', vendorProductImportRoutes)
     .use('/orders', vendorOrderRoutes)
     .use('/quotes', vendorQuoteRoutes)
+    .use('/coupons', vendorCouponRoutes)
     .use(vendorShippingRoutes)
     .use('/media', mediaUploadRouter());
 

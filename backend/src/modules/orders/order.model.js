@@ -55,7 +55,10 @@ const orderItemSchema = new Schema({
   },
   gstRate: { type: Number, required: true },
   quantity: { type: Number, required: true, min: 1 },
+  // What the buyer pays for the line: unitPrice × quantity minus `discount`.
   lineTotal: { type: Number, required: true, min: 0 },
+  // This line's share of the order's coupon discount.
+  discount: { type: Number, min: 0, default: 0 },
   taxAmount: { type: Number, required: true, min: 0 },
   status: { type: String, enum: ITEM_STATUSES, default: 'pending' },
   tracking: {
@@ -122,6 +125,12 @@ const orderSchema = new Schema(
       currentPaymentId: { type: Schema.Types.ObjectId, ref: 'Payment' },
     },
     refunds: { type: [refundSchema], default: [] },
+    // Coupon applied at checkout; its discount is in amounts.discount and spread over the seller's lines.
+    coupon: {
+      id: { type: Schema.Types.ObjectId, ref: 'Coupon' },
+      code: String,
+      vendor: { type: Schema.Types.ObjectId, ref: 'Vendor' },
+    },
 
     status: { type: String, enum: ORDER_STATUSES, required: true },
     // Unpaid online orders hold stock until this time, then the sweeper releases it.

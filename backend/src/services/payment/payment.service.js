@@ -244,6 +244,7 @@ export const paymentService = {
         order.user,
         order.items.map((i) => i.product),
       );
+      if (order.coupon?.id) await cartService.clearCoupon(order.user);
       return order;
     }
 

@@ -7,6 +7,7 @@ import { withLock } from '#core/utils/lock.js';
 import { gstFromInclusive } from '#core/utils/money.js';
 import { escapeRegex } from '#core/utils/strings.js';
 import { cartService } from '#modules/cart/cart.service.js';
+import { couponService } from '#modules/coupons/coupon.service.js';
 import { Product } from '#modules/products/product.model.js';
 import { VISIBLE } from '#modules/products/product.service.js';
 import { quoteLifecycle } from '#modules/quotes/quote.lifecycle.js';
@@ -135,6 +136,7 @@ async function settleLatePayment(orderId, paymentId) {
     order.payment.paidAt = new Date();
     await order.save();
     await quoteLifecycle.markOrdered(order);
+    await couponService.reclaimForOrder(order);
     return order;
   } catch (err) {
     if (!(err instanceof ApiError) || err.code !== 'OUT_OF_STOCK') throw err;
@@ -235,6 +237,13 @@ export const orderService = {
       });
     }
 
+    if (cart.coupon?.issue) {
+      throw ApiError.conflict(`${cart.coupon.message}. Remove the coupon to continue.`, {
+        code: 'COUPON_INVALID',
+        details: { issue: cart.coupon.issue },
+      });
+    }
+
     const address = await userService.address(user._id, addressId);
     await shippingQuotes.assertCheckoutServiceable([...new Set(cart.items.map((i) => String(i._product.vendor)))], address.pincode);
     const payments = await settingsService.get('payments');
@@ -264,7 +273,7 @@ export const orderService = {
     }
 
     const lines = cart.items.map(
-      ({ _product: p, _quote: q, _sellable: sv, quantity, lineTotal, unitPrice, baseUnitPrice, unitMrp, gstRate, pricing }) => ({
+      ({ _product: p, _quote: q, _sellable: sv, quantity, lineTotal, discount, unitPrice, baseUnitPrice, unitMrp, gstRate, pricing }) => ({
         product: p._id,
         vendor: p.vendor,
         name: p.name,
@@ -281,8 +290,10 @@ export const orderService = {
         pricing: { source: pricing.source, tierMinQty: pricing.tier?.minQty, quote: q?._id },
         gstRate,
         quantity,
-        lineTotal,
-        taxAmount: gstFromInclusive(lineTotal, gstRate),
+        // Net of the coupon share, so refunds, COD amounts and seller revenue all use what was actually paid.
+        lineTotal: lineTotal - discount,
+        discount,
+        taxAmount: gstFromInclusive(lineTotal - discount, gstRate),
         status: 'pending',
         history: [{ status: 'pending', by: { kind: 'user', id: user._id } }],
       }),
@@ -290,9 +301,22 @@ export const orderService = {
 
     await reserveStock(lines);
 
+    // The coupon use is taken before the order exists (atomically, against its usage limit) and given back on failure.
+    const orderId = new mongoose.Types.ObjectId();
+    const coupon = cart.coupon?.discount ? cart.coupon : null;
+    if (coupon) {
+      try {
+        await couponService.redeem(coupon._coupon, { userId: user._id, orderId, discount: coupon.discount });
+      } catch (err) {
+        await releaseStock(lines);
+        throw err;
+      }
+    }
+
     let order;
     try {
       order = await Order.create({
+        _id: orderId,
         orderNumber: newOrderNumber(),
         user: user._id,
         items: lines,
@@ -313,7 +337,15 @@ export const orderService = {
           gstin: gstin ?? user.business?.gstin,
         },
         notes,
-        amounts: { subtotal: cart.summary.subtotal, tax: cart.summary.tax, shipping: cart.summary.shipping, discount: 0, total, ...split },
+        amounts: {
+          subtotal: cart.summary.subtotal,
+          tax: cart.summary.tax,
+          shipping: cart.summary.shipping,
+          discount: cart.summary.discount,
+          total,
+          ...split,
+        },
+        ...(coupon ? { coupon: { id: coupon._coupon._id, code: coupon.code, vendor: coupon.vendor } } : {}),
         payment: { method: paymentMethod, status: 'pending', provider: provider?.name },
         status: paymentMethod === 'cod' ? 'placed' : 'pending_payment',
         expiresAt: paymentMethod === 'cod' ? undefined : new Date(Date.now() + env.ORDER_PAYMENT_WINDOW_MINUTES * 60_000),
@@ -321,6 +353,7 @@ export const orderService = {
       });
     } catch (err) {
       await releaseStock(lines);
+      if (coupon) await couponService.releaseForOrder({ _id: orderId, coupon: { id: coupon._coupon._id } });
       throw err;
     }
     // A quote is consumed by the order that uses it; it's released again if that order never completes.
@@ -331,6 +364,7 @@ export const orderService = {
         user._id,
         lines.map((l) => l.product),
       );
+      if (coupon) await cartService.clearCoupon(user._id);
       return { order: serializeOrder(order), payment: null };
     }
 
@@ -344,6 +378,7 @@ export const orderService = {
       );
       await releaseStock(lines);
       await quoteLifecycle.releaseForOrder(order);
+      await couponService.releaseForOrder(order);
       throw err;
     }
   },
@@ -408,6 +443,7 @@ export const orderService = {
       if (claimed) {
         await releaseStock(claimed.items.map(stockLine));
         await quoteLifecycle.releaseForOrder(claimed);
+        await couponService.releaseForOrder(claimed);
         expired += 1;
       }
     }

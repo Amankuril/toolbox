@@ -1,4 +1,5 @@
 import { ApiError } from '#core/errors/ApiError.js';
+import { couponIssueMessage, couponService } from '#modules/coupons/coupon.service.js';
 import { gstFromInclusive } from '#core/utils/money.js';
 import { resolveSellable } from '#modules/products/inventory.js';
 import { priceForQuantity } from '#modules/products/pricing.js';
@@ -9,6 +10,7 @@ import { Quote } from '#modules/quotes/quote.model.js';
 import { User } from '#modules/users/user.model.js';
 import { Vendor } from '#modules/vendors/vendor.model.js';
 import { settingsService } from '#services/settings/settings.service.js';
+import { Coupon } from '#modules/coupons/coupon.model.js';
 import { Cart, MAX_CART_ITEMS } from './cart.model.js';
 
 const PRICING_FIELDS =
@@ -148,6 +150,8 @@ export const cartService = {
         bulkSavings: Math.max(0, (basePrice - unitPrice) * quantity),
         pricing: { source: pricing.source, tier: pricing.tier, next: pricing.next, quote: pricing.quote },
         maxQuantity: product && sellable ? Math.min(MAX_QTY, quoteId ? sellable.available : maxOrderable(product, sellable)) : 0,
+        // This line's share of the coupon discount (set below).
+        discount: 0,
         issue,
         _product: product,
         _sellable: sellable,
@@ -155,23 +159,46 @@ export const cartService = {
       };
     });
 
+    // Coupon: priced on every read, so an expired or used-up code shows as such instead of silently applying.
+    let coupon = null;
+    if (cart?.coupon?.id) {
+      const doc = await Coupon.findById(cart.coupon.id).lean();
+      const result = await couponService.evaluate(doc, { userId, items });
+      result.shares.forEach((share, k) => {
+        items[k].discount = share;
+      });
+      coupon = {
+        code: cart.coupon.code,
+        description: doc?.description ?? null,
+        vendor: doc?.vendor ?? null,
+        discount: result.discount,
+        issue: result.issue,
+        message: result.issue ? couponIssueMessage(result.issue, doc) : null,
+        _coupon: doc,
+      };
+    }
+
     const payable = items.filter((i) => !i.issue);
     const subtotal = payable.reduce((sum, i) => sum + i.lineTotal, 0);
+    const discount = coupon?.discount ?? 0;
     const mrpTotal = payable.reduce((sum, i) => sum + i.unitMrp * i.quantity, 0);
-    const tax = payable.reduce((sum, i) => sum + gstFromInclusive(i.lineTotal, i.gstRate), 0);
-    const shipping = shippingFee(subtotal, await settingsService.get('shipping'));
+    // GST is on what the buyer actually pays for each line.
+    const tax = payable.reduce((sum, i) => sum + gstFromInclusive(i.lineTotal - (i.discount ?? 0), i.gstRate), 0);
+    const shipping = shippingFee(subtotal - discount, await settingsService.get('shipping'));
 
     return {
       items,
+      coupon,
       summary: {
         itemCount: payable.reduce((n, i) => n + i.quantity, 0),
         subtotal,
         mrpTotal,
-        savings: mrpTotal - subtotal,
+        savings: mrpTotal - subtotal + discount,
         bulkSavings: payable.reduce((sum, i) => sum + i.bulkSavings, 0),
+        discount,
         tax,
         shipping,
-        total: subtotal + shipping,
+        total: subtotal - discount + shipping,
       },
       hasIssues: items.some((i) => i.issue),
     };
@@ -191,7 +218,8 @@ export const cartService = {
         { name: v.store?.name ?? 'Seller', slug: v.store?.slug ?? null, city: v.address?.city ?? null, official: Boolean(v.isPlatform) },
       ]),
     );
-    return { ...view, sellers, items: view.items.map(({ _product, _quote, _sellable, ...rest }) => rest) };
+    const coupon = view.coupon ? (({ _coupon, ...rest }) => rest)(view.coupon) : null;
+    return { ...view, coupon, sellers, items: view.items.map(({ _product, _quote, _sellable, ...rest }) => rest) };
   },
 
   async setItem(userId, productId, quantity, variantId) {
@@ -207,11 +235,11 @@ export const cartService = {
         code: 'QUOTED_ITEM_IN_CART',
       });
     }
-    await assertOrderable(productId, quantity, variantId);
+    const product = await assertOrderable(productId, quantity, variantId);
     const match = lineMatch(productId, variantId);
     const updated = await Cart.findOneAndUpdate(
       { user: userId, items: { $elemMatch: match } },
-      { $set: { 'items.$.quantity': quantity } },
+      { $set: { 'items.$.quantity': quantity, 'items.$.vendor': product.vendor } },
       { returnDocument: 'after' },
     );
     if (!updated) {
@@ -219,7 +247,7 @@ export const cartService = {
       if (cart.items.length >= MAX_CART_ITEMS) throw ApiError.unprocessable(`Your cart can hold up to ${MAX_CART_ITEMS} different items`);
       await Cart.updateOne(
         { user: userId, items: { $not: { $elemMatch: match } } },
-        { $push: { items: { product: productId, ...(variantId ? { variant: variantId } : {}), quantity } } },
+        { $push: { items: { product: productId, vendor: product.vendor, ...(variantId ? { variant: variantId } : {}), quantity } } },
       );
     }
   },
@@ -230,7 +258,10 @@ export const cartService = {
     const others = cart.items.filter((i) => String(i.product) !== String(quote.product));
     if (others.length >= MAX_CART_ITEMS) throw ApiError.unprocessable(`Your cart can hold up to ${MAX_CART_ITEMS} different items`);
     await Cart.updateOne({ user: userId }, { $pull: { items: { product: quote.product } } });
-    await Cart.updateOne({ user: userId }, { $push: { items: { product: quote.product, quantity: quote.quantity, quote: quote._id } } });
+    await Cart.updateOne(
+      { user: userId },
+      { $push: { items: { product: quote.product, vendor: quote.vendor, quantity: quote.quantity, quote: quote._id } } },
+    );
     return this.get(userId);
   },
 
@@ -254,6 +285,33 @@ export const cartService = {
       const qty = Math.max(product.inventory.moq, Math.min(quantity, maxOrderable(product, sellable)));
       await this.putLine(userId, productId, qty, variantId).catch(() => {});
     }
+    return this.get(userId);
+  },
+
+  /** Applies a coupon code to the buyer's cart. Refuses codes that can't be used right now, saying why. */
+  async applyCoupon(userId, code) {
+    const coupon = await couponService.findByCode(code);
+    if (!coupon)
+      throw ApiError.unprocessable("This coupon code doesn't exist", { code: 'COUPON_INVALID', details: { issue: 'not_found' } });
+    const cart = await Cart.findOne({ user: userId }).lean();
+    if (!cart?.items.length) throw ApiError.unprocessable('Add items to your cart first', { code: 'CART_EMPTY' });
+
+    const view = await this.view(userId);
+    const result = await couponService.evaluate(coupon, { userId, items: view.items });
+    if (result.issue) {
+      throw ApiError.unprocessable(couponIssueMessage(result.issue, coupon), { code: 'COUPON_INVALID', details: { issue: result.issue } });
+    }
+    await Cart.updateOne({ user: userId }, { $set: { coupon: { id: coupon._id, code: coupon.code } } });
+    return this.get(userId);
+  },
+
+  /** After an order used the coupon. */
+  async clearCoupon(userId) {
+    await Cart.updateOne({ user: userId }, { $unset: { coupon: 1 } });
+  },
+
+  async removeCoupon(userId) {
+    await Cart.updateOne({ user: userId }, { $unset: { coupon: 1 } });
     return this.get(userId);
   },
 

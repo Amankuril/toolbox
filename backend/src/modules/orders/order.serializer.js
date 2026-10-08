@@ -17,6 +17,7 @@ function serializeItem(i) {
     gstRate: i.gstRate,
     quantity: i.quantity,
     lineTotal: i.lineTotal,
+    discount: i.discount ?? 0,
     taxAmount: i.taxAmount,
     status: i.status,
     tracking: i.tracking?.trackingNumber ? i.tracking : null,
@@ -55,6 +56,7 @@ export function serializeOrder(o) {
     user: doc.user,
     items: doc.items.map(serializeItem),
     amounts: doc.amounts,
+    coupon: doc.coupon?.code ? { code: doc.coupon.code, vendor: doc.coupon.vendor } : null,
     refunds: doc.refunds ?? [],
   };
 }
@@ -67,8 +69,11 @@ export function serializeVendorOrder(o, vendorId) {
   return {
     ...base(doc),
     items,
+    coupon: doc.coupon?.code && String(doc.coupon.vendor) === String(vendorId) ? { code: doc.coupon.code } : null,
     amounts: {
+      // Net of coupon shares: what the seller is paid for.
       subtotal: active.reduce((s, i) => s + i.lineTotal, 0),
+      discount: active.reduce((s, i) => s + i.discount, 0),
       tax: active.reduce((s, i) => s + i.taxAmount, 0),
       itemCount: active.reduce((n, i) => n + i.quantity, 0),
     },
