@@ -12,6 +12,7 @@ import { Field, Input, Textarea } from '@/ui/Field'
 import { NumberInput, PriceInput } from '@/ui/inputs'
 import { storeKeys, userApi } from '../api'
 import { unitPlural } from '@/core/lib/units'
+import { gaItem, track } from '@/core/analytics/ga'
 
 const tomorrow = () => new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)
 
@@ -41,6 +42,7 @@ export function QuoteRequestDialog({ open, onOpenChange, product }) {
         note: v.note.trim() || undefined,
       }),
     onSuccess: (quote) => {
+      track('generate_lead', { lead_source: 'quote_request', items: [gaItem(product, { quantity: v.quantity })] })
       qc.invalidateQueries({ queryKey: ['user', 'quotes'] })
       onOpenChange(false)
       toast.success('Quote requested', { description: 'The seller will reply with a price. We’ll show it in your quotes.' })
@@ -70,7 +72,8 @@ export function QuoteRequestDialog({ open, onOpenChange, product }) {
     >
       <div className="flex flex-col gap-4">
         <p className="text-sm text-slate-600">
-          For {formatNumber(threshold)}+ {unitPlural(unit, 2)}. Listed at {formatINR(product.pricing.price)} each; the seller can offer a better price for volume.
+          For {formatNumber(threshold)}+ {unitPlural(unit, 2)}. Listed at {formatINR(product.pricing.price)} each; the seller can offer a better price for
+          volume.
         </p>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Quantity" required error={invalidQty ? `At least ${formatNumber(threshold)}` : error?.fields?.quantity}>

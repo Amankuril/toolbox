@@ -1,11 +1,12 @@
 import { AlertTriangle, ArrowRight, FileText, Heart, Layers, Lock, ShoppingCart, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { cn } from '@/core/lib/cn'
 import { formatDate, formatINR, formatNumber } from '@/core/lib/format'
 import { unitShort } from '@/core/lib/units'
 import { useBranding } from '@/core/settings/usePublicSettings'
+import { cartItems, toRupees, trackCartChange, trackItems } from '@/core/analytics/ga'
 import { Thumb } from '@/ui/Brand'
 import { Button } from '@/ui/Button'
 import { Skeleton } from '@/ui/Card'
@@ -51,6 +52,12 @@ export default function CartPage() {
   const navigate = useNavigate()
   const { siteName } = useBranding()
   const goCheckout = () => navigate(cart.signedIn ? '/checkout' : '/login?next=/checkout')
+  const loaded = !cart.isLoading && cart.items.length > 0
+  useEffect(() => {
+    if (loaded) trackItems('view_cart', cartItems(cart.items), { value: toRupees(cart.summary.total) })
+    // Once per visit to the cart, not on every quantity change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded])
 
   if (cart.isLoading) {
     return (
@@ -163,6 +170,7 @@ function CartLine({ line, cart }) {
     if (toWishlist && p && !wishlist.has(p._id)) wishlist.toggle(p, { silent: true })
     try {
       await cart.remove(line.productId, line.variantId)
+      trackCartChange(p, { from: line.quantity, to: 0, price: line.unitPrice, variant: line.variant?.title })
     } catch {
       setLeaving(false)
       return
@@ -208,7 +216,13 @@ function CartLine({ line, cart }) {
         {!line.issue && nextReachable && !line.quantityLocked && (
           <button
             type="button"
-            onClick={() => cart.setQty(line.productId, line.quantity + next.unitsNeeded, line.variantId)}
+            onClick={() =>
+              cart
+                .setQty(line.productId, line.quantity + next.unitsNeeded, line.variantId)
+                .then(() =>
+                  trackCartChange(p, { from: line.quantity, to: line.quantity + next.unitsNeeded, price: line.unitPrice, variant: line.variant?.title }),
+                )
+            }
             className="mt-2 flex items-center gap-2 rounded-md border border-dashed border-accent bg-accent-soft/60 px-2.5 py-1.5 text-left text-xs text-slate-800 transition-colors hover:bg-accent-soft"
           >
             <Layers className="size-3.5 shrink-0 text-accent-ink" />
@@ -273,7 +287,11 @@ function Quantity({ line, cart }) {
       min={p.moq}
       max={line.maxQuantity || 9999}
       disabled={cart.isUpdating}
-      onChange={(q) => cart.setQty(line.productId, q, line.variantId)}
+      onChange={(q) =>
+        cart
+          .setQty(line.productId, q, line.variantId)
+          .then(() => trackCartChange(p, { from: line.quantity, to: q, price: line.unitPrice, variant: line.variant?.title }))
+      }
     />
   )
 }

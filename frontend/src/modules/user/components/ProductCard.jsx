@@ -11,6 +11,7 @@ import { Button } from '@/ui/Button'
 import { Skeleton } from '@/ui/Card'
 import { useCart } from '../cart/useCart'
 import { unitShort } from '@/core/lib/units'
+import { trackCartChange } from '@/core/analytics/ga'
 import { WishlistButton } from './WishlistButton'
 
 /** "550 W · 13 mm" — the two specs that matter most, straight from the listing. */
@@ -52,7 +53,9 @@ function useAddToCart(p) {
     if (p.hasVariants) return navigate(`/p/${p.slug}`)
     setBusy(true)
     try {
-      await cart.setQty(p._id, Math.max(p.moq, inCart + 1))
+      const to = Math.max(p.moq, inCart + 1)
+      await cart.setQty(p._id, to)
+      trackCartChange(p, { from: inCart, to })
       toast.success('Added to cart', { description: p.name, action: { label: 'View cart', onClick: () => navigate('/cart') } })
     } catch {
       /* toast already shown */

@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect } from 'react'
 import { CircleCheckBig, Clock, X } from 'lucide-react'
 import { useParams, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
@@ -17,6 +18,7 @@ import { ReasonDialog } from '@/ui/ReasonDialog'
 import { PageHeader } from '@/ui/PageHeader'
 import { storeKeys, userApi } from '../../api'
 import { payForOrder } from '../../payments'
+import { trackPurchase } from '@/core/analytics/ga'
 
 export default function MyOrderDetailPage() {
   const { id } = useParams()
@@ -42,6 +44,12 @@ export default function MyOrderDetailPage() {
     enabled: Boolean(o) && o?.status !== 'pending_payment',
   })
 
+  // Arrived from checkout (placed, or paid and still being confirmed): report the purchase once it's placed.
+  const fromCheckout = params.has('placed') || params.has('verifying')
+  useEffect(() => {
+    if (fromCheckout) trackPurchase(o)
+  }, [fromCheckout, o])
+
   const refresh = (updated) => {
     if (updated) qc.setQueryData(storeKeys.order(id), updated)
     qc.invalidateQueries({ queryKey: ['user', 'orders'] })
@@ -53,7 +61,9 @@ export default function MyOrderDetailPage() {
       const payResult = await payForOrder({ order, payment, siteName })
       if (payResult.status === 'paid') {
         toast.success('Payment received — thank you!')
-        refresh(await userApi.order(id))
+        const paid = await userApi.order(id)
+        refresh(paid)
+        trackPurchase(paid)
         qc.invalidateQueries({ queryKey: storeKeys.cart })
       } else if (payResult.status === 'verifying') {
         refresh(await userApi.order(id))

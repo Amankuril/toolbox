@@ -112,6 +112,8 @@ With `SMS_PROVIDER=console` (the dev default), OTPs are printed in the API log i
 - Each order line belongs to one vendor and moves through pending → confirmed → packed → shipped → delivered.
 - COD orders become "paid" once every remaining line is delivered.
 
+**Analytics.** Paste a GA4 Measurement ID in **Admin → Settings → Analytics** (empty = off). Only the storefront is tracked, never the seller or admin panels. It sends page views plus GA4's standard e-commerce events: `view_item`, `add_to_cart` / `remove_from_cart`, `view_cart`, `begin_checkout` and `purchase` (once per order, with the coupon). It also sends `search`, `login` / `sign_up`, and `generate_lead` for quote requests and WhatsApp chats. No names, phones or emails are sent. The code is in `frontend/src/core/analytics/ga.js`. The nginx CSP already allows Google's hosts.
+
 **Money** is always an integer number of **paise**, both in the API and the database. The UI converts only for display and input.
 
 ## Production

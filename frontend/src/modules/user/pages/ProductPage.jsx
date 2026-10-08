@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { BadgeCheck, ChevronRight, FileText, MessageCircle, Receipt, ShieldCheck, ShoppingCart, Truck, Wrench } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
 import { errorMessage } from '@/core/api/errors'
@@ -27,6 +27,7 @@ import { WishlistButton } from '../components/WishlistButton'
 import { RatingInline } from '../components/Stars'
 import { useRecentlyViewed, useTrackView } from '../cart/recentlyViewed'
 import { unitPlural, unitShort } from '@/core/lib/units'
+import { gaItem, track, trackCartChange, trackItems } from '@/core/analytics/ga'
 
 export default function ProductPage() {
   const { slug } = useParams()
@@ -108,6 +109,13 @@ const SECTIONS = [
 function ProductView({ data: { product: p, breadcrumbs, spareParts, related, fromSeller = [] } }) {
   useTrackView(p._id)
   const recent = useRecentlyViewed(p._id)
+  // GA: the product with its leaf category (from the breadcrumbs).
+  const gaProduct = { ...p, category: breadcrumbs?.length ? { name: breadcrumbs[breadcrumbs.length - 1].name } : undefined }
+  useEffect(() => {
+    trackItems('view_item', [gaItem(gaProduct)])
+    // Once per product page, not per re-render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [p._id])
   const { siteName } = useBranding()
   const cart = useCart()
   const navigate = useNavigate()
@@ -163,7 +171,9 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related, fro
   const add = async (thenGo) => {
     setBusy(thenGo ? 'buy' : 'add')
     try {
-      await cart.setQty(p._id, Math.min(max, inCart + qty), variant?._id)
+      const to = Math.min(max, inCart + qty)
+      await cart.setQty(p._id, to, variant?._id)
+      trackCartChange(gaProduct, { from: inCart, to, price: unitPrice, variant: variant?.options?.join(' / ') })
       if (thenGo) navigate('/cart')
       else toast.success('Added to cart', { description: `${formatNumber(qty)} × ${p.name}`, action: { label: 'View cart', onClick: () => navigate('/cart') } })
     } catch {
@@ -185,6 +195,7 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related, fro
     const tab = window.open('about:blank', '_blank')
     try {
       const { url } = await userApi.whatsappChat(p._id)
+      track('generate_lead', { lead_source: 'whatsapp_chat', items: [gaItem(gaProduct)] })
       if (tab) {
         tab.opener = null
         tab.location.href = url

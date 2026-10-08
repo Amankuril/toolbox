@@ -16,6 +16,7 @@ import { Field, Input } from '@/ui/Field'
 import { userApi } from '../api'
 import { mergeGuestCart } from '../cart/useCart'
 import { mergeGuestWishlist } from '../wishlist/useWishlist'
+import { track } from '@/core/analytics/ga'
 
 const schema = z
   .object({
@@ -51,6 +52,7 @@ export default function UserOnboardingPage() {
         ...(v.accountType === 'business' ? { businessName: v.businessName, gstin: v.gstin || undefined } : {}),
       }),
     onSuccess: async (data) => {
+      track('sign_up', { method: state.phone ? 'phone' : 'email', account_type: data.account?.accountType })
       sessions.user.getState().signIn(data)
       await Promise.all([mergeGuestCart(qc), mergeGuestWishlist(qc)])
       navigate(next, { replace: true })

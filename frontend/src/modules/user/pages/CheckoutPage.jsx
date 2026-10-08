@@ -16,7 +16,7 @@ import {
   Warehouse,
   Wrench,
 } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { parseApiError } from '@/core/api/errors'
@@ -37,6 +37,7 @@ import { AddressDialog } from '../components/AddressDialog'
 import { CartSummary } from '../components/CartSummary'
 import { CheckoutHeader, CheckoutSteps, MobileCheckoutBar, TrustRow } from '../components/checkoutKit'
 import { payForOrder } from '../payments'
+import { cartItems, toRupees, trackItems } from '@/core/analytics/ga'
 
 const LABEL_ICON = { Home, Office: Building2, Workshop: Wrench, Warehouse }
 
@@ -126,6 +127,15 @@ export default function CheckoutPage() {
   const [notesOpen, setNotesOpen] = useState(false)
   const [notes, setNotes] = useState('')
   const [paying, setPaying] = useState(false)
+
+  const cartReady = !cart.isLoading && cart.items.length > 0
+  useEffect(() => {
+    if (cartReady) {
+      trackItems('begin_checkout', cartItems(cart.items), { value: toRupees(cart.summary.total), ...(cart.coupon?.code ? { coupon: cart.coupon.code } : {}) })
+    }
+    // Once per checkout visit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cartReady])
 
   const payments = settings?.payments
   const total = cart.summary.total

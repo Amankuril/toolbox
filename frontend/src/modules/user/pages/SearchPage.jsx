@@ -1,4 +1,6 @@
+import { useEffect } from 'react'
 import { useSearchParams } from 'react-router'
+import { track } from '@/core/analytics/ga'
 import { useBranding } from '@/core/settings/usePublicSettings'
 import { ListingHeader } from '../components/ListingHeader'
 import { ProductListing } from '../components/ProductListing'
@@ -11,6 +13,9 @@ export default function SearchPage() {
   const q = params.get('q')?.trim() ?? ''
   const category = params.get('category') || undefined
   const department = tree.find((c) => c.slug === category)
+  useEffect(() => {
+    if (q) track('search', { search_term: q })
+  }, [q])
 
   const title = q
     ? `“${q}”`

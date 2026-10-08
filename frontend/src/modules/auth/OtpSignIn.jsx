@@ -11,6 +11,7 @@ import { Alert } from '@/ui/Card'
 import { SegmentedControl } from '@/ui/Controls'
 import { Input } from '@/ui/Field'
 import { OtpInput, PhoneInput } from '@/ui/inputs'
+import { track } from '@/core/analytics/ga'
 
 function useCountdown() {
   const [until, setUntil] = useState(0)
@@ -95,6 +96,8 @@ export function OtpSignIn({ audience, onAuthenticated, onOnboarding }) {
     mutationFn: (code) => one(publicApi.post('/auth/otp/verify', { ...target, audience, otp: code })),
     onSuccess: (data) => {
       if (data.status === 'authenticated') {
+        // Only the storefront reports to Google Analytics.
+        if (audience === 'user') track('login', { method: target.email ? 'email' : 'phone' })
         sessions[audience].getState().signIn(data)
         onAuthenticated(data.account)
       } else {

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, CheckCircle2, CloudUpload, CreditCard, HardDrive, Palette, ShieldCheck, Store, Truck } from 'lucide-react'
+import { AlertTriangle, BarChart3, CheckCircle2, CloudUpload, CreditCard, HardDrive, Palette, ShieldCheck, Store, Truck } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { errorMessage } from '@/core/api/errors'
@@ -55,6 +55,7 @@ export default function SettingsPage() {
             { value: 'payments', label: 'Payments', icon: CreditCard, content: <PaymentSettings payments={data.payments} integrations={data.integrations} /> },
             { value: 'shipping', label: 'Shipping', icon: Truck, content: <ShippingSettings shipping={data.shipping} integrations={data.integrations} /> },
             { value: 'moderation', label: 'Moderation', icon: ShieldCheck, content: <ModerationSettings moderation={data.moderation} /> },
+            { value: 'analytics', label: 'Analytics', icon: BarChart3, content: <AnalyticsSettings analytics={data.analytics} /> },
           ]}
         />
       )}
@@ -729,6 +730,55 @@ function ModerationSettings({ moderation }) {
             />
           </div>
         ))}
+      </CardBody>
+    </Card>
+  )
+}
+
+/* ───────────────────────── Analytics ───────────────────────── */
+
+const GA_ID = /^G-[A-Z0-9]{4,16}$/
+
+function AnalyticsSettings({ analytics }) {
+  const save = useSaveSettings('analytics', 'Analytics settings saved')
+  const [id, setId] = useState(analytics.gaMeasurementId)
+  const value = id.trim().toUpperCase()
+  const invalid = value !== '' && !GA_ID.test(value)
+  const live = Boolean(analytics.gaMeasurementId)
+
+  return (
+    <Card className="max-w-3xl">
+      <CardHeader
+        title="Google Analytics 4"
+        description="Tracks the storefront only (not the seller or admin panels): page views, product views, cart, checkout, purchases, searches, sign-ups and quote / WhatsApp leads."
+        action={<Badge tone={live ? 'success' : 'neutral'}>{live ? 'On' : 'Off'}</Badge>}
+      />
+      <CardBody className="flex flex-col gap-5">
+        <Field
+          label="Measurement ID"
+          error={invalid ? 'Use the Measurement ID from GA4, like G-AB12CD34EF' : save.error ? errorMessage(save.error) : undefined}
+          hint="In Google Analytics: Admin → Data streams → your web stream → Measurement ID. Leave empty to switch analytics off."
+        >
+          {(p) => (
+            <Input
+              {...p}
+              className="max-w-xs font-mono uppercase"
+              placeholder="G-XXXXXXXXXX"
+              maxLength={18}
+              value={id}
+              onChange={(e) => setId(e.target.value.replace(/\s/g, '').toUpperCase())}
+            />
+          )}
+        </Field>
+        <div className="flex justify-end gap-2 border-t border-slate-100 pt-5">
+          <Button variant="outline" disabled={id === analytics.gaMeasurementId} onClick={() => setId(analytics.gaMeasurementId)}>
+            Discard
+          </Button>
+          <Button loading={save.isPending} disabled={invalid || value === analytics.gaMeasurementId} onClick={() => save.mutate({ gaMeasurementId: value })}>
+            Save
+          </Button>
+        </div>
+        <p className="text-xs text-slate-500">Changes apply to visitors on their next page load.</p>
       </CardBody>
     </Card>
   )

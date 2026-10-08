@@ -3,6 +3,7 @@ import { FileText, Heart, LogOut, MapPin, Menu as MenuIcon, Package, ShoppingCar
 import { useState } from 'react'
 import { Link, Outlet, ScrollRestoration, useNavigate } from 'react-router'
 import { signOutEverywhere } from '@/core/api/http'
+import { useStoreAnalytics } from '@/core/analytics/useStoreAnalytics'
 import { useSessionBootstrap } from '@/core/auth/bootstrap'
 import { useSession } from '@/core/auth/session'
 import { formatINR } from '@/core/lib/format'
@@ -210,6 +211,7 @@ function Footer() {
 
 export default function StoreLayout() {
   useSessionBootstrap('user')
+  useStoreAnalytics()
   const { data: settings } = usePublicSettings()
   const siteName = settings?.branding?.siteName ?? 'ToolsHubs'
   const [menuOpen, setMenuOpen] = useState(false)

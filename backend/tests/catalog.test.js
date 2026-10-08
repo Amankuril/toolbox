@@ -347,6 +347,18 @@ describe('catalogue', () => {
   });
 });
 
+describe('analytics settings', () => {
+  it('stores a GA4 Measurement ID, shows it to the storefront, and switches off when cleared', async () => {
+    const A = bearer(admin.accessToken);
+    expect((await request(app).get(`${API}/public/settings`).expect(200)).body.data.analytics).toEqual({ gaMeasurementId: null });
+    await request(app).put(`${API}/admin/settings/analytics`).set(A).send({ gaMeasurementId: 'UA-12345-1' }).expect(422);
+    await request(app).put(`${API}/admin/settings/analytics`).set(A).send({ gaMeasurementId: ' g-ab12cd34ef ' }).expect(200);
+    expect((await request(app).get(`${API}/public/settings`).expect(200)).body.data.analytics).toEqual({ gaMeasurementId: 'G-AB12CD34EF' });
+    await request(app).put(`${API}/admin/settings/analytics`).set(A).send({ gaMeasurementId: '' }).expect(200);
+    expect((await request(app).get(`${API}/public/settings`).expect(200)).body.data.analytics.gaMeasurementId).toBeNull();
+  });
+});
+
 describe('settings & theme', () => {
   it('admin updates a module theme and the storefront sees it', async () => {
     await request(app)

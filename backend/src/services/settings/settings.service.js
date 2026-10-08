@@ -106,6 +106,7 @@ export const settingsService = {
         partialMaxBalance: values.payments.partialMaxBalance,
       },
       shipping: { flatFee: values.shipping.flatFee, freeAbove: values.shipping.freeAbove },
+      analytics: { gaMeasurementId: values.analytics.gaMeasurementId || null },
     };
   },
 

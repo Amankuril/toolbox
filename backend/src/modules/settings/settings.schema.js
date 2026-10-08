@@ -116,6 +116,21 @@ export const SETTINGS = {
     },
   },
 
+  analytics: {
+    schema: z.object({
+      // Google Analytics 4 web stream ID. Public by design (it ships in the page); empty = analytics off.
+      gaMeasurementId: z.union([
+        z.literal(''),
+        z
+          .string()
+          .trim()
+          .toUpperCase()
+          .regex(/^G-[A-Z0-9]{4,16}$/, 'Use the Measurement ID from GA4, like G-AB12CD34EF'),
+      ]),
+    }),
+    defaults: { gaMeasurementId: '' },
+  },
+
   moderation: {
     schema: z.object({
       autoApproveVendors: z.boolean(),
