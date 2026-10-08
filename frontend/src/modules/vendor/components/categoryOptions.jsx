@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
+import { MAX_CATEGORY_DEPTH } from '@/core/lib/constants'
 import { buildTree, flattenTree } from '@/core/lib/tree'
 import { useSeller } from '../seller'
 
@@ -9,7 +10,7 @@ export function useVendorCategories() {
 }
 
 /** Category rows as combobox options, depth-first with full paths. */
-export function useCategoryOptions({ maxLevel = 2, excludeId } = {}) {
+export function useCategoryOptions({ maxLevel = MAX_CATEGORY_DEPTH - 1, excludeId } = {}) {
   const { data = [] } = useVendorCategories()
   return useMemo(
     () =>

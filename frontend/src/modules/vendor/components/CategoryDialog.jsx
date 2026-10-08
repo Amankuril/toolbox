@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { parseApiError } from '@/core/api/errors'
+import { MAX_CATEGORY_DEPTH } from '@/core/lib/constants'
 import { Button } from '@/ui/Button'
 import { Alert } from '@/ui/Card'
 import { Combobox } from '@/ui/Combobox'
@@ -19,7 +20,8 @@ export function CategoryDialog({ open, onOpenChange, category, defaultParent, on
   const seller = useSeller()
   const qc = useQueryClient()
   const isEdit = Boolean(category)
-  const parents = useCategoryOptions({ maxLevel: 1, excludeId: category?._id })
+  // A parent must leave room for one more level under it.
+  const parents = useCategoryOptions({ maxLevel: MAX_CATEGORY_DEPTH - 2, excludeId: category?._id })
   const [v, setV] = useState(null)
   const values = v ?? {
     name: category?.name ?? '',

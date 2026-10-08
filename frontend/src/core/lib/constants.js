@@ -1,3 +1,6 @@
+/** How deep the shared category tree may go (levels 1–10). Must match MAX_CATEGORY_LEVEL + 1 in the backend. */
+export const MAX_CATEGORY_DEPTH = 10
+
 export const INDIAN_STATES = [
   'Andaman and Nicobar Islands',
   'Andhra Pradesh',

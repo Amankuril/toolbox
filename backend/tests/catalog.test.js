@@ -168,13 +168,21 @@ describe('catalogue', () => {
       .send({ name: 'Drill Machines' })
       .expect(403);
 
-    const leaf = await request(app).post(`${API}/admin/categories`).set(a).send({ name: 'Cordless', parent: drills._id }).expect(201);
-    const tooDeep = await request(app)
-      .post(`${API}/admin/categories`)
-      .set(a)
-      .send({ name: 'Too deep', parent: leaf.body.data._id })
-      .expect(422);
+    // The tree goes 10 levels deep (levels 0–9); an 11th is refused.
+    let parent = (await request(app).post(`${API}/admin/categories`).set(a).send({ name: 'Cordless', parent: drills._id }).expect(201)).body
+      .data;
+    while (parent.level < 9) {
+      parent = (
+        await request(app)
+          .post(`${API}/admin/categories`)
+          .set(a)
+          .send({ name: `Level ${parent.level + 2}`, parent: parent._id })
+          .expect(201)
+      ).body.data;
+    }
+    const tooDeep = await request(app).post(`${API}/admin/categories`).set(a).send({ name: 'Too deep', parent: parent._id }).expect(422);
     expect(tooDeep.body.error.code).toBe('MAX_DEPTH');
+    expect(tooDeep.body.error.message).toBe('Categories can be at most 10 levels deep');
   });
 
   it('vendor lists machinery and a compatible spare part; admin approves; storefront shows them', async () => {

@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { z } from 'zod'
 import { applyFieldErrors, errorMessage } from '@/core/api/errors'
 import { useSearchParamsState } from '@/core/hooks/useSearchParamsState'
+import { MAX_CATEGORY_DEPTH } from '@/core/lib/constants'
 import { flattenTree } from '@/core/lib/tree'
 import { Badge, StatusBadge } from '@/ui/Badge'
 import { Thumb } from '@/ui/Brand'
@@ -109,7 +110,7 @@ export default function CategoriesPage() {
                 </div>
               ),
             },
-            { key: 'level', header: 'Level', cell: (c) => ['Root', 'Sub', 'Leaf'][c.level] },
+            { key: 'level', header: 'Level', cell: (c) => (c.level === 0 ? 'Top' : `Level ${c.level + 1}`) },
             { key: 'source', header: 'Source', cell: (c) => (c.owner ? <Badge tone="info">{c.owner.store?.name ?? 'Vendor'}</Badge> : <Badge>Admin</Badge>) },
             { key: 'products', header: 'Products', className: 'text-right', cell: (c) => <span className="tabular">{c.productCount}</span> },
             { key: 'status', header: 'Status', cell: (c) => <StatusBadge status={c.status} /> },
@@ -175,7 +176,10 @@ function CategoryDialog({ category, onClose, onSaved }) {
   const isNew = category === 'new'
   const open = Boolean(category)
   const { data: tree } = useQuery({ queryKey: adminKeys.categoryTree, queryFn: adminApi.categoryTree, enabled: open })
-  const options = useMemo(() => flattenTree(tree).filter((c) => c.level < 2 && (isNew || c._id !== category?._id)), [tree, isNew, category])
+  const options = useMemo(
+    () => flattenTree(tree).filter((c) => c.level < MAX_CATEGORY_DEPTH - 1 && (isNew || c._id !== category?._id)),
+    [tree, isNew, category],
+  )
 
   const form = useForm({ resolver: zodResolver(schema) })
   useEffect(() => {
@@ -227,7 +231,7 @@ function CategoryDialog({ category, onClose, onSaved }) {
         <Field label="Name" required error={formState.errors.name?.message} className="sm:col-span-2">
           {(p) => <Input {...p} {...register('name')} autoFocus />}
         </Field>
-        <Field label="Parent category" hint="Leave empty for a top-level category. Max 3 levels." className="sm:col-span-2">
+        <Field label="Parent category" hint={`Leave empty for a top-level category. Up to ${MAX_CATEGORY_DEPTH} levels deep.`} className="sm:col-span-2">
           {(p) => (
             <Select {...p} {...register('parent')}>
               <option value="">— Top level —</option>

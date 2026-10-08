@@ -2,8 +2,8 @@ import mongoose, { Schema } from 'mongoose';
 import { actorSchema, baseOptions, imageSchema } from '#core/db/schemas.js';
 import { bumpOnWrite, catalogGeneration } from '#core/cache/cached.js';
 
-/** Root (0) → sub (1) → leaf (2), mirroring the reference catalogue. */
-export const MAX_CATEGORY_LEVEL = 2;
+/** Deepest level index: 0 (top) … 9, so the tree is at most 10 levels deep. Mirrored in frontend core/lib/constants.js. */
+export const MAX_CATEGORY_LEVEL = 9;
 export const CATEGORY_STATUSES = ['active', 'pending', 'rejected', 'inactive'];
 
 const categorySchema = new Schema(

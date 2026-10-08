@@ -8,7 +8,7 @@ A multi-vendor marketplace for tools, machinery and spare parts, with three modu
 | **Seller panel** (vendor) | `/vendor` | Vendors | Mobile OTP, then a setup wizard and admin approval |
 | **Admin panel** | `/admin` | Operations team | Email and password |
 
-Vendors onboard first. Once approved, they list **tools, machinery and spare parts**. Every product belongs to a category in one shared three-level tree. Vendors can propose new categories, and admins approve them. Spare parts link to the machines they fit, so a machine's page lists its parts. Admins can see and manage everything.
+Vendors onboard first. Once approved, they list **tools, machinery and spare parts**. Every product belongs to a category in one shared tree, up to 10 levels deep. Vendors can propose new categories, and admins approve them. Spare parts link to the machines they fit, so a machine's page lists its parts. Admins can see and manage everything.
 
 ## Stack
 
