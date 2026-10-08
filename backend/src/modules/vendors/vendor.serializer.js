@@ -1,5 +1,14 @@
 import { ONBOARDING_STEPS } from './vendor.model.js';
 
+/**
+ * The WhatsApp number buyers chat with: the store's own, else the seller's mobile. The house store's
+ * placeholder phone isn't a number, so it only gets chats once an admin sets one.
+ */
+export function chatNumber(vendor) {
+  const candidate = vendor?.store?.whatsapp || vendor?.phone;
+  return /^\+91[6-9]\d{9}$/.test(candidate ?? '') ? candidate : null;
+}
+
 /** Vendor as seen by the vendor themselves (and admins). Bank a/c number is only ever masked. */
 export function serializeVendor(vendor) {
   if (!vendor) return null;
@@ -69,5 +78,7 @@ export function serializePublicVendor(vendor) {
     state: vendor.address?.state ?? null,
     memberSince: vendor.createdAt,
     official: Boolean(vendor.isPlatform),
+    // Whether the product page offers "Chat on WhatsApp" (the number itself is only handed out on tap).
+    chat: Boolean(chatNumber(vendor)),
   };
 }

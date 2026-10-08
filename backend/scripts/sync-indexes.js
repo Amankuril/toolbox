@@ -11,6 +11,7 @@ import '#modules/cart/cart.model.js';
 import '#modules/wishlist/wishlist.model.js';
 import '#modules/categories/category.model.js';
 import '#modules/coupons/coupon.model.js';
+import '#modules/leads/lead.model.js';
 import '#modules/media/media.model.js';
 import '#modules/orders/order.model.js';
 import '#modules/products/product.model.js';

@@ -26,7 +26,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "sms:test": "node --env-file-if-exists=.env scripts/test-sms.js",
-    "mail:test": "node --env-file-if-exists=.env scripts/test-mail.js"
+    "mail:test": "node --env-file-if-exists=.env scripts/test-mail.js",
+    "db:backfill-cart-vendors": "node --env-file-if-exists=.env scripts/backfill-cart-vendors.js"
   },
   "dependencies": {
     "argon2": "^0.45.1",

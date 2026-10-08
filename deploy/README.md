@@ -95,6 +95,10 @@ pm2 reload toolshubs-api            # rolling restart, no downtime
 (cd frontend && npm ci && npm run build && rsync -a --delete dist/ /var/www/toolbox/frontend/)
 ```
 
+**One-off data steps** (run once, on the release that introduces them):
+
+- Seller leads: `(cd backend && npm run db:backfill-cart-vendors)` tags existing cart lines with their seller, so carts saved before the Leads page existed show up there. Safe to re-run.
+
 Open browser tabs keep running the old bundle until they navigate. If a lazy-loaded chunk has been removed, they show a "new version available, reload" screen.
 
 ## 8. Backups and monitoring

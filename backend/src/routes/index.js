@@ -12,6 +12,7 @@ import authRoutes from '#modules/auth/auth.routes.js';
 import { adminBannerRoutes, publicBannerRoutes } from '#modules/banners/banner.routes.js';
 import { cartRoutes } from '#modules/cart/cart.routes.js';
 import { vendorCouponRoutes } from '#modules/coupons/coupon.routes.js';
+import { userChatRoutes, vendorLeadRoutes } from '#modules/leads/leads.routes.js';
 import { wishlistRoutes } from '#modules/wishlist/wishlist.routes.js';
 import { actAsStore } from '#modules/store/store.service.js';
 import { storeSettingsRoutes } from '#modules/store/store.routes.js';
@@ -74,6 +75,7 @@ export function buildRoutes() {
     .use('/quotes', userQuoteRoutes)
     .use('/products', userReviewRoutes)
     .use(userShippingRoutes)
+    .use(userChatRoutes)
     .use('/media', mediaUploadRouter());
   api.use('/user', userApi);
 
@@ -87,6 +89,7 @@ export function buildRoutes() {
     .use('/orders', vendorOrderRoutes)
     .use('/quotes', vendorQuoteRoutes)
     .use('/coupons', vendorCouponRoutes)
+    .use('/leads', vendorLeadRoutes)
     .use(vendorShippingRoutes)
     .use('/media', mediaUploadRouter());
   api.use('/vendor', vendorApi);
@@ -101,6 +104,7 @@ export function buildRoutes() {
     .use('/orders', vendorOrderRoutes)
     .use('/quotes', vendorQuoteRoutes)
     .use('/coupons', vendorCouponRoutes)
+    .use('/leads', vendorLeadRoutes)
     .use(vendorShippingRoutes)
     .use('/media', mediaUploadRouter());
 

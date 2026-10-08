@@ -475,7 +475,7 @@ export const productService = {
 
   async publicBySlug(slug) {
     const product = await Product.findOne({ slug, ...VISIBLE })
-      .populate('vendor', 'store address.city address.state createdAt isPlatform')
+      .populate('vendor', 'store address.city address.state createdAt isPlatform phone')
       .populate({ path: 'compatibleWith', match: VISIBLE, select: CARD_FIELDS })
       .lean();
     if (!product) throw ApiError.notFound('Product not found');

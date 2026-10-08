@@ -65,11 +65,12 @@ export const storeService = {
     return serializeStore(await this.ensure());
   },
 
-  async update({ storeName, storeDescription, logo, contactName, phone, email, address, gstin, legalName }) {
+  async update({ storeName, storeDescription, logo, contactName, phone, email, address, gstin, legalName, whatsapp }) {
     const { _id } = await this.ensure();
     const store = await Vendor.findById(_id);
     if (storeName !== undefined) store.store.name = storeName;
     if (storeDescription !== undefined) store.store.description = storeDescription;
+    if (whatsapp !== undefined) store.store.whatsapp = whatsapp || undefined;
     if (logo !== undefined) store.store.logo = logo ? await mediaService.resolveOne(logo, { kind: 'vendor', id: _id }) : undefined;
     if (contactName !== undefined) store.contactName = contactName;
     if (phone !== undefined && phone !== store.phone) {

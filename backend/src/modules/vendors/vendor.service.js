@@ -108,7 +108,7 @@ export const vendorService = {
     return result;
   },
 
-  async updateProfile(vendorId, { contactName, email, storeName, storeDescription, logo }) {
+  async updateProfile(vendorId, { contactName, email, storeName, storeDescription, logo, whatsapp }) {
     const vendor = await Vendor.findById(vendorId);
     if (!vendor) throw ApiError.notFound('Vendor not found');
     if (contactName !== undefined) vendor.contactName = contactName;
@@ -124,6 +124,7 @@ export const vendorService = {
     if (storeName !== undefined) vendor.store.name = storeName;
     if (storeDescription !== undefined) vendor.store.description = storeDescription;
     if (logo !== undefined) vendor.store.logo = logo ? await mediaService.resolveOne(logo, { kind: 'vendor', id: vendorId }) : undefined;
+    if (whatsapp !== undefined) vendor.store.whatsapp = whatsapp || undefined;
     return saveAndSerialize(vendor);
   },
 

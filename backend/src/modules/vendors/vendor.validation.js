@@ -1,6 +1,18 @@
 import { z } from 'zod';
 import { paginationQuery } from '#core/utils/pagination.js';
-import { addressSchema, email, gstin, idParams, ifsc, imageInput, nonEmpty, objectId, optionalText, pan } from '#core/validation/common.js';
+import {
+  addressSchema,
+  email,
+  gstin,
+  idParams,
+  ifsc,
+  imageInput,
+  indianPhone,
+  nonEmpty,
+  objectId,
+  optionalText,
+  pan,
+} from '#core/validation/common.js';
 import { BUSINESS_TYPES, VENDOR_DOCUMENT_TYPES, VENDOR_STATUSES } from './vendor.model.js';
 
 export const REQUIRED_DOCUMENTS = ['gst_certificate', 'cancelled_cheque'];
@@ -63,6 +75,8 @@ export const updateProfile = {
       storeName: nonEmpty(120),
       storeDescription: optionalText(2000),
       logo: imageInput.nullable(),
+      // '' clears it (chats then go to the seller's mobile).
+      whatsapp: indianPhone.or(z.literal('')),
     })
     .partial(),
 };

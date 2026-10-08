@@ -17,6 +17,7 @@ const updateStore = {
       address: addressSchema,
       gstin: gstin.or(z.literal('')),
       legalName: optionalText(200),
+      whatsapp: indianPhone.or(z.literal('')),
     })
     .partial(),
 };

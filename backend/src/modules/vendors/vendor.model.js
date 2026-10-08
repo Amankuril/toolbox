@@ -40,6 +40,8 @@ const vendorSchema = new Schema(
       slug: { type: String, trim: true, lowercase: true },
       description: { type: String, trim: true, maxlength: 2000 },
       logo: imageSchema,
+      // Number buyers reach with "Chat on WhatsApp" (E.164). Falls back to the seller's mobile.
+      whatsapp: { type: String, trim: true },
     },
 
     business: {

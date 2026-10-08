@@ -13,7 +13,7 @@ import { settingsService } from '#services/settings/settings.service.js';
 import { Coupon } from '#modules/coupons/coupon.model.js';
 import { Cart, MAX_CART_ITEMS } from './cart.model.js';
 
-const PRICING_FIELDS =
+export const PRICING_FIELDS =
   'name slug type brand modelNumber condition images pricing inventory hsnCode sku vendor isFeatured status vendorApproved bulkPricing specifications shipping variantOptions variants';
 
 /** Matches a cart line; `variant: null` also matches lines saved before variants existed. */
@@ -82,6 +82,72 @@ async function ensureCart(userId) {
   return Cart.findOneAndUpdate({ user: userId }, { $setOnInsert: { user: userId } }, { upsert: true, returnDocument: 'after' });
 }
 
+/**
+ * Prices cart lines with live product data, exactly as the buyer sees them (also used for seller leads).
+ * @param {Array} entries stored cart lines
+ * @param {{ userId: any, buyer: { accountType?: string } | null, productsById: Map, quotesById: Map }} ctx
+ */
+export function priceEntries(entries, { userId, buyer, productsById, quotesById }) {
+  return entries.map(({ product: productId, variant: variantId, quantity, quote: quoteId }) => {
+    const product = productsById.get(String(productId));
+    const sellable = sellableOrNull(product, variantId);
+    const quote = quoteId ? quotesById.get(String(quoteId)) : null;
+    const basePrice = sellable?.price ?? product?.pricing.price ?? 0;
+
+    let issue;
+    let pricing;
+    if (quoteId) {
+      if (quote?.status === 'ordered') issue = 'quote_in_order';
+      else
+        issue = quoteUsable(quote, { userId, productId, quantity })
+          ? lineIssue(product, sellable, quantity, { quoted: true })
+          : 'quote_expired';
+      pricing = {
+        source: 'quote',
+        unitPrice: quote?.offer?.unitPrice ?? basePrice,
+        tier: null,
+        next: null,
+        quote: quote ? { _id: quote._id, number: quote.number, validUntil: quote.offer?.validUntil ?? null } : null,
+      };
+    } else {
+      issue = lineIssue(product, sellable, quantity);
+      // Variants have their own price and no bulk tiers.
+      const p = sellable?.variant
+        ? { unitPrice: sellable.price, tier: null, next: null }
+        : product
+          ? priceForQuantity(product, quantity, buyer)
+          : { unitPrice: 0, tier: null, next: null };
+      pricing = { source: p.tier ? 'bulk' : 'base', unitPrice: p.unitPrice, tier: p.tier, next: p.next, quote: null };
+    }
+
+    const { unitPrice } = pricing;
+    return {
+      productId,
+      variantId: variantId ?? null,
+      variant: sellable?.variant ? { _id: sellable.variant._id, title: sellable.title, image: sellable.variant.image ?? null } : null,
+      sku: sellable?.sku ?? null,
+      product: product ? serializeProductCard(product) : null,
+      vendor: product?.vendor ?? null,
+      quantity,
+      quantityLocked: Boolean(quoteId),
+      unitPrice,
+      baseUnitPrice: basePrice,
+      unitMrp: sellable?.mrp ?? product?.pricing.mrp ?? 0,
+      gstRate: product?.pricing.gstRate ?? 0,
+      lineTotal: unitPrice * quantity,
+      bulkSavings: Math.max(0, (basePrice - unitPrice) * quantity),
+      pricing: { source: pricing.source, tier: pricing.tier, next: pricing.next, quote: pricing.quote },
+      maxQuantity: product && sellable ? Math.min(MAX_QTY, quoteId ? sellable.available : maxOrderable(product, sellable)) : 0,
+      // This line's share of the coupon discount (set below).
+      discount: 0,
+      issue,
+      _product: product,
+      _sellable: sellable,
+      _quote: quote,
+    };
+  });
+}
+
 export const cartService = {
   /**
    * Priced view of the cart using live product data and the buyer's account type.
@@ -100,64 +166,7 @@ export const cartService = {
     const productsById = new Map(products.map((p) => [String(p._id), p]));
     const quotesById = new Map(quotes.map((q) => [String(q._id), q]));
 
-    const items = entries.map(({ product: productId, variant: variantId, quantity, quote: quoteId }) => {
-      const product = productsById.get(String(productId));
-      const sellable = sellableOrNull(product, variantId);
-      const quote = quoteId ? quotesById.get(String(quoteId)) : null;
-      const basePrice = sellable?.price ?? product?.pricing.price ?? 0;
-
-      let issue;
-      let pricing;
-      if (quoteId) {
-        if (quote?.status === 'ordered') issue = 'quote_in_order';
-        else
-          issue = quoteUsable(quote, { userId, productId, quantity })
-            ? lineIssue(product, sellable, quantity, { quoted: true })
-            : 'quote_expired';
-        pricing = {
-          source: 'quote',
-          unitPrice: quote?.offer?.unitPrice ?? basePrice,
-          tier: null,
-          next: null,
-          quote: quote ? { _id: quote._id, number: quote.number, validUntil: quote.offer?.validUntil ?? null } : null,
-        };
-      } else {
-        issue = lineIssue(product, sellable, quantity);
-        // Variants have their own price and no bulk tiers.
-        const p = sellable?.variant
-          ? { unitPrice: sellable.price, tier: null, next: null }
-          : product
-            ? priceForQuantity(product, quantity, buyer)
-            : { unitPrice: 0, tier: null, next: null };
-        pricing = { source: p.tier ? 'bulk' : 'base', unitPrice: p.unitPrice, tier: p.tier, next: p.next, quote: null };
-      }
-
-      const { unitPrice } = pricing;
-      return {
-        productId,
-        variantId: variantId ?? null,
-        variant: sellable?.variant ? { _id: sellable.variant._id, title: sellable.title, image: sellable.variant.image ?? null } : null,
-        sku: sellable?.sku ?? null,
-        product: product ? serializeProductCard(product) : null,
-        vendor: product?.vendor ?? null,
-        quantity,
-        quantityLocked: Boolean(quoteId),
-        unitPrice,
-        baseUnitPrice: basePrice,
-        unitMrp: sellable?.mrp ?? product?.pricing.mrp ?? 0,
-        gstRate: product?.pricing.gstRate ?? 0,
-        lineTotal: unitPrice * quantity,
-        bulkSavings: Math.max(0, (basePrice - unitPrice) * quantity),
-        pricing: { source: pricing.source, tier: pricing.tier, next: pricing.next, quote: pricing.quote },
-        maxQuantity: product && sellable ? Math.min(MAX_QTY, quoteId ? sellable.available : maxOrderable(product, sellable)) : 0,
-        // This line's share of the coupon discount (set below).
-        discount: 0,
-        issue,
-        _product: product,
-        _sellable: sellable,
-        _quote: quote,
-      };
-    });
+    const items = priceEntries(entries, { userId, buyer, productsById, quotesById });
 
     // Coupon: priced on every read, so an expired or used-up code shows as such instead of silently applying.
     let coupon = null;
@@ -322,6 +331,7 @@ export const cartService = {
   /** Drops lines tied to quotes that are no longer usable (expired, withdrawn...). */
   async removeQuotes(quoteIds) {
     if (!quoteIds.length) return;
-    await Cart.updateMany({ 'items.quote': { $in: quoteIds } }, { $pull: { items: { quote: { $in: quoteIds } } } });
+    // A system clean-up, not buyer activity: leave updatedAt alone so the cart's lead status doesn't change.
+    await Cart.updateMany({ 'items.quote': { $in: quoteIds } }, { $pull: { items: { quote: { $in: quoteIds } } } }, { timestamps: false });
   },
 };
