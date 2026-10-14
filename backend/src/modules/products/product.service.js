@@ -25,7 +25,6 @@ const SIMPLE_FIELDS = [
   'shortDescription',
   'description',
   'pricing',
-  'hsnCode',
   'inventory',
   'variantOptions',
   'bulkPricing',
@@ -48,6 +47,7 @@ const REVIEWED_FIELDS = [
   'shortDescription',
   'description',
   'images',
+  'videos',
   'specifications',
   'condition',
   'compatibleWith',
@@ -70,8 +70,14 @@ async function assertCompatibleTargets(ids, selfId) {
 async function buildChanges(input, actor, selfId) {
   const changes = {};
   for (const key of SIMPLE_FIELDS) if (input[key] !== undefined) changes[key] = input[key];
+  // No rate on the product: it follows the category's (see applyTax).
+  if (changes.pricing?.gstRate == null && changes.pricing) {
+    const { gstRate: _inherit, ...pricing } = changes.pricing;
+    changes.pricing = pricing;
+  }
   if (input.category !== undefined) Object.assign(changes, await categoryService.assertUsableForProduct(input.category, actor));
   if (input.images !== undefined) changes.images = await mediaService.resolve(input.images, actor);
+  if (input.videos !== undefined) changes.videos = await mediaService.resolveVideos(input.videos, actor);
   if (input.compatibleWith !== undefined) changes.compatibleWith = await assertCompatibleTargets(input.compatibleWith, selfId);
   if (input.variants !== undefined) {
     // Variant ids are kept from the input so cart lines pointing at them stay valid.
@@ -104,15 +110,40 @@ function keepUntouchedStock(changes, product, base) {
   }
 }
 
+/**
+ * HSN code and GST rate: a value sent for the product is its own; left empty it follows the category
+ * (the nearest one up the tree that sets it), and keeps following it when the category's value changes.
+ * Runs after the input is applied, so a new category is picked up too.
+ */
+async function applyTax(product, input, { creating = false } = {}) {
+  if (input.hsnCode !== undefined || creating) {
+    product.hsnCode = input.hsnCode ?? undefined;
+    product.set('taxInherit.hsn', input.hsnCode == null);
+  }
+  if (input.pricing !== undefined) product.set('taxInherit.gst', input.pricing.gstRate == null);
+
+  const inherit = product.taxInherit ?? {};
+  if (!inherit.hsn && !inherit.gst) return;
+  const tax = await categoryService.effectiveTax(product.category);
+  if (inherit.hsn) product.hsnCode = tax.hsnCode ?? undefined;
+  if (inherit.gst) product.set('pricing.gstRate', tax.gstRate ?? undefined);
+}
+
 /** Cross-field rules, derived fields and auto SKUs; runs before every product save. */
 function prepareForSave(product) {
   assertValidVariants(product);
   syncInventory(product);
   assertValidBulkPricing(product);
   if (['pending', 'active'].includes(product.status) && !product.hsnCode) {
-    throw ApiError.unprocessable('Add the HSN/SAC code before publishing', {
+    throw ApiError.unprocessable('Add the HSN/SAC code (on the product or its category) before publishing', {
       code: 'HSN_REQUIRED',
       details: [{ path: 'hsnCode', message: 'HSN/SAC code is required' }],
+    });
+  }
+  if (['pending', 'active'].includes(product.status) && product.pricing?.gstRate == null) {
+    throw ApiError.unprocessable('Choose the GST rate (on the product or its category) before publishing', {
+      code: 'GST_REQUIRED',
+      details: [{ path: 'pricing.gstRate', message: 'GST rate is required' }],
     });
   }
 }
@@ -186,6 +217,7 @@ export const productService = {
       slug: await uniqueSlug(Product, input.name),
       status: 'draft',
     });
+    await applyTax(product, input, { creating: true });
 
     if (input.publish) {
       const autoApproveProducts = await autoApproves(vendor);
@@ -208,6 +240,7 @@ export const productService = {
     const before = product.toObject();
     const reviewedChange = REVIEWED_FIELDS.some((f) => f in changes && toComparable(before[f]) !== toComparable(changes[f]));
     product.set(changes);
+    await applyTax(product, input);
 
     const autoApproveProducts = await autoApproves(vendor);
     if (input.publish && ['draft', 'rejected'].includes(product.status)) {
@@ -355,6 +388,7 @@ export const productService = {
     const changes = await buildChanges(input, { kind: 'admin', id: admin.id }, product._id);
     keepUntouchedStock(changes, product, input.stockBase);
     product.set(changes);
+    await applyTax(product, input);
     if (input.isFeatured !== undefined) product.isFeatured = input.isFeatured;
     if (input.seo !== undefined) product.seo = input.seo;
     if (input.status !== undefined) {

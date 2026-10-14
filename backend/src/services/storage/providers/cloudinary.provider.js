@@ -7,26 +7,27 @@ export function createCloudinaryProvider({ cloudName, apiKey, apiSecret, rootFol
   return {
     name: 'cloudinary',
 
-    put(buffer, { key }) {
-      // key = "<folder>/<yyyy>/<mm>/<uuid>.webp" → Cloudinary public_id without extension.
-      const publicId = `${rootFolder}/${key.replace(/\.webp$/, '')}`;
+    put(buffer, { key, resourceType = 'image' }) {
+      // key = "<folder>/<yyyy>/<mm>/<uuid>.<ext>" → Cloudinary public_id without extension.
+      const publicId = `${rootFolder}/${key.replace(/\.\w+$/, '')}`;
+      const options =
+        resourceType === 'video'
+          ? { public_id: publicId, resource_type: 'video', overwrite: false, unique_filename: false }
+          : { public_id: publicId, resource_type: 'image', format: 'webp', overwrite: false, unique_filename: false };
       return new Promise((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
-          { public_id: publicId, resource_type: 'image', format: 'webp', overwrite: false, unique_filename: false },
-          (err, result) => {
-            if (err || !result) {
-              reject(ApiError.serviceUnavailable('Image upload to Cloudinary failed', { cause: err, code: 'STORAGE_UPLOAD_FAILED' }));
-              return;
-            }
-            resolve({ key: result.public_id, url: result.secure_url });
-          },
-        );
+        const stream = cloudinary.uploader.upload_stream(options, (err, result) => {
+          if (err || !result) {
+            reject(ApiError.serviceUnavailable('Upload to Cloudinary failed', { cause: err, code: 'STORAGE_UPLOAD_FAILED' }));
+            return;
+          }
+          resolve({ key: result.public_id, url: result.secure_url });
+        });
         stream.end(buffer);
       });
     },
 
-    async remove({ key }) {
-      await cloudinary.uploader.destroy(key, { resource_type: 'image', invalidate: true });
+    async remove({ key, mimeType }) {
+      await cloudinary.uploader.destroy(key, { resource_type: mimeType?.startsWith('video/') ? 'video' : 'image', invalidate: true });
     },
   };
 }

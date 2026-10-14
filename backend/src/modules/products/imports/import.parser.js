@@ -157,7 +157,8 @@ function buildItem(group, categories, issues) {
     shortDescription: p.short_description,
     description: p.description,
     pricing: compact({ mrp: cheapest?.mrp ?? p.mrp, price: cheapest?.price ?? p.price, gstRate: p.gst_rate }),
-    hsnCode: p.hsn_code,
+    // Empty cell: use the category's code (as the GST rate does when gst_rate is empty).
+    hsnCode: p.hsn_code ?? null,
     inventory:
       compact({
         trackQuantity: p.track_quantity,

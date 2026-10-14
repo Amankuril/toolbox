@@ -9,6 +9,8 @@ import { z } from 'zod'
 import { applyFieldErrors, errorMessage } from '@/core/api/errors'
 import { GST_RATES, PRODUCT_CONDITIONS, PRODUCT_TYPES, PRODUCT_UNITS } from '@/core/lib/constants'
 import { formatINR } from '@/core/lib/format'
+import { videoPayload } from '@/core/lib/media'
+import { inheritedTax } from '@/core/lib/tax'
 import { required } from '@/core/lib/validators'
 import { StatusBadge } from '@/ui/Badge'
 import { Button } from '@/ui/Button'
@@ -17,11 +19,12 @@ import { Combobox } from '@/ui/Combobox'
 import { SegmentedControl, Switch } from '@/ui/Controls'
 import { Checkbox, Field, Input, Select, Textarea } from '@/ui/Field'
 import { ImageUploader } from '@/ui/ImageUploader'
+import { VideoUploader } from '@/ui/VideoUploader'
 import { NumberInput, PriceInput, TagInput } from '@/ui/inputs'
 import { PageHeader } from '@/ui/PageHeader'
 import { useSeller } from '../seller'
 import { CategoryDialog } from '../components/CategoryDialog'
-import { useCategoryOptions } from '../components/categoryOptions'
+import { useCategoryOptions, useVendorCategories } from '../components/categoryOptions'
 import { BulkPricingCard } from '../components/BulkPricingCard'
 import { bulkTierIssues, MAX_TIERS } from '../components/bulkRules'
 import { CompatibilityPicker } from '../components/CompatibilityPicker'
@@ -45,16 +48,19 @@ const schema = z
     shortDescription: z.string().trim().max(500).optional(),
     description: z.string().trim().max(20_000).optional(),
     images: z.array(z.object({ media: z.string(), url: z.string(), alt: z.string().optional() })).max(10),
+    videos: z.array(z.object({ source: z.string(), url: z.string() }).loose()).max(5),
     // Required unless the product has variants (each variant then has its own price).
     pricing: z.object({
       mrp: optNum(z.number().int().min(1, 'Enter the MRP')),
       price: optNum(z.number().int().min(1, 'Enter the selling price')),
-      gstRate: z.coerce.number({ error: 'Choose a GST rate' }),
+      // '' = the category's rate.
+      gstRate: z.string(),
     }),
+    // Empty = the category's code.
     hsnCode: z
       .string()
       .trim()
-      .regex(/^(\d{4}|\d{6}|\d{8})$/, 'Enter a 4, 6 or 8 digit HSN/SAC code'),
+      .regex(/^(\d{4}|\d{6}|\d{8})?$/, 'Enter a 4, 6 or 8 digit HSN/SAC code'),
     inventory: z.object({
       trackQuantity: z.boolean(),
       available: z.boolean(),
@@ -141,7 +147,8 @@ const EMPTY = {
   shortDescription: '',
   description: '',
   images: [],
-  pricing: { mrp: undefined, price: undefined, gstRate: 18 },
+  videos: [],
+  pricing: { mrp: undefined, price: undefined, gstRate: '' },
   hsnCode: '',
   inventory: {
     trackQuantity: true,
@@ -179,8 +186,10 @@ function toForm(p) {
     shortDescription: p.shortDescription ?? '',
     description: p.description ?? '',
     images: p.images,
-    pricing: { mrp: p.pricing.mrp, price: p.pricing.price, gstRate: p.pricing.gstRate },
-    hsnCode: p.hsnCode ?? '',
+    videos: p.videos ?? [],
+    // Values that come from the category show as "same as category", so they keep following it.
+    pricing: { mrp: p.pricing.mrp, price: p.pricing.price, gstRate: p.taxInherit?.gst || p.pricing.gstRate == null ? '' : String(p.pricing.gstRate) },
+    hsnCode: p.taxInherit?.hsn ? '' : (p.hsnCode ?? ''),
     inventory: {
       trackQuantity: p.inventory.trackQuantity !== false,
       available: p.inventory.available !== false,
@@ -229,6 +238,8 @@ function toPayload(v) {
   const hasVariants = v.variants.length > 0
   // With variants the listing price is the cheapest variant (the server derives it too).
   const cheapest = hasVariants ? [...v.variants].sort((a, b) => a.price - b.price)[0] : null
+  // null: use the category's rate.
+  const gstRate = v.pricing.gstRate === '' ? null : Number(v.pricing.gstRate)
   return {
     type: v.type,
     name: v.name,
@@ -240,8 +251,9 @@ function toPayload(v) {
     shortDescription: v.shortDescription,
     description: v.description,
     images: v.images.map(({ media, alt }) => clean({ media, alt })),
-    pricing: hasVariants ? { mrp: cheapest.mrp, price: cheapest.price, gstRate: v.pricing.gstRate } : v.pricing,
-    hsnCode: v.hsnCode,
+    videos: v.videos.map(videoPayload),
+    pricing: { ...(hasVariants ? { mrp: cheapest.mrp, price: cheapest.price } : { mrp: v.pricing.mrp, price: v.pricing.price }), gstRate },
+    hsnCode: v.hsnCode || null,
     inventory: clean({ ...v.inventory, stock: hasVariants || !v.inventory.trackQuantity ? 0 : v.inventory.stock }),
     variantOptions: hasVariants ? v.variantOptions : [],
     variants: v.variants.map(({ image, ...row }) =>
@@ -278,6 +290,7 @@ function ProductForm({ product }) {
   const qc = useQueryClient()
   const [proposeOpen, setProposeOpen] = useState(false)
   const categoryOptions = useCategoryOptions()
+  const { data: categories } = useVendorCategories()
   const form = useForm({ resolver: zodResolver(schema), defaultValues: product ? toForm(product) : EMPTY })
   const { control, register, formState, setValue } = form
   const e = formState.errors
@@ -288,6 +301,9 @@ function ProductForm({ product }) {
   const tracked = useWatch({ control, name: 'inventory.trackQuantity' })
   const lowStockAlert = useWatch({ control, name: 'inventory.lowStockAlert' })
   const variantCount = useWatch({ control, name: 'variants' })?.length ?? 0
+  const categoryId = useWatch({ control, name: 'category' })
+  const fromCategory = inheritedTax(categories, categoryId)
+  const effectiveGst = pricing?.gstRate === '' ? fromCategory.gstRate : Number(pricing?.gstRate)
 
   // Warn before leaving with unsaved changes.
   useEffect(() => {
@@ -423,8 +439,11 @@ function ProductForm({ product }) {
           </Card>
 
           <Card>
-            <CardHeader title="Photos" description="Clear photos on a plain background sell best. The first photo is the cover." />
-            <CardBody>
+            <CardHeader
+              title="Photos & videos"
+              description="Clear photos on a plain background sell best. The first photo is the cover; drag to change the order."
+            />
+            <CardBody className="flex flex-col gap-6">
               <Controller
                 name="images"
                 control={control}
@@ -439,6 +458,16 @@ function ProductForm({ product }) {
                   />
                 )}
               />
+              <div className="border-t border-slate-100 pt-5">
+                <p className="mb-2 text-sm font-medium text-slate-800">Videos</p>
+                <Controller
+                  name="videos"
+                  control={control}
+                  render={({ field }) => (
+                    <VideoUploader audience={seller.audience} uploadPath={seller.uploadPath} value={field.value} onChange={field.onChange} />
+                  )}
+                />
+              </div>
             </CardBody>
           </Card>
 
@@ -556,14 +585,27 @@ function ProductForm({ product }) {
           </Card>
 
           <Card>
-            <CardHeader title="GST" />
+            <CardHeader title="GST" description="Leave these on the category's values unless this product is taxed differently." />
             <CardBody className="flex flex-col gap-4">
-              <Field label="HSN/SAC code" required error={e.hsnCode?.message} hint="4, 6 or 8 digits. SAC codes (services) start with 99.">
-                {(p) => <Input {...p} inputMode="numeric" maxLength={8} {...register('hsnCode')} />}
+              <Field
+                label="HSN/SAC code"
+                error={e.hsnCode?.message}
+                hint={
+                  fromCategory.hsnCode
+                    ? `Leave empty to use ${fromCategory.hsnCode} from “${fromCategory.hsnFrom}”.`
+                    : 'Required to publish: 4, 6 or 8 digits. SAC codes (services) start with 99.'
+                }
+              >
+                {(p) => <Input {...p} inputMode="numeric" maxLength={8} placeholder={fromCategory.hsnCode ?? undefined} {...register('hsnCode')} />}
               </Field>
-              <Field label="GST rate (%)" required error={e.pricing?.gstRate?.message}>
+              <Field
+                label="GST rate (%)"
+                error={e.pricing?.gstRate?.message}
+                hint={fromCategory.gstRate != null ? `“Same as category” uses the rate set on “${fromCategory.gstFrom}”.` : undefined}
+              >
                 {(p) => (
                   <Select {...p} {...register('pricing.gstRate')}>
+                    <option value="">{fromCategory.gstRate != null ? `Same as category (${fromCategory.gstRate}%)` : 'Same as category (not set)'}</option>
                     {GST_RATES.map((r) => (
                       <option key={r} value={r}>
                         {r}%
@@ -572,9 +614,9 @@ function ProductForm({ product }) {
                   </Select>
                 )}
               </Field>
-              {variantCount === 0 && pricing?.price > 0 && (
+              {variantCount === 0 && pricing?.price > 0 && effectiveGst != null && !Number.isNaN(effectiveGst) && (
                 <p className="text-xs text-slate-500">
-                  GST included in the price: {formatINR(Math.round(pricing.price - pricing.price / (1 + Number(pricing.gstRate) / 100)))}
+                  GST included in the price: {formatINR(Math.round(pricing.price - pricing.price / (1 + effectiveGst / 100)))}
                 </p>
               )}
             </CardBody>
@@ -755,7 +797,7 @@ function ProductForm({ product }) {
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-end gap-2 px-4 py-3 sm:px-6">
           {!isNew && !seller.isStore && ['active', 'inactive', 'pending'].includes(status) && (
             <p className="mr-auto hidden text-xs text-slate-500 md:block">
-              Changes to name, photos, description or specs may be re-reviewed before going live.
+              Changes to name, photos, videos, description or specs may be re-reviewed before going live.
             </p>
           )}
           <Button variant="ghost" onClick={() => navigate(`${seller.base}/products`)}>

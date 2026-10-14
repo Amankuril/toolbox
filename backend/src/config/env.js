@@ -153,6 +153,8 @@ const schema = z
     LOCAL_UPLOAD_PUBLIC_PATH: z.string().default('/uploads'),
     UPLOAD_MAX_FILE_SIZE_MB: z.coerce.number().positive().default(8),
     UPLOAD_MAX_FILES: z.coerce.number().int().positive().default(10),
+    // Videos are stored as uploaded (not re-encoded), so they get their own, larger cap.
+    VIDEO_MAX_FILE_SIZE_MB: z.coerce.number().positive().default(50),
     IMAGE_MAX_DIMENSION: z.coerce.number().int().positive().default(1600),
     IMAGE_WEBP_QUALITY: z.coerce.number().int().min(40).max(100).default(80),
 

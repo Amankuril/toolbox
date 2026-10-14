@@ -1,18 +1,22 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, EyeOff, ExternalLink, Eye, MessageSquareWarning, Star } from 'lucide-react'
+import { useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { toast } from 'sonner'
 import { errorMessage } from '@/core/api/errors'
 import { PRODUCT_TYPE_LABEL } from '@/core/lib/constants'
 import { rangeLabel, tierRows } from '@/core/lib/pricing'
 import { formatDateTime, formatINR, formatNumber, formatPhone, titleCase } from '@/core/lib/format'
+import { videoKey, videoPayload } from '@/core/lib/media'
 import { StatusBadge } from '@/ui/Badge'
 import { Price, Thumb } from '@/ui/Brand'
 import { Button } from '@/ui/Button'
 import { Alert, Card, CardBody, CardHeader, Skeleton } from '@/ui/Card'
 import { ConfirmDialog } from '@/ui/Dialog'
+import { ImageUploader } from '@/ui/ImageUploader'
 import { DescriptionList, PageHeader } from '@/ui/PageHeader'
 import { ReasonDialog } from '@/ui/ReasonDialog'
+import { VideoUploader } from '@/ui/VideoUploader'
 import { adminApi, adminKeys } from '../api'
 
 export default function ProductDetailPage() {
@@ -113,22 +117,8 @@ export default function ProductDetailPage() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="flex flex-col gap-6 lg:col-span-2">
-          <Card>
-            <CardHeader title="Images" description={`${p.images.length} image(s)`} />
-            <CardBody>
-              {p.images.length ? (
-                <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
-                  {p.images.map((img, i) => (
-                    <a key={img.media} href={img.url} target="_blank" rel="noreferrer" className="overflow-hidden rounded-lg border border-slate-200">
-                      <Thumb src={img.url} alt={img.alt ?? `Image ${i + 1}`} className="aspect-square w-full" />
-                    </a>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-slate-500">No images.</p>
-              )}
-            </CardBody>
-          </Card>
+          {/* Keyed on updatedAt so a save (or any refetch with changes) starts the editor from the saved state. */}
+          <MediaCard key={p.updatedAt} product={p} saving={update.isPending && 'images' in (update.variables ?? {})} onSave={(body) => update.mutate(body)} />
 
           <Card>
             <CardHeader title="Details" />
@@ -140,7 +130,7 @@ export default function ProductDetailPage() {
                   ['Model', p.modelNumber],
                   ['SKU', p.sku],
                   ['Condition', titleCase(p.condition)],
-                  ['HSN', p.hsnCode],
+                  ['HSN', p.hsnCode ? `${p.hsnCode}${p.taxInherit?.hsn ? ' (from category)' : ''}` : null],
                   ['Warranty', p.warranty?.months ? `${p.warranty.months} months${p.warranty.details ? ` — ${p.warranty.details}` : ''}` : p.warranty?.details],
                   ['Dispatch', p.shipping?.dispatchDays != null ? `${p.shipping.dispatchDays} day(s)` : null],
                 ]}
@@ -193,7 +183,7 @@ export default function ProductDetailPage() {
                 className="sm:grid-cols-2"
                 items={[
                   ['MRP', formatINR(p.pricing.mrp)],
-                  ['GST', `${p.pricing.gstRate}%`],
+                  ['GST', p.pricing.gstRate != null ? `${p.pricing.gstRate}%${p.taxInherit?.gst ? ' (from category)' : ''}` : 'Not set'],
                   ['Stock', `${formatNumber(p.inventory.stock)} ${p.inventory.unit}`],
                   ['MOQ', p.inventory.moq],
                   ['Max per order', p.inventory.maxOrderQty ?? 'No limit'],
@@ -249,5 +239,54 @@ export default function ProductDetailPage() {
         </div>
       </div>
     </>
+  )
+}
+
+const sameOrder = (a, b) => a.length === b.length && a.every((x, i) => x === b[i])
+
+/** Photos and videos, editable in place: add from files or links, remove, reorder, then save. */
+function MediaCard({ product, saving, onSave }) {
+  const [images, setImages] = useState(product.images)
+  const [videos, setVideos] = useState(product.videos ?? [])
+  const dirty =
+    !sameOrder(
+      images.map((i) => String(i.media)),
+      product.images.map((i) => String(i.media)),
+    ) || !sameOrder(videos.map(videoKey), (product.videos ?? []).map(videoKey))
+  const discard = () => {
+    setImages(product.images)
+    setVideos(product.videos ?? [])
+  }
+
+  return (
+    <Card>
+      <CardHeader
+        title="Photos & videos"
+        description={`${images.length} photo(s), ${videos.length} video(s). The first photo is the cover.`}
+        action={
+          dirty && (
+            <div className="flex gap-2">
+              <Button variant="ghost" size="sm" disabled={saving} onClick={discard}>
+                Discard
+              </Button>
+              <Button
+                size="sm"
+                loading={saving}
+                onClick={() => onSave({ images: images.map(({ media, alt }) => (alt ? { media, alt } : { media })), videos: videos.map(videoPayload) })}
+              >
+                Save media
+              </Button>
+            </div>
+          )
+        }
+      />
+      <CardBody className="flex flex-col gap-6">
+        <ImageUploader audience="admin" folder="products" max={10} value={images} onChange={setImages} />
+        <div className="border-t border-slate-100 pt-5">
+          <p className="mb-2 text-sm font-medium text-slate-800">Videos</p>
+          <VideoUploader audience="admin" value={videos} onChange={setVideos} />
+        </div>
+      </CardBody>
+    </Card>
   )
 }

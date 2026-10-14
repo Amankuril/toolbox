@@ -80,8 +80,18 @@ export function serializeProduct(p) {
     shortDescription: p.shortDescription ?? null,
     description: p.description ?? null,
     images: p.images ?? [],
-    pricing: { ...p.pricing, discountPercent: discount(p.pricing.mrp, p.pricing.price) },
+    videos: (p.videos ?? []).map((v) => ({
+      source: v.source,
+      media: v.media ?? null,
+      url: v.url,
+      embedUrl: v.embedUrl ?? null,
+      thumbnailUrl: v.thumbnailUrl ?? null,
+      title: v.title ?? null,
+    })),
+    pricing: { ...p.pricing, gstRate: p.pricing.gstRate ?? null, discountPercent: discount(p.pricing.mrp, p.pricing.price) },
     hsnCode: p.hsnCode ?? null,
+    // Whether hsnCode / gstRate come from the category rather than the product itself.
+    taxInherit: { hsn: Boolean(p.taxInherit?.hsn), gst: Boolean(p.taxInherit?.gst) },
     inventory: {
       ...p.inventory,
       trackQuantity: isTracked(p),
@@ -125,7 +135,7 @@ export function serializeProduct(p) {
 
 /** Storefront product page: no moderation or internal flags. */
 export function serializePublicProduct(p) {
-  const { moderation: _m, vendorApproved: _v, status: _s, categoryPath: _c, barcode: _b, ...rest } = serializeProduct(p);
+  const { moderation: _m, vendorApproved: _v, status: _s, categoryPath: _c, barcode: _b, taxInherit: _t, ...rest } = serializeProduct(p);
   const simpleQty = hasVariants(p) ? 0 : availableQty(p);
   return {
     ...rest,

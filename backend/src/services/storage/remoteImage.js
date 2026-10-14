@@ -52,18 +52,18 @@ function safeLookup(hostname, options, callback) {
   dns.lookup(hostname, { ...options, all: true }, (err, addresses) => {
     if (err) return callback(err);
     const allowed = addresses.filter((a) => !isBlocked(a.address, a.family));
-    if (!allowed.length) return callback(new RemoteImageError('Image host is not allowed'));
+    if (!allowed.length) return callback(new RemoteImageError('This host is not allowed'));
     if (options.all) return callback(null, allowed);
     return callback(null, allowed[0].address, allowed[0].family);
   });
 }
 
-function get(url, maxBytes) {
+function get(url, { maxBytes, accept }) {
   return new Promise((resolve, reject) => {
     const client = url.protocol === 'https:' ? https : http;
     const req = client.get(
       url,
-      { lookup: safeLookup, timeout: TIMEOUT_MS, headers: { 'user-agent': `${env.APP_NAME}-image-import/1.0`, accept: 'image/*' } },
+      { lookup: safeLookup, timeout: TIMEOUT_MS, headers: { 'user-agent': `${env.APP_NAME}-media-import/1.0`, accept } },
       (res) => {
         if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
           res.resume();
@@ -72,12 +72,12 @@ function get(url, maxBytes) {
         }
         if (res.statusCode !== 200) {
           res.resume();
-          reject(new RemoteImageError(`Image URL returned HTTP ${res.statusCode}`));
+          reject(new RemoteImageError(`The link returned HTTP ${res.statusCode}`));
           return;
         }
         if (Number(res.headers['content-length']) > maxBytes) {
           res.destroy();
-          reject(new RemoteImageError('Image is too large'));
+          reject(new RemoteImageError(`File is too large (limit ${Math.round(maxBytes / 1024 / 1024)} MB)`));
           return;
         }
         const chunks = [];
@@ -86,7 +86,7 @@ function get(url, maxBytes) {
           size += chunk.length;
           if (size > maxBytes) {
             res.destroy();
-            reject(new RemoteImageError('Image is too large'));
+            reject(new RemoteImageError(`File is too large (limit ${Math.round(maxBytes / 1024 / 1024)} MB)`));
             return;
           }
           chunks.push(chunk);
@@ -95,21 +95,21 @@ function get(url, maxBytes) {
         res.on('error', reject);
       },
     );
-    req.on('timeout', () => req.destroy(new RemoteImageError('Image download timed out')));
+    req.on('timeout', () => req.destroy(new RemoteImageError('Download timed out')));
     // `timeout` above only fires on an idle socket; a server trickling bytes needs an overall deadline too.
-    const deadline = setTimeout(() => req.destroy(new RemoteImageError('Image download took too long')), TOTAL_TIMEOUT_MS);
+    const deadline = setTimeout(() => req.destroy(new RemoteImageError('Download took too long')), TOTAL_TIMEOUT_MS);
     req.on('close', () => clearTimeout(deadline));
     req.on('error', (err) =>
-      reject(err instanceof RemoteImageError ? err : new RemoteImageError(`Could not download image (${err.code ?? err.message})`)),
+      reject(err instanceof RemoteImageError ? err : new RemoteImageError(`Could not download the file (${err.code ?? err.message})`)),
     );
   });
 }
 
 /**
- * Downloads an image from a public http(s) URL with size, time and redirect limits.
- * Content is not trusted here; the caller re-encodes it (which also rejects non-images).
+ * Downloads a file from a public http(s) URL with size, time and redirect limits.
+ * Content is not trusted here; the caller verifies it (re-encoding images, magic bytes for videos).
  */
-export async function downloadRemoteImage(rawUrl, { maxBytes = env.UPLOAD_MAX_FILE_SIZE_MB * 1024 * 1024 } = {}) {
+export async function downloadRemoteFile(rawUrl, { maxBytes, accept = '*/*' }) {
   let url;
   try {
     url = new URL(rawUrl);
@@ -117,15 +117,33 @@ export async function downloadRemoteImage(rawUrl, { maxBytes = env.UPLOAD_MAX_FI
     throw new RemoteImageError('Not a valid URL');
   }
   for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
-    if (!['http:', 'https:'].includes(url.protocol)) throw new RemoteImageError('Only http and https image URLs are supported');
-    if (url.username || url.password) throw new RemoteImageError('Image URLs must not contain credentials');
+    if (!['http:', 'https:'].includes(url.protocol)) throw new RemoteImageError('Only http and https links are supported');
+    if (url.username || url.password) throw new RemoteImageError('Links must not contain credentials');
     // IP literals skip DNS (and so safeLookup), so they're checked here.
     const host = url.hostname.replace(/^\[|\]$/g, '');
-    if (net.isIP(host) && isBlocked(host, net.isIP(host))) throw new RemoteImageError('Image host is not allowed');
-    const result = await get(url, maxBytes);
-    if (result.buffer)
-      return { buffer: result.buffer, originalname: decodeURIComponent(url.pathname.split('/').pop() || 'image').slice(0, 200) };
+    if (net.isIP(host) && isBlocked(host, net.isIP(host))) throw new RemoteImageError('This host is not allowed');
+    const result = await get(url, { maxBytes, accept });
+    if (result.buffer) return { buffer: result.buffer, originalname: safeName(url) };
     url = result.redirect;
   }
   throw new RemoteImageError('Too many redirects');
+}
+
+function safeName(url) {
+  const last = url.pathname.split('/').pop() || 'file';
+  try {
+    return decodeURIComponent(last).slice(0, 200);
+  } catch {
+    return last.slice(0, 200);
+  }
+}
+
+/** An image from a public URL, capped at the image upload limit. */
+export function downloadRemoteImage(rawUrl, { maxBytes = env.UPLOAD_MAX_FILE_SIZE_MB * 1024 * 1024 } = {}) {
+  return downloadRemoteFile(rawUrl, { maxBytes, accept: 'image/*' });
+}
+
+/** A video file from a public URL, capped at the video upload limit. */
+export function downloadRemoteVideo(rawUrl) {
+  return downloadRemoteFile(rawUrl, { maxBytes: env.VIDEO_MAX_FILE_SIZE_MB * 1024 * 1024, accept: 'video/*' });
 }

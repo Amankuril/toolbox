@@ -72,6 +72,23 @@ export const imageInput = z.object({
   alt: z.string().trim().max(200).optional(),
 });
 
+/**
+ * Video sent by clients: an uploaded file (`media`, resolved server-side like images) or a
+ * YouTube/Vimeo link (`url`, parsed server-side into an embed).
+ */
+export const videoInput = z.union([
+  z.object({ media: objectId, title: z.string().trim().max(200).optional() }),
+  z.object({ url: z.string().trim().min(1).max(500), title: z.string().trim().max(200).optional() }),
+]);
+
+/** 4, 6 or 8 digit HSN/SAC code. An empty string becomes null ("not set here, inherit it"). */
+export const hsnCode = z
+  .string()
+  .trim()
+  .regex(/^(\d{4}|\d{6}|\d{8})$/, 'HSN/SAC code must be 4, 6 or 8 digits')
+  .nullable()
+  .or(z.literal('').transform(() => null));
+
 /** Image reference as stored (after server-side resolution). */
 export const imageRef = imageInput.extend({ url: z.string().min(1).max(1000) });
 

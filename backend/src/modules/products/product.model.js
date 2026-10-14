@@ -16,6 +16,8 @@ export const PRODUCT_UNITS = ['piece', 'set', 'pair', 'box', 'pack', 'kg', 'litr
  */
 export const PRODUCT_STATUSES = ['draft', 'pending', 'active', 'rejected', 'inactive', 'archived'];
 export const MAX_PRODUCT_IMAGES = 10;
+export const MAX_PRODUCT_VIDEOS = 5;
+export const VIDEO_SOURCES = ['upload', 'youtube', 'vimeo'];
 /** Quantity price breaks on top of the base selling price (Amazon Business allows 5 as well). */
 export const MAX_BULK_TIERS = 5;
 /** Variant options (Size, Colour…) and the combinations they produce, Shopify-style. */
@@ -61,6 +63,20 @@ const variantSchema = new Schema({
   image: imageSchema,
 });
 
+/** An uploaded video file (`media`), or a YouTube/Vimeo embed. */
+const videoSchema = new Schema(
+  {
+    source: { type: String, enum: VIDEO_SOURCES, required: true },
+    media: { type: Schema.Types.ObjectId, ref: 'Media' },
+    // The file itself for uploads; the canonical watch link for embeds.
+    url: { type: String, required: true },
+    embedUrl: String,
+    thumbnailUrl: String,
+    title: { type: String, trim: true, maxlength: 200 },
+  },
+  { _id: false },
+);
+
 const productSchema = new Schema(
   {
     vendor: { type: Schema.Types.ObjectId, ref: 'Vendor', required: true },
@@ -86,14 +102,27 @@ const productSchema = new Schema(
       default: [],
       validate: [(v) => v.length <= MAX_PRODUCT_IMAGES, `At most ${MAX_PRODUCT_IMAGES} images`],
     },
+    videos: {
+      type: [videoSchema],
+      default: [],
+      validate: [(v) => v.length <= MAX_PRODUCT_VIDEOS, `At most ${MAX_PRODUCT_VIDEOS} videos`],
+    },
 
     // All money in paise.
     pricing: {
       mrp: { type: Number, required: true, min: 0 },
       price: { type: Number, required: true, min: 0 },
-      gstRate: { type: Number, enum: GST_RATES, default: 18 },
+      // Effective rate. Unset only on drafts whose category gives none; publishing needs one.
+      gstRate: { type: Number, enum: GST_RATES },
     },
+    // Effective code, like gstRate above.
     hsnCode: { type: String, trim: true, maxlength: 8 },
+    // true = the value above is copied from the category (nearest one that sets it) and follows it when the
+    // category changes; false = the seller set it on the product. Older products have no flags: their own values.
+    taxInherit: {
+      hsn: { type: Boolean, default: false },
+      gst: { type: Boolean, default: false },
+    },
 
     inventory: {
       // Off: no count is kept; `available` alone decides whether it can be bought.
@@ -178,7 +207,7 @@ productSchema.index({ status: 1, vendorApproved: 1, isFeatured: 1, publishedAt: 
 productSchema.index({ vendor: 1, status: 1, updatedAt: -1 });
 productSchema.index({ vendor: 1, sku: 1 }, { unique: true, partialFilterExpression: { sku: { $type: 'string' } } });
 productSchema.index({ compatibleWith: 1 });
-// Product page "similar items" (category + sort), and re-pathing products when a category moves.
+// Product page "similar items" (category + sort), and re-pathing / re-taxing products when a category changes.
 productSchema.index({ category: 1, status: 1, vendorApproved: 1, isFeatured: -1, publishedAt: -1 });
 // Product page "more from this seller", sorted without loading all of the seller's listings.
 productSchema.index({ vendor: 1, status: 1, 'rating.count': -1, publishedAt: -1 });

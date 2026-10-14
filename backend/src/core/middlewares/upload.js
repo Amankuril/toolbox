@@ -25,6 +25,32 @@ const imageUpload = multer({
 
 export const uploadImages = (field = 'files') => imageUpload.array(field, env.UPLOAD_MAX_FILES);
 
+/** Product videos: one file per request (they're large), checked by magic bytes after upload. */
+const videoUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: env.VIDEO_MAX_FILE_SIZE_MB * 1024 * 1024, files: 1, fields: 5, parts: 6 },
+  fileFilter(_req, file, cb) {
+    if (!file.mimetype?.startsWith('video/')) {
+      cb(ApiError.badRequest('Only video files can be uploaded here', { code: 'UNSUPPORTED_FILE' }));
+      return;
+    }
+    cb(null, true);
+  },
+});
+
+export const uploadVideo = (field = 'file') => {
+  const single = videoUpload.single(field);
+  // The shared multer message quotes the image limit; videos have their own.
+  return (req, res, next) =>
+    single(req, res, (err) =>
+      next(
+        err?.code === 'LIMIT_FILE_SIZE'
+          ? new ApiError(413, `Videos must be smaller than ${env.VIDEO_MAX_FILE_SIZE_MB} MB`, { code: err.code })
+          : err,
+      ),
+    );
+};
+
 /**
  * One spreadsheet (.csv or .xlsx) for bulk imports. Browsers label these inconsistently
  * (Excel on Windows calls CSVs vnd.ms-excel), so the extension decides and the content is

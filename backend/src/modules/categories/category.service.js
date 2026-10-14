@@ -75,6 +75,85 @@ async function applyMove(category, placement) {
   await Product.bulkWrite(newPaths.map(({ id, path }) => ({ updateMany: { filter: { category: id }, update: { categoryPath: path } } })));
 }
 
+/* ─────────────── HSN / GST defaults ─────────────── */
+
+/** A category's own tax fields, dropping empty ones (0% is a real rate). */
+function ownTax(tax) {
+  const out = {};
+  if (tax?.hsnCode) out.hsnCode = tax.hsnCode;
+  if (tax?.gstRate != null) out.gstRate = tax.gstRate;
+  return out;
+}
+
+/** Walks a root-first chain of categories: the deepest one that sets a field wins. */
+function inheritTax(chain) {
+  const out = { hsnCode: null, gstRate: null };
+  for (const c of chain) {
+    if (c?.tax?.hsnCode) out.hsnCode = c.tax.hsnCode;
+    if (c?.tax?.gstRate != null) out.gstRate = c.tax.gstRate;
+  }
+  return out;
+}
+
+/**
+ * Effective HSN/GST for `category` and every category under it, given the ancestry it will have
+ * (`ancestorIds`, which may be a new parent's). Descendants keep their path below `category`.
+ */
+async function taxPlan(category, ancestorIds) {
+  const [ancestors, descendants] = await Promise.all([
+    Category.find({ _id: { $in: ancestorIds } })
+      .select('tax')
+      .lean(),
+    Category.find({ ancestors: category._id }).select('ancestors tax').lean(),
+  ]);
+  const byId = new Map([...ancestors, ...descendants, category].map((c) => [String(c._id), c]));
+  const chainOf = (ids) => ids.map((id) => byId.get(String(id)));
+  return [
+    { id: category._id, tax: inheritTax([...chainOf(ancestorIds), category]) },
+    ...descendants.map((d) => {
+      const below = d.ancestors.slice(d.ancestors.findIndex((a) => String(a) === String(category._id)));
+      return { id: d._id, tax: inheritTax(chainOf([...ancestorIds, ...below, d._id])) };
+    }),
+  ];
+}
+
+/** Listed products are published, so they must keep an HSN code and GST rate. */
+async function assertListedProductsKeepTax(plan) {
+  const or = [];
+  const noHsn = plan.filter((p) => !p.tax.hsnCode).map((p) => p.id);
+  const noGst = plan.filter((p) => p.tax.gstRate == null).map((p) => p.id);
+  if (noHsn.length) or.push({ category: { $in: noHsn }, 'taxInherit.hsn': true });
+  if (noGst.length) or.push({ category: { $in: noGst }, 'taxInherit.gst': true });
+  if (!or.length) return;
+  const count = await Product.countDocuments({ status: { $in: ['pending', 'active', 'inactive'] }, $or: or });
+  if (count) {
+    throw ApiError.conflict(
+      `${count} listed product${count === 1 ? ' takes its' : 's take their'} HSN/GST from this category. ` +
+        'Set the HSN code and GST rate on those products first, or keep them here.',
+      { code: 'CATEGORY_TAX_IN_USE' },
+    );
+  }
+}
+
+/** Copies the effective values into every product that inherits them. */
+async function applyTaxPlan(plan) {
+  const ops = plan.flatMap(({ id, tax }) => [
+    {
+      updateMany: {
+        filter: { category: id, 'taxInherit.hsn': true },
+        update: tax.hsnCode ? { $set: { hsnCode: tax.hsnCode } } : { $unset: { hsnCode: '' } },
+      },
+    },
+    {
+      updateMany: {
+        filter: { category: id, 'taxInherit.gst': true },
+        update: tax.gstRate != null ? { $set: { 'pricing.gstRate': tax.gstRate } } : { $unset: { 'pricing.gstRate': '' } },
+      },
+    },
+  ]);
+  await Product.bulkWrite(ops);
+}
+
 export function serializeCategory(c) {
   return {
     _id: c._id,
@@ -82,6 +161,7 @@ export function serializeCategory(c) {
     slug: c.slug,
     description: c.description ?? null,
     image: c.image ?? null,
+    tax: { hsnCode: c.tax?.hsnCode ?? null, gstRate: c.tax?.gstRate ?? null },
     parent: c.parent ?? null,
     ancestors: c.ancestors ?? [],
     level: c.level,
@@ -117,6 +197,7 @@ export const categoryService = {
       slug: await uniqueSlug(Category, input.name),
       description: input.description,
       image: input.image ? await mediaService.resolveOne(input.image, actor) : undefined,
+      tax: ownTax(input.tax),
       ...placement,
       owner: actor.kind === 'vendor' ? actor.id : null,
       status,
@@ -149,11 +230,23 @@ export const categoryService = {
     if (input.name !== undefined || parentChanged) {
       await assertUniqueName(input.name ?? category.name, parentChanged ? input.parent : category.parent, category._id);
     }
-    if (parentChanged) await applyMove(category, await placementFor(input.parent, actor));
+    const placement = parentChanged ? await placementFor(input.parent, actor) : null;
+
+    // New HSN/GST defaults (or a new parent to inherit them from) reach the products that follow them.
+    const nextTax = input.tax !== undefined ? ownTax(input.tax) : ownTax(category.tax);
+    const taxChanged = JSON.stringify(nextTax) !== JSON.stringify(ownTax(category.tax));
+    let plan = null;
+    if (taxChanged || parentChanged) {
+      plan = await taxPlan({ _id: category._id, tax: nextTax }, placement?.ancestors ?? category.ancestors);
+      await assertListedProductsKeepTax(plan);
+    }
+
+    if (placement) await applyMove(category, placement);
 
     if (input.name !== undefined) category.name = input.name;
     if (input.description !== undefined) category.description = input.description;
     if (input.image !== undefined) category.image = input.image ? await mediaService.resolveOne(input.image, actor) : undefined;
+    if (taxChanged) category.tax = nextTax;
 
     if (actor.kind === 'admin') {
       for (const key of ['sortOrder', 'isFeatured', 'seo', 'status']) {
@@ -165,6 +258,7 @@ export const categoryService = {
     }
 
     await category.save();
+    if (plan) await applyTaxPlan(plan);
     await publicTree.invalidate();
     return serializeCategory(category.toObject());
   },
@@ -256,6 +350,17 @@ export const categoryService = {
       breadcrumbs: ancestors.sort((a, b) => a.level - b.level).map(({ _id, name, slug: s }) => ({ _id, name, slug: s })),
       children,
     };
+  },
+
+  /** The HSN code and GST rate a product filed in this category inherits (null where no category in its path sets one). */
+  async effectiveTax(categoryId) {
+    const category = await Category.findById(categoryId).select('ancestors tax').lean();
+    if (!category) return { hsnCode: null, gstRate: null };
+    const ancestors = await Category.find({ _id: { $in: category.ancestors } })
+      .select('tax')
+      .lean();
+    const byId = new Map(ancestors.map((a) => [String(a._id), a]));
+    return inheritTax([...category.ancestors.map((a) => byId.get(String(a))), category]);
   },
 
   /** Resolves a category for product filing, enforcing what the actor may use. */

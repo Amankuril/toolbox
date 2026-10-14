@@ -1,6 +1,7 @@
 import mongoose, { Schema } from 'mongoose';
 import { actorSchema, baseOptions, imageSchema } from '#core/db/schemas.js';
 import { bumpOnWrite, catalogGeneration } from '#core/cache/cached.js';
+import { GST_RATES } from '#modules/products/product.model.js';
 
 /** Deepest level index: 0 (top) … 9, so the tree is at most 10 levels deep. Mirrored in frontend core/lib/constants.js. */
 export const MAX_CATEGORY_LEVEL = 9;
@@ -25,6 +26,12 @@ const categorySchema = new Schema(
       note: { type: String, trim: true, maxlength: 500 },
       reviewedAt: Date,
       reviewedBy: { type: Schema.Types.ObjectId, ref: 'Admin' },
+    },
+
+    // Defaults for products filed here and in sub-categories that don't set their own; a product can override either.
+    tax: {
+      hsnCode: { type: String, trim: true, maxlength: 8 },
+      gstRate: { type: Number, enum: GST_RATES },
     },
 
     sortOrder: { type: Number, default: 0 },

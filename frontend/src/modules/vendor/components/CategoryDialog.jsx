@@ -3,6 +3,8 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { parseApiError } from '@/core/api/errors'
 import { MAX_CATEGORY_DEPTH } from '@/core/lib/constants'
+import { taxPayload, taxToForm } from '@/core/lib/tax'
+import { CategoryTaxFields } from '@/modules/shared/CategoryTaxFields'
 import { Button } from '@/ui/Button'
 import { Alert } from '@/ui/Card'
 import { Combobox } from '@/ui/Combobox'
@@ -28,6 +30,7 @@ export function CategoryDialog({ open, onOpenChange, category, defaultParent, on
     parent: category?.parent ?? defaultParent ?? '',
     description: category?.description ?? '',
     image: category?.image ? [category.image] : [],
+    tax: taxToForm(category?.tax),
   }
   const set = (patch) => setV({ ...values, ...patch })
 
@@ -38,6 +41,7 @@ export function CategoryDialog({ open, onOpenChange, category, defaultParent, on
         parent: values.parent || null,
         description: values.description,
         image: values.image[0] ? { media: values.image[0].media } : null,
+        tax: taxPayload(values.tax),
       }
       return isEdit ? seller.api.updateCategory(category._id, body) : seller.api.createCategory(body)
     },
@@ -121,6 +125,11 @@ export function CategoryDialog({ open, onOpenChange, category, defaultParent, on
             compact
           />
         </div>
+        <CategoryTaxFields
+          value={values.tax}
+          onChange={(tax) => set({ tax })}
+          errors={{ hsnCode: apiError?.fields?.['tax.hsnCode'], gstRate: apiError?.fields?.['tax.gstRate'] }}
+        />
         {apiError && !Object.keys(apiError.fields).length && <Alert tone="danger">{apiError.message}</Alert>}
       </div>
     </Dialog>

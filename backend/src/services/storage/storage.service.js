@@ -5,6 +5,7 @@ import { ApiError } from '#core/errors/ApiError.js';
 import { Media } from '#modules/media/media.model.js';
 import { settingsService } from '#services/settings/settings.service.js';
 import { processImage } from './image.processor.js';
+import { processVideo } from './video.processor.js';
 import { createCloudinaryProvider } from './providers/cloudinary.provider.js';
 import { createLocalProvider } from './providers/local.provider.js';
 
@@ -26,10 +27,10 @@ const FOLDER_PRESETS = {
   branding: { maxDimension: 800, quality: 90 },
 };
 
-function buildKey(folder) {
+function buildKey(folder, ext = 'webp') {
   const now = new Date();
   const month = String(now.getUTCMonth() + 1).padStart(2, '0');
-  return `${folder}/${now.getUTCFullYear()}/${month}/${crypto.randomUUID()}.webp`;
+  return `${folder}/${now.getUTCFullYear()}/${month}/${crypto.randomUUID()}.${ext}`;
 }
 
 /**
@@ -58,10 +59,20 @@ export const storageService = {
    */
   async uploadImage(file, { folder, uploadedBy }) {
     const processed = await processImage(file.buffer, FOLDER_PRESETS[folder]);
+    return this.store(processed, file, { folder, uploadedBy, key: buildKey(folder) });
+  },
+
+  /** Verifies the container (MP4/WebM/MOV) → stores as uploaded → records a Media document. */
+  async uploadVideo(file, { folder, uploadedBy }) {
+    const processed = await processVideo(file.buffer);
+    return this.store(processed, file, { folder, uploadedBy, key: buildKey(folder, processed.ext), resourceType: 'video' });
+  },
+
+  async store(processed, file, { folder, uploadedBy, key, resourceType = 'image' }) {
     const providerName = await this.activeProviderName();
     const provider = providers[providerName];
 
-    const stored = await provider.put(processed.buffer, { key: buildKey(folder) });
+    const stored = await provider.put(processed.buffer, { key, resourceType });
     try {
       return await Media.create({
         provider: providerName,
@@ -77,7 +88,7 @@ export const storageService = {
         uploadedBy,
       });
     } catch (err) {
-      await provider.remove(stored).catch(() => {});
+      await provider.remove({ ...stored, mimeType: processed.mimeType }).catch(() => {});
       throw err;
     }
   },

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { paginationQuery } from '#core/utils/pagination.js';
-import { idParams, imageInput, nonEmpty, objectId, optionalText } from '#core/validation/common.js';
+import { hsnCode, idParams, imageInput, nonEmpty, objectId, optionalText } from '#core/validation/common.js';
+import { gstRate } from '#modules/products/product.validation.js';
 import { CATEGORY_STATUSES } from './category.model.js';
 
 const base = {
@@ -8,6 +9,8 @@ const base = {
   description: optionalText(2000),
   image: imageInput.nullable().optional(),
   parent: objectId.nullable().optional(),
+  // Defaults for the products filed under it; null/empty = take the parent category's.
+  tax: z.object({ hsnCode: hsnCode.optional(), gstRate: gstRate.nullable().optional() }).optional(),
 };
 
 const adminOnly = {

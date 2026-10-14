@@ -1,11 +1,12 @@
 import { z } from 'zod';
 import { paginationQuery } from '#core/utils/pagination.js';
-import { idParams, imageInput, nonEmpty, objectId, optionalText, queryBool } from '#core/validation/common.js';
+import { hsnCode, idParams, imageInput, nonEmpty, objectId, optionalText, queryBool, videoInput } from '#core/validation/common.js';
 import {
   GST_RATES,
   MAX_BULK_TIERS,
   MAX_OPTION_VALUES,
   MAX_PRODUCT_IMAGES,
+  MAX_PRODUCT_VIDEOS,
   MAX_VARIANT_OPTIONS,
   MAX_VARIANTS,
   PRODUCT_CONDITIONS,
@@ -18,11 +19,17 @@ import {
 const money = z.number().int('Amount must be in paise (whole number)').min(0).max(1_000_000_000);
 const nonNegative = (max) => z.number().min(0).max(max);
 
+export const gstRate = z.union(
+  GST_RATES.map((r) => z.literal(r)),
+  { error: `GST rate must be one of ${GST_RATES.join(', ')}` },
+);
+
 const pricing = z
   .object({
     mrp: money.min(1, 'MRP is required'),
     price: money.min(1, 'Selling price is required'),
-    gstRate: z.union(GST_RATES.map((r) => z.literal(r))),
+    // null or left out: use the category's rate.
+    gstRate: gstRate.nullish(),
   })
   .refine((p) => p.price <= p.mrp, { path: ['price'], message: 'Selling price cannot be more than MRP' });
 
@@ -116,13 +123,10 @@ const fields = {
   shortDescription: optionalText(500),
   description: optionalText(20_000),
   images: z.array(imageInput).max(MAX_PRODUCT_IMAGES),
+  videos: z.array(videoInput).max(MAX_PRODUCT_VIDEOS, `Up to ${MAX_PRODUCT_VIDEOS} videos`),
   pricing,
-  hsnCode: z
-    .string()
-    .trim()
-    .regex(/^(\d{4}|\d{6}|\d{8})$/, 'HSN/SAC code must be 4, 6 or 8 digits')
-    .optional()
-    .or(z.literal('').transform(() => undefined)),
+  // null or empty: use the category's code.
+  hsnCode,
   inventory,
   variantOptions,
   variants,

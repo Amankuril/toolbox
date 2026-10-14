@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { BadgeCheck, ChevronRight, FileText, MessageCircle, Receipt, ShieldCheck, ShoppingCart, Truck, Wrench } from 'lucide-react'
+import { BadgeCheck, ChevronRight, FileText, MessageCircle, Play, Receipt, ShieldCheck, ShoppingCart, Truck, Wrench } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
@@ -7,10 +7,12 @@ import { errorMessage } from '@/core/api/errors'
 import { useSession } from '@/core/auth/session'
 import { PRODUCT_TYPE_LABEL } from '@/core/lib/constants'
 import { cn } from '@/core/lib/cn'
+import { videoKey } from '@/core/lib/media'
 import { formatINR, formatNumber } from '@/core/lib/format'
 import { priceFor, usableTiers } from '@/core/lib/pricing'
 import { useBranding } from '@/core/settings/usePublicSettings'
 import { Thumb } from '@/ui/Brand'
+import { VideoPreview } from '@/ui/VideoPreview'
 import { Sticker } from '@/ui/Badge'
 import { Button } from '@/ui/Button'
 import { EmptyState, Skeleton } from '@/ui/Card'
@@ -62,38 +64,74 @@ export default function ProductPage() {
   return <ProductView key={data.product._id} data={data} />
 }
 
-function Gallery({ images, name }) {
+/** Photos first (the cover leads), then videos. Videos load only when their slide is opened. */
+function Gallery({ images, videos = [], name }) {
+  const slides = [
+    ...images.map((img) => ({ kind: 'image', key: img.media ?? img.url, img })),
+    ...videos.map((v) => ({ kind: 'video', key: videoKey(v), video: v })),
+  ]
   const [index, setIndex] = useState(0)
-  const current = images[index]
+  const current = slides[Math.min(index, slides.length - 1)]
   return (
     <div className="flex flex-col-reverse gap-2.5 lg:flex-row">
-      {images.length > 1 && (
+      {slides.length > 1 && (
         <div className="scrollbar-none flex gap-2 overflow-x-auto lg:max-h-[420px] lg:flex-col lg:overflow-y-auto">
-          {images.map((img, i) => (
+          {slides.map((slide, i) => (
             <button
-              key={img.media}
+              key={slide.key}
               type="button"
               onClick={() => setIndex(i)}
-              aria-label={`Show image ${i + 1}`}
+              aria-label={slide.kind === 'video' ? `Play video ${i - images.length + 1}` : `Show image ${i + 1}`}
               aria-current={i === index}
               className={cn(
-                'size-12 shrink-0 overflow-hidden rounded-md border-2 bg-slate-100 p-1 sm:size-14',
+                'relative size-12 shrink-0 overflow-hidden rounded-md border-2 bg-slate-100 sm:size-14',
+                slide.kind === 'image' && 'p-1',
                 i === index ? 'border-slate-900' : 'border-transparent hover:border-slate-300',
               )}
             >
-              <Thumb src={img.url} alt="" className="size-full bg-transparent mix-blend-multiply" />
+              {slide.kind === 'image' ? (
+                <Thumb src={slide.img.url} alt="" className="size-full bg-transparent mix-blend-multiply" />
+              ) : (
+                <>
+                  <VideoPreview video={slide.video} className="size-full" />
+                  <span className="absolute inset-0 grid place-items-center bg-slate-900/25 text-white">
+                    <Play className="size-4 fill-current" />
+                  </span>
+                </>
+              )}
             </button>
           ))}
         </div>
       )}
-      <div className="flex-1 overflow-hidden rounded-lg border border-slate-200/60 bg-slate-100 p-4 sm:p-6 flex items-center justify-center">
-        <Thumb
-          src={current?.url}
-          alt={current?.alt ?? name}
-          className="aspect-square w-full max-h-[360px] sm:max-h-[400px] bg-transparent object-contain mix-blend-multiply"
-        />
+      <div className="flex flex-1 items-center justify-center overflow-hidden rounded-lg border border-slate-200/60 bg-slate-100 p-4 sm:p-6">
+        {current?.kind === 'video' ? (
+          <VideoPlayer video={current.video} title={current.video.title ?? `${name} video`} />
+        ) : (
+          <Thumb
+            src={current?.img?.url}
+            alt={current?.img?.alt ?? name}
+            className="aspect-square max-h-[360px] w-full bg-transparent object-contain mix-blend-multiply sm:max-h-[400px]"
+          />
+        )}
       </div>
     </div>
+  )
+}
+
+function VideoPlayer({ video, title }) {
+  if (video.source === 'upload') {
+    return <video src={video.url} controls playsInline preload="metadata" className="aspect-video w-full rounded-md bg-black" title={title} />
+  }
+  return (
+    <iframe
+      src={video.embedUrl}
+      title={title}
+      className="aspect-video w-full rounded-md bg-black"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+      allowFullScreen
+      referrerPolicy="strict-origin-when-cross-origin"
+      loading="lazy"
+    />
   )
 }
 
@@ -220,6 +258,7 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related, fro
           <Gallery
             key={variant?.image?.url ?? 'default'}
             images={variant?.image ? [variant.image, ...p.images.filter((i) => i.url !== variant.image.url)] : p.images}
+            videos={p.videos}
             name={p.name}
           />
         </div>

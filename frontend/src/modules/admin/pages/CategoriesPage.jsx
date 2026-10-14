@@ -8,6 +8,7 @@ import { z } from 'zod'
 import { applyFieldErrors, errorMessage } from '@/core/api/errors'
 import { useSearchParamsState } from '@/core/hooks/useSearchParamsState'
 import { MAX_CATEGORY_DEPTH } from '@/core/lib/constants'
+import { taxPayload, taxToForm } from '@/core/lib/tax'
 import { flattenTree } from '@/core/lib/tree'
 import { Badge, StatusBadge } from '@/ui/Badge'
 import { Thumb } from '@/ui/Brand'
@@ -22,6 +23,7 @@ import { PageHeader } from '@/ui/PageHeader'
 import { ReasonDialog } from '@/ui/ReasonDialog'
 import { RowActions } from '@/ui/RowActions'
 import { SearchField } from '@/ui/SearchField'
+import { CategoryTaxFields } from '@/modules/shared/CategoryTaxFields'
 import { adminApi, adminKeys } from '../api'
 
 const TABS = [
@@ -69,7 +71,7 @@ export default function CategoriesPage() {
     <>
       <PageHeader
         title="Categories"
-        description="One shared 3-level tree. Vendor proposals appear here for approval."
+        description="One shared category tree. HSN and GST set here apply to every product filed under it. Vendor proposals appear here for approval."
         actions={
           <Button onClick={() => setEditing('new')}>
             <Plus /> New category
@@ -111,6 +113,18 @@ export default function CategoriesPage() {
               ),
             },
             { key: 'level', header: 'Level', cell: (c) => (c.level === 0 ? 'Top' : `Level ${c.level + 1}`) },
+            {
+              key: 'tax',
+              header: 'HSN · GST',
+              cell: (c) =>
+                c.tax?.hsnCode || c.tax?.gstRate != null ? (
+                  <span className="tabular text-sm">
+                    {c.tax.hsnCode ?? '—'} · {c.tax.gstRate != null ? `${c.tax.gstRate}%` : '—'}
+                  </span>
+                ) : (
+                  <span className="text-xs text-slate-400">{c.parent ? 'From parent' : 'Not set'}</span>
+                ),
+            },
             { key: 'source', header: 'Source', cell: (c) => (c.owner ? <Badge tone="info">{c.owner.store?.name ?? 'Vendor'}</Badge> : <Badge>Admin</Badge>) },
             { key: 'products', header: 'Products', className: 'text-right', cell: (c) => <span className="tabular">{c.productCount}</span> },
             { key: 'status', header: 'Status', cell: (c) => <StatusBadge status={c.status} /> },
@@ -128,7 +142,11 @@ export default function CategoriesPage() {
                     c.status === 'pending' && { label: 'Approve', icon: Check, onSelect: () => review.mutate({ id: c._id, action: 'approve' }) },
                     c.status === 'pending' && { label: 'Reject', icon: X, onSelect: () => setRejecting(c) },
                     'separator',
-                    c.status === 'active' && { label: c.isFeatured ? 'Remove from home' : 'Feature on home', icon: Star, onSelect: () => toggleFeatured.mutate(c) },
+                    c.status === 'active' && {
+                      label: c.isFeatured ? 'Remove from home' : 'Feature on home',
+                      icon: Star,
+                      onSelect: () => toggleFeatured.mutate(c),
+                    },
                     { label: 'Delete', icon: Trash2, danger: true, onSelect: () => setDeleting(c) },
                   ]}
                 />
@@ -170,6 +188,10 @@ const schema = z.object({
   sortOrder: z.coerce.number().int().min(-10000).max(10000),
   isFeatured: z.boolean(),
   status: z.enum(['active', 'pending', 'rejected', 'inactive']),
+  tax: z.object({
+    hsnCode: z.string().regex(/^(\d{4}|\d{6}|\d{8})?$/, 'Use 4, 6 or 8 digits'),
+    gstRate: z.string(),
+  }),
 })
 
 function CategoryDialog({ category, onClose, onSaved }) {
@@ -193,12 +215,13 @@ function CategoryDialog({ category, onClose, onSaved }) {
       sortOrder: c.sortOrder ?? 0,
       isFeatured: c.isFeatured ?? false,
       status: c.status ?? 'active',
+      tax: taxToForm(c.tax),
     })
   }, [open, isNew, category, form])
 
   const save = useMutation({
-    mutationFn: ({ image, parent, ...v }) => {
-      const body = { ...v, parent: parent || null, image: image[0] ? { media: image[0].media } : null }
+    mutationFn: ({ image, parent, tax, ...v }) => {
+      const body = { ...v, parent: parent || null, image: image[0] ? { media: image[0].media } : null, tax: taxPayload(tax) }
       return isNew ? adminApi.createCategory(body) : adminApi.updateCategory(category._id, body)
     },
     onSuccess: () => {
@@ -255,6 +278,18 @@ function CategoryDialog({ category, onClose, onSaved }) {
             render={({ field }) => <ImageUploader audience="admin" folder="categories" max={1} value={field.value ?? []} onChange={field.onChange} compact />}
           />
         </div>
+        <Controller
+          name="tax"
+          control={control}
+          render={({ field }) => (
+            <CategoryTaxFields
+              className="sm:col-span-2"
+              value={field.value}
+              onChange={field.onChange}
+              errors={{ hsnCode: formState.errors.tax?.hsnCode?.message, gstRate: formState.errors.tax?.gstRate?.message }}
+            />
+          )}
+        />
         <Field label="Status">
           {(p) => (
             <Select {...p} {...register('status')}>
