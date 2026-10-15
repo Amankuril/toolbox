@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { api } from '@/core/api/http'
 import { errorMessage } from '@/core/api/errors'
+import { linkKind } from '@/core/lib/media'
 import { Button } from './Button'
 import { Input } from './Field'
 
@@ -10,7 +11,9 @@ import { Input } from './Field'
  * "Add from link": the server downloads the file (or, for videos, turns a YouTube/Vimeo link into an embed)
  * and answers with the value to append, exactly like an upload would.
  *
- * @param {{ audience: string, uploadPath?: string, folder: string, kind: 'image'|'video', placeholder?: string, disabled?: boolean, onAdded: (value: any) => void }} props
+ * `kind="auto"` decides from the link (YouTube, Vimeo or a video file = video) and passes it as `onAdded`'s second argument.
+ *
+ * @param {{ audience: string, uploadPath?: string, folder: string, kind: 'image'|'video'|'auto', placeholder?: string, disabled?: boolean, onAdded: (value: any, kind: 'image'|'video') => void }} props
  */
 export function MediaLinkForm({ audience, uploadPath = '/media', folder, kind, placeholder, disabled, onAdded }) {
   const [open, setOpen] = useState(false)
@@ -23,10 +26,11 @@ export function MediaLinkForm({ audience, uploadPath = '/media', folder, kind, p
       toast.error('Paste a full link starting with http:// or https://')
       return
     }
+    const as = kind === 'auto' ? linkKind(link) : kind
     setBusy(true)
     try {
-      const res = await api[audience].post(`${uploadPath}/from-url`, { url: link, kind, folder }, { timeout: 120_000 })
-      onAdded(res.data.data)
+      const res = await api[audience].post(`${uploadPath}/from-url`, { url: link, kind: as, folder }, { timeout: 120_000 })
+      onAdded(res.data.data, as)
       setUrl('')
       setOpen(false)
     } catch (err) {
@@ -60,7 +64,7 @@ export function MediaLinkForm({ audience, uploadPath = '/media', folder, kind, p
             if (e.key === 'Escape') setOpen(false)
           }}
           placeholder={placeholder ?? 'https://…'}
-          aria-label={kind === 'video' ? 'Video link' : 'Image link'}
+          aria-label={{ video: 'Video link', image: 'Image link' }[kind] ?? 'Image or video link'}
         />
       </div>
       <Button size="sm" loading={busy} onClick={add}>

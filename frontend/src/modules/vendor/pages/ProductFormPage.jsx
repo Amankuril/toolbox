@@ -1,15 +1,15 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Send, Trash2, TriangleAlert } from 'lucide-react'
+import { Copy, Plus, Send, Trash2, TriangleAlert } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Controller, useFieldArray, useForm, useWatch } from 'react-hook-form'
-import { Navigate, useNavigate, useParams } from 'react-router'
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { applyFieldErrors, errorMessage } from '@/core/api/errors'
 import { GST_RATES, PRODUCT_CONDITIONS, PRODUCT_TYPES, PRODUCT_UNITS } from '@/core/lib/constants'
 import { formatINR } from '@/core/lib/format'
-import { videoPayload } from '@/core/lib/media'
+import { mergeMedia, splitMedia, videoPayload } from '@/core/lib/media'
 import { inheritedTax } from '@/core/lib/tax'
 import { required } from '@/core/lib/validators'
 import { StatusBadge } from '@/ui/Badge'
@@ -18,12 +18,12 @@ import { Alert, Card, CardBody, CardHeader, Skeleton } from '@/ui/Card'
 import { Combobox } from '@/ui/Combobox'
 import { SegmentedControl, Switch } from '@/ui/Controls'
 import { Checkbox, Field, Input, Select, Textarea } from '@/ui/Field'
-import { ImageUploader } from '@/ui/ImageUploader'
-import { VideoUploader } from '@/ui/VideoUploader'
+import { MediaUploader } from '@/ui/MediaUploader'
 import { NumberInput, PriceInput, TagInput } from '@/ui/inputs'
 import { PageHeader } from '@/ui/PageHeader'
 import { useSeller } from '../seller'
 import { CategoryDialog } from '../components/CategoryDialog'
+import { ClonePickerDialog } from '../components/ClonePickerDialog'
 import { useCategoryOptions, useVendorCategories } from '../components/categoryOptions'
 import { BulkPricingCard } from '../components/BulkPricingCard'
 import { bulkTierIssues, MAX_TIERS } from '../components/bulkRules'
@@ -47,8 +47,11 @@ const schema = z
     barcode,
     shortDescription: z.string().trim().max(500).optional(),
     description: z.string().trim().max(20_000).optional(),
-    images: z.array(z.object({ media: z.string(), url: z.string(), alt: z.string().optional() })).max(10),
-    videos: z.array(z.object({ source: z.string(), url: z.string() }).loose()).max(5),
+    // Photos and videos in gallery order (mergeMedia shape).
+    media: z
+      .array(z.object({ kind: z.enum(['image', 'video']), item: z.object({ url: z.string() }).loose() }))
+      .refine((list) => list.filter((m) => m.kind === 'image').length <= 10, 'Up to 10 photos')
+      .refine((list) => list.filter((m) => m.kind === 'video').length <= 5, 'Up to 5 videos'),
     // Required unless the product has variants (each variant then has its own price).
     pricing: z.object({
       mrp: optNum(z.number().int().min(1, 'Enter the MRP')),
@@ -146,8 +149,7 @@ const EMPTY = {
   barcode: '',
   shortDescription: '',
   description: '',
-  images: [],
-  videos: [],
+  media: [],
   pricing: { mrp: undefined, price: undefined, gstRate: '' },
   hsnCode: '',
   inventory: {
@@ -185,8 +187,7 @@ function toForm(p) {
     barcode: p.barcode ?? '',
     shortDescription: p.shortDescription ?? '',
     description: p.description ?? '',
-    images: p.images,
-    videos: p.videos ?? [],
+    media: mergeMedia(p.images, p.videos ?? [], p.mediaOrder),
     // Values that come from the category show as "same as category", so they keep following it.
     pricing: { mrp: p.pricing.mrp, price: p.pricing.price, gstRate: p.taxInherit?.gst || p.pricing.gstRate == null ? '' : String(p.pricing.gstRate) },
     hsnCode: p.taxInherit?.hsn ? '' : (p.hsnCode ?? ''),
@@ -231,6 +232,17 @@ function toForm(p) {
   }
 }
 
+/** A copy to save as a new listing: everything but the codes that must be unique per product. */
+function toCloneForm(p) {
+  const form = toForm(p)
+  return {
+    ...form,
+    sku: '',
+    barcode: '',
+    variants: form.variants.map(({ _id: _omit, ...v }) => ({ ...v, sku: '', barcode: '' })),
+  }
+}
+
 const clean = (obj) => Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined && v !== ''))
 
 function toPayload(v) {
@@ -240,6 +252,7 @@ function toPayload(v) {
   const cheapest = hasVariants ? [...v.variants].sort((a, b) => a.price - b.price)[0] : null
   // null: use the category's rate.
   const gstRate = v.pricing.gstRate === '' ? null : Number(v.pricing.gstRate)
+  const { images, videos, mediaOrder } = splitMedia(v.media)
   return {
     type: v.type,
     name: v.name,
@@ -250,8 +263,9 @@ function toPayload(v) {
     barcode: v.barcode,
     shortDescription: v.shortDescription,
     description: v.description,
-    images: v.images.map(({ media, alt }) => clean({ media, alt })),
-    videos: v.videos.map(videoPayload),
+    images: images.map(({ media, alt }) => clean({ media, alt })),
+    videos: videos.map(videoPayload),
+    mediaOrder,
     pricing: { ...(hasVariants ? { mrp: cheapest.mrp, price: cheapest.price } : { mrp: v.pricing.mrp, price: v.pricing.price }), gstRate },
     hsnCode: v.hsnCode || null,
     inventory: clean({ ...v.inventory, stock: hasVariants || !v.inventory.trackQuantity ? 0 : v.inventory.stock }),
@@ -274,24 +288,45 @@ function toPayload(v) {
 export default function ProductFormPage() {
   const seller = useSeller()
   const { id } = useParams()
+  const [search] = useSearchParams()
   const isNew = !id
+  // /products/new?clone=<id>: start from a copy of that product.
+  const cloneId = isNew ? search.get('clone') : null
   const vendor = seller.useAccount()
   const { data: product, isLoading } = useQuery({ queryKey: seller.keys.product(id), queryFn: () => seller.api.product(id), enabled: !isNew })
+  const source = useQuery({
+    queryKey: [...seller.keys.all, 'clone-source', cloneId],
+    queryFn: () => seller.cloneSource(cloneId),
+    enabled: Boolean(cloneId),
+    retry: false,
+  })
 
   if (vendor && vendor.status !== 'approved') return <Navigate to={`${seller.base}/products`} replace />
   if (!isNew && (isLoading || !product)) return <Skeleton className="h-[60vh]" />
-  return <ProductForm key={product?._id ?? 'new'} product={product} />
+  if (cloneId && source.isLoading) return <Skeleton className="h-[60vh]" />
+  if (cloneId && source.isError) {
+    return (
+      <Alert tone="warning" icon={TriangleAlert} title="Couldn't load the product to copy">
+        {errorMessage(source.error)}{' '}
+        <Link to={`${seller.base}/products/new`} className="font-semibold underline">
+          Start from a blank form
+        </Link>
+      </Alert>
+    )
+  }
+  return <ProductForm key={product?._id ?? `new:${cloneId ?? ''}`} product={product} cloneFrom={cloneId ? source.data : null} />
 }
 
-function ProductForm({ product }) {
+function ProductForm({ product, cloneFrom }) {
   const seller = useSeller()
   const isNew = !product
   const navigate = useNavigate()
   const qc = useQueryClient()
   const [proposeOpen, setProposeOpen] = useState(false)
+  const [pickClone, setPickClone] = useState(false)
   const categoryOptions = useCategoryOptions()
   const { data: categories } = useVendorCategories()
-  const form = useForm({ resolver: zodResolver(schema), defaultValues: product ? toForm(product) : EMPTY })
+  const form = useForm({ resolver: zodResolver(schema), defaultValues: product ? toForm(product) : cloneFrom ? toCloneForm(cloneFrom) : EMPTY })
   const { control, register, formState, setValue } = form
   const e = formState.errors
   const specs = useFieldArray({ control, name: 'specifications' })
@@ -317,7 +352,7 @@ function ProductForm({ product }) {
   const save = useMutation({
     mutationFn: ({ values, publish }) => {
       const body = { ...toPayload(values), ...(publish !== undefined ? { publish } : {}) }
-      if (isNew) return seller.api.createProduct(body)
+      if (isNew) return seller.api.createProduct(cloneFrom ? { ...body, cloneOf: cloneFrom._id } : body)
       // The quantities this form loaded: untouched ones keep the live count, so orders placed meanwhile aren't undone.
       const stockBase = {
         stock: product.inventory?.stock ?? 0,
@@ -353,12 +388,32 @@ function ProductForm({ product }) {
     <form onSubmit={(ev) => ev.preventDefault()} noValidate className="pb-24">
       <PageHeader
         back={{ to: `${seller.base}/products`, label: 'Products' }}
-        title={isNew ? 'Add product' : product.name}
+        title={isNew ? (cloneFrom ? 'Add product (copy)' : 'Add product') : product.name}
         meta={status && <StatusBadge status={status} />}
         description={
           isNew ? (seller.isStore ? 'Published products go live in your store straight away.' : 'New listings are reviewed before they go live.') : undefined
         }
+        actions={
+          isNew ? (
+            <Button variant="outline" onClick={() => setPickClone(true)}>
+              <Copy /> {cloneFrom ? 'Copy a different product' : 'Clone existing product'}
+            </Button>
+          ) : (
+            <Button variant="outline" asChild>
+              <Link to={`${seller.base}/products/new?clone=${product._id}`}>
+                <Copy /> Clone product
+              </Link>
+            </Button>
+          )
+        }
       />
+
+      {cloneFrom && (
+        <Alert tone="info" icon={Copy} className="mb-6" title={`Copied from “${cloneFrom.name}”`}>
+          Everything except the SKU and barcode is filled in. Change what&apos;s different, then save it as a new product. The original isn&apos;t
+          changed.
+        </Alert>
+      )}
 
       {status === 'rejected' && product.moderation?.note && (
         <Alert tone="warning" icon={TriangleAlert} title="Changes requested by our team" className="mb-6">
@@ -441,33 +496,17 @@ function ProductForm({ product }) {
           <Card>
             <CardHeader
               title="Photos & videos"
-              description="Clear photos on a plain background sell best. The first photo is the cover; drag to change the order."
+              description="Clear photos on a plain background sell best. Buyers see these in the order shown here; drag to change it."
             />
-            <CardBody className="flex flex-col gap-6">
+            <CardBody>
               <Controller
-                name="images"
+                name="media"
                 control={control}
                 render={({ field }) => (
-                  <ImageUploader
-                    audience={seller.audience}
-                    uploadPath={seller.uploadPath}
-                    folder="products"
-                    max={10}
-                    value={field.value}
-                    onChange={field.onChange}
-                  />
+                  <MediaUploader audience={seller.audience} uploadPath={seller.uploadPath} value={field.value} onChange={field.onChange} />
                 )}
               />
-              <div className="border-t border-slate-100 pt-5">
-                <p className="mb-2 text-sm font-medium text-slate-800">Videos</p>
-                <Controller
-                  name="videos"
-                  control={control}
-                  render={({ field }) => (
-                    <VideoUploader audience={seller.audience} uploadPath={seller.uploadPath} value={field.value} onChange={field.onChange} />
-                  )}
-                />
-              </div>
+              {e.media?.message && <p className="mt-2 text-sm text-red-600">{e.media.message}</p>}
             </CardBody>
           </Card>
 
@@ -820,6 +859,12 @@ function ProductForm({ product }) {
         </div>
       </div>
 
+      <ClonePickerDialog
+        open={pickClone}
+        onOpenChange={setPickClone}
+        onPick={(p) => navigate(`${seller.base}/products/new?clone=${p._id}`)}
+        excludeId={cloneFrom?._id}
+      />
       <CategoryDialog
         open={proposeOpen}
         onOpenChange={setProposeOpen}

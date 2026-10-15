@@ -64,6 +64,7 @@ export const adminApi = {
   products: (params) => list(a.get('/products', { params })),
   product: (id) => one(a.get(`/products/${id}`)),
   updateProduct: (id, body) => one(a.patch(`/products/${id}`, body)),
+  bulkUpdateProducts: (items) => one(a.patch('/products/bulk', { items })),
   reviewProduct: (id, body) => one(a.post(`/products/${id}/review`, body)),
 
   orders: (params) => list(a.get('/orders', { params })),

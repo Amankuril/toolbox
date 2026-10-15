@@ -114,7 +114,8 @@ export function CategoryDialog({ open, onOpenChange, category, defaultParent, on
           {(p) => <Textarea {...p} rows={3} value={values.description} onChange={(e) => set({ description: e.target.value })} />}
         </Field>
         <div>
-          <p className="mb-1.5 text-sm font-medium text-slate-800">Image (optional)</p>
+          <p className="text-sm font-medium text-slate-800">Image / icon (optional)</p>
+          <p className="mb-1.5 text-xs text-slate-500">Shown to buyers in the menu and on category pages once approved. Square works best.</p>
           <ImageUploader
             audience={seller.audience}
             uploadPath={seller.uploadPath}

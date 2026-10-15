@@ -7,7 +7,7 @@ import { pincodeService } from '#services/pincode/pincode.service.js';
 import { ok } from '#core/utils/response.js';
 import { adminManagementRoutes, adminSelfRoutes } from '#modules/admins/admin.routes.js';
 import { requireSection } from '#modules/admins/permissions.js';
-import { authenticate } from '#modules/auth/auth.middleware.js';
+import { authenticate, requireApprovedVendor } from '#modules/auth/auth.middleware.js';
 import authRoutes from '#modules/auth/auth.routes.js';
 import { adminBannerRoutes, publicBannerRoutes } from '#modules/banners/banner.routes.js';
 import { cartRoutes } from '#modules/cart/cart.routes.js';
@@ -81,7 +81,11 @@ export function buildRoutes() {
 
   const vendorApi = Router()
     .use(authenticate('vendor'))
+    // Open while the application is in progress or under review: the account, the setup wizard and its uploads.
     .use(vendorSelfRoutes)
+    .use('/media', mediaUploadRouter())
+    // Everything else (the seller panel) waits for admin approval.
+    .use(requireApprovedVendor)
     .get('/dashboard', async (req, res) => ok(res, await dashboardService.vendor(req.auth.id)))
     .use('/categories', vendorCategoryRoutes)
     .use('/products', vendorProductRoutes)
@@ -90,8 +94,7 @@ export function buildRoutes() {
     .use('/quotes', vendorQuoteRoutes)
     .use('/coupons', vendorCouponRoutes)
     .use('/leads', vendorLeadRoutes)
-    .use(vendorShippingRoutes)
-    .use('/media', mediaUploadRouter());
+    .use(vendorShippingRoutes);
   api.use('/vendor', vendorApi);
 
   // The platform's own store: the seller routes, run as the house store by admins with "store" access.

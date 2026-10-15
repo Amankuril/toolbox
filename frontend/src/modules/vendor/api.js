@@ -55,6 +55,7 @@ export function createSellerApi(v) {
     product: (id) => one(v.get(`/products/${id}`)),
     createProduct: (body) => one(v.post('/products', body)),
     updateProduct: (id, body) => one(v.patch(`/products/${id}`, body)),
+    bulkUpdateProducts: (items) => one(v.patch('/products/bulk', { items })),
     quickUpdate: (id, body) => one(v.patch(`/products/${id}/stock`, body)),
     setVisibility: (id, visible) => one(v.patch(`/products/${id}/visibility`, { visible })),
     archiveProduct: (id) => v.delete(`/products/${id}`),

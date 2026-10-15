@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, ExternalLink, Eye, EyeOff, Layers, MessageSquareWarning, Plus, Star, Upload, X } from 'lucide-react'
+import { Check, Copy, ExternalLink, Eye, EyeOff, Layers, MessageSquareWarning, Plus, Sheet, Star, Upload, X } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { toast } from 'sonner'
@@ -17,6 +17,7 @@ import { Select } from '@/ui/Field'
 import { PageHeader } from '@/ui/PageHeader'
 import { ActionDialog, RowActions } from '@/ui/RowActions'
 import { SearchField } from '@/ui/SearchField'
+import { BulkEditSheet } from '@/modules/shared/BulkEditSheet'
 import { useAdminAccess } from '../access'
 import { adminApi, adminKeys } from '../api'
 
@@ -35,6 +36,7 @@ export default function ProductsPage() {
   const qc = useQueryClient()
   const [filters, setFilters] = useSearchParamsState()
   const [action, setAction] = useState(null)
+  const [bulkOpen, setBulkOpen] = useState(false)
   const { can } = useAdminAccess()
   const params = {
     page: Number(filters.page ?? 1),
@@ -74,6 +76,11 @@ export default function ProductsPage() {
                 <Upload /> Bulk upload
               </Link>
             </Button>
+            {can('products', 'manage') && (
+              <Button variant="outline" onClick={() => setBulkOpen(true)}>
+                <Sheet /> Bulk edit
+              </Button>
+            )}
             {can('store', 'manage') && (
               <Button asChild>
                 <Link to="/admin/store/products/new">
@@ -159,6 +166,7 @@ export default function ProductsPage() {
                   label={`Actions for ${p.name}`}
                   items={[
                     { label: 'View details', icon: Eye, onSelect: () => navigate(`/admin/products/${p._id}`) },
+                    can('store', 'manage') && { label: 'Clone to our store', icon: Copy, onSelect: () => navigate(`/admin/store/products/new?clone=${p._id}`) },
                     p.status === 'active' &&
                       p.vendorApproved && { label: 'View on store', icon: ExternalLink, onSelect: () => window.open(`/p/${p.slug}`, '_blank', 'noopener') },
                     ['pending', 'rejected'].includes(p.status) && 'separator',
@@ -180,6 +188,20 @@ export default function ProductsPage() {
         />
         <Pagination meta={data?.meta} onPageChange={(page) => setFilters({ page })} />
       </Card>
+
+      <BulkEditSheet
+        open={bulkOpen}
+        onOpenChange={setBulkOpen}
+        filters={{ status: params.status, type: params.type, vendor: params.vendor, q: params.q, featured: params.featured }}
+        queryKey={['admin', 'products', 'bulk-sheet']}
+        load={adminApi.products}
+        save={adminApi.bulkUpdateProducts}
+        onSaved={() => {
+          qc.invalidateQueries({ queryKey: ['admin', 'products'] })
+          qc.invalidateQueries({ queryKey: adminKeys.dashboard })
+        }}
+        showVendor
+      />
 
       <ActionDialog
         action={action}

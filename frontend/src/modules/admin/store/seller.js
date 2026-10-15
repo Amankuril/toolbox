@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { api } from '@/core/api/http'
+import { api, one } from '@/core/api/http'
 import { createSellerApi, createSellerKeys } from '@/modules/vendor/api'
 
 /** The admin client scoped to /store: same calls as a seller makes, answered for the platform store. */
@@ -28,4 +28,6 @@ export const storeSeller = {
   uploadPath: '/store/media',
   isStore: true,
   useAccount: useStoreAccount,
+  // The store can copy its own listings or, from Admin → Products, any seller's.
+  cloneSource: (id) => storeApi.product(id).catch(() => one(api.admin.get(`/products/${id}`))),
 }

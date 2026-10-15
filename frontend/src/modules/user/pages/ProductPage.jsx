@@ -7,7 +7,7 @@ import { errorMessage } from '@/core/api/errors'
 import { useSession } from '@/core/auth/session'
 import { PRODUCT_TYPE_LABEL } from '@/core/lib/constants'
 import { cn } from '@/core/lib/cn'
-import { videoKey } from '@/core/lib/media'
+import { mergeMedia, videoKey } from '@/core/lib/media'
 import { formatINR, formatNumber } from '@/core/lib/format'
 import { priceFor, usableTiers } from '@/core/lib/pricing'
 import { useBranding } from '@/core/settings/usePublicSettings'
@@ -64,12 +64,11 @@ export default function ProductPage() {
   return <ProductView key={data.product._id} data={data} />
 }
 
-/** Photos first (the cover leads), then videos. Videos load only when their slide is opened. */
-function Gallery({ images, videos = [], name }) {
-  const slides = [
-    ...images.map((img) => ({ kind: 'image', key: img.media ?? img.url, img })),
-    ...videos.map((v) => ({ kind: 'video', key: videoKey(v), video: v })),
-  ]
+/** Photos and videos in the order the seller set (mergeMedia shape). Videos load only when their slide is opened. */
+function Gallery({ media, name }) {
+  const slides = media.map((m) =>
+    m.kind === 'image' ? { kind: 'image', key: `i:${m.item.media ?? m.item.url}`, img: m.item } : { kind: 'video', key: `v:${videoKey(m.item)}`, video: m.item },
+  )
   const [index, setIndex] = useState(0)
   const current = slides[Math.min(index, slides.length - 1)]
   return (
@@ -81,7 +80,7 @@ function Gallery({ images, videos = [], name }) {
               key={slide.key}
               type="button"
               onClick={() => setIndex(i)}
-              aria-label={slide.kind === 'video' ? `Play video ${i - images.length + 1}` : `Show image ${i + 1}`}
+              aria-label={slide.kind === 'video' ? `Play video (${i + 1} of ${slides.length})` : `Show image ${i + 1} of ${slides.length}`}
               aria-current={i === index}
               className={cn(
                 'relative size-12 shrink-0 overflow-hidden rounded-md border-2 bg-slate-100 sm:size-14',
@@ -116,6 +115,13 @@ function Gallery({ images, videos = [], name }) {
       </div>
     </div>
   )
+}
+
+/** The product's gallery; a chosen variant's photo leads, the rest keep the seller's order. */
+function galleryFor(p, variant) {
+  const media = mergeMedia(p.images, p.videos, p.mediaOrder)
+  if (!variant?.image) return media
+  return [{ kind: 'image', item: variant.image }, ...media.filter((m) => !(m.kind === 'image' && m.item.url === variant.image.url))]
 }
 
 function VideoPlayer({ video, title }) {
@@ -255,12 +261,7 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related, fro
       <div className="mt-4 grid gap-6 lg:grid-cols-[380px_1fr] xl:grid-cols-[440px_1fr] lg:gap-8 xl:gap-10 items-start">
         <div className="relative lg:sticky lg:top-24 lg:self-start">
           <WishlistButton product={p} className="absolute top-3 right-3 z-10 size-11" />
-          <Gallery
-            key={variant?.image?.url ?? 'default'}
-            images={variant?.image ? [variant.image, ...p.images.filter((i) => i.url !== variant.image.url)] : p.images}
-            videos={p.videos}
-            name={p.name}
-          />
+          <Gallery key={variant?.image?.url ?? 'default'} media={galleryFor(p, variant)} name={p.name} />
         </div>
 
         <div>

@@ -6,7 +6,8 @@ import { useVendor, vendorApi, vendorKeys } from './api'
  * the admin panel's "Our store" provides the platform store (see modules/admin/store).
  *
  * @typedef {{ api: ReturnType<import('./api').createSellerApi>, keys: ReturnType<import('./api').createSellerKeys>,
- *   base: string, audience: 'vendor'|'admin', uploadPath: string, isStore: boolean, useAccount: () => any }} Seller
+ *   base: string, audience: 'vendor'|'admin', uploadPath: string, isStore: boolean, useAccount: () => any,
+ *   cloneSource: (id: string) => Promise<any> }} Seller
  */
 export const vendorSeller = {
   api: vendorApi,
@@ -16,6 +17,8 @@ export const vendorSeller = {
   uploadPath: '/media',
   isStore: false,
   useAccount: useVendor,
+  // The product "Clone product" copies into a new listing: sellers clone their own.
+  cloneSource: (id) => vendorApi.product(id),
 }
 
 export const SellerContext = createContext(vendorSeller)

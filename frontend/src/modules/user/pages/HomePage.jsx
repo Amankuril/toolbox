@@ -144,7 +144,8 @@ function Departments({ tree, loading }) {
                 <ul className="mt-2 flex flex-col gap-1">
                   {(dept.children ?? []).slice(0, 4).map((sub) => (
                     <li key={sub._id}>
-                      <Link to={`/c/${sub.slug}`} className="text-sm text-slate-600 hover:text-slate-900 hover:underline">
+                      <Link to={`/c/${sub.slug}`} className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 hover:underline">
+                        {sub.image?.url && <Thumb src={sub.image.url} alt="" className="size-5 shrink-0 rounded-sm" fit="cover" />}
                         {sub.name}
                       </Link>
                     </li>

@@ -7,16 +7,15 @@ import { errorMessage } from '@/core/api/errors'
 import { PRODUCT_TYPE_LABEL } from '@/core/lib/constants'
 import { rangeLabel, tierRows } from '@/core/lib/pricing'
 import { formatDateTime, formatINR, formatNumber, formatPhone, titleCase } from '@/core/lib/format'
-import { videoKey, videoPayload } from '@/core/lib/media'
+import { mergeMedia, splitMedia, videoKey, videoPayload } from '@/core/lib/media'
 import { StatusBadge } from '@/ui/Badge'
 import { Price, Thumb } from '@/ui/Brand'
 import { Button } from '@/ui/Button'
 import { Alert, Card, CardBody, CardHeader, Skeleton } from '@/ui/Card'
 import { ConfirmDialog } from '@/ui/Dialog'
-import { ImageUploader } from '@/ui/ImageUploader'
 import { DescriptionList, PageHeader } from '@/ui/PageHeader'
 import { ReasonDialog } from '@/ui/ReasonDialog'
-import { VideoUploader } from '@/ui/VideoUploader'
+import { MediaUploader } from '@/ui/MediaUploader'
 import { adminApi, adminKeys } from '../api'
 
 export default function ProductDetailPage() {
@@ -242,37 +241,32 @@ export default function ProductDetailPage() {
   )
 }
 
-const sameOrder = (a, b) => a.length === b.length && a.every((x, i) => x === b[i])
+const mediaKeys = (list) => list.map((m) => (m.kind === 'image' ? `i:${m.item.media}` : `v:${videoKey(m.item)}`)).join('|')
 
 /** Photos and videos, editable in place: add from files or links, remove, reorder, then save. */
 function MediaCard({ product, saving, onSave }) {
-  const [images, setImages] = useState(product.images)
-  const [videos, setVideos] = useState(product.videos ?? [])
-  const dirty =
-    !sameOrder(
-      images.map((i) => String(i.media)),
-      product.images.map((i) => String(i.media)),
-    ) || !sameOrder(videos.map(videoKey), (product.videos ?? []).map(videoKey))
-  const discard = () => {
-    setImages(product.images)
-    setVideos(product.videos ?? [])
-  }
+  const initial = mergeMedia(product.images, product.videos ?? [], product.mediaOrder)
+  const [media, setMedia] = useState(initial)
+  const dirty = mediaKeys(media) !== mediaKeys(initial)
+  const { images, videos, mediaOrder } = splitMedia(media)
 
   return (
     <Card>
       <CardHeader
         title="Photos & videos"
-        description={`${images.length} photo(s), ${videos.length} video(s). The first photo is the cover.`}
+        description={`${images.length} photo(s), ${videos.length} video(s), shown to buyers in this order. The first photo is the cover.`}
         action={
           dirty && (
             <div className="flex gap-2">
-              <Button variant="ghost" size="sm" disabled={saving} onClick={discard}>
+              <Button variant="ghost" size="sm" disabled={saving} onClick={() => setMedia(initial)}>
                 Discard
               </Button>
               <Button
                 size="sm"
                 loading={saving}
-                onClick={() => onSave({ images: images.map(({ media, alt }) => (alt ? { media, alt } : { media })), videos: videos.map(videoPayload) })}
+                onClick={() =>
+                  onSave({ images: images.map(({ media: id, alt }) => (alt ? { media: id, alt } : { media: id })), videos: videos.map(videoPayload), mediaOrder })
+                }
               >
                 Save media
               </Button>
@@ -280,12 +274,8 @@ function MediaCard({ product, saving, onSave }) {
           )
         }
       />
-      <CardBody className="flex flex-col gap-6">
-        <ImageUploader audience="admin" folder="products" max={10} value={images} onChange={setImages} />
-        <div className="border-t border-slate-100 pt-5">
-          <p className="mb-2 text-sm font-medium text-slate-800">Videos</p>
-          <VideoUploader audience="admin" value={videos} onChange={setVideos} />
-        </div>
+      <CardBody>
+        <MediaUploader audience="admin" value={media} onChange={setMedia} />
       </CardBody>
     </Card>
   )

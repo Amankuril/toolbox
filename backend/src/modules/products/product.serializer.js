@@ -1,3 +1,4 @@
+import { mediaOrderOf } from './gallery.js';
 import { availableQty, hasVariants, isInStock, isTracked, lowStockCount, variantTitle } from './inventory.js';
 import { bulkSummary, quoteThreshold } from './pricing.js';
 
@@ -88,6 +89,7 @@ export function serializeProduct(p) {
       thumbnailUrl: v.thumbnailUrl ?? null,
       title: v.title ?? null,
     })),
+    mediaOrder: mediaOrderOf(p),
     pricing: { ...p.pricing, gstRate: p.pricing.gstRate ?? null, discountPercent: discount(p.pricing.mrp, p.pricing.price) },
     hsnCode: p.hsnCode ?? null,
     // Whether hsnCode / gstRate come from the category rather than the product itself.

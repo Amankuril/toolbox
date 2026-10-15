@@ -9,6 +9,7 @@ import {
   MAX_PRODUCT_VIDEOS,
   MAX_VARIANT_OPTIONS,
   MAX_VARIANTS,
+  MEDIA_KINDS,
   PRODUCT_CONDITIONS,
   PRODUCT_STATUSES,
   PRODUCT_TYPES,
@@ -124,6 +125,8 @@ const fields = {
   description: optionalText(20_000),
   images: z.array(imageInput).max(MAX_PRODUCT_IMAGES),
   videos: z.array(videoInput).max(MAX_PRODUCT_VIDEOS, `Up to ${MAX_PRODUCT_VIDEOS} videos`),
+  // How photos and videos interleave in the gallery (see products/gallery.js).
+  mediaOrder: z.array(z.enum(MEDIA_KINDS)).max(MAX_PRODUCT_IMAGES + MAX_PRODUCT_VIDEOS),
   pricing,
   // null or empty: use the category's code.
   hsnCode,
@@ -157,7 +160,8 @@ const adminFields = {
 };
 
 export const vendorCreateProduct = {
-  body: z.object({ ...createShape, publish: z.boolean().default(false) }),
+  // cloneOf: the product this one was copied from, so its photos and videos can be reused.
+  body: z.object({ ...createShape, publish: z.boolean().default(false), cloneOf: objectId.optional() }),
 };
 
 /**
@@ -194,6 +198,36 @@ export const vendorStockUpdate = {
       mrp: money.min(1).optional(),
     })
     .refine((v) => Object.values(v).some((x) => x !== undefined), 'Nothing to update'),
+};
+
+/**
+ * One row of the bulk-edit sheet: only the cells that changed. Money in paise.
+ * gstRate / hsnCode null = follow the category again.
+ */
+const bulkRow = z
+  .object({
+    _id: objectId,
+    name: nonEmpty(200).optional(),
+    sku: z.string().trim().max(64).optional(),
+    brand: z.string().trim().max(80).optional(),
+    mrp: money.min(1, 'Enter the MRP').optional(),
+    price: money.min(1, 'Enter the selling price').optional(),
+    gstRate: gstRate.nullable().optional(),
+    hsnCode: hsnCode.optional(),
+    stock: z.number().int().min(0).max(1_000_000).optional(),
+    moq: z.number().int().min(1).max(100_000).optional(),
+    available: z.boolean().optional(),
+  })
+  .refine((r) => Object.keys(r).some((k) => k !== '_id' && r[k] !== undefined), 'Nothing to update');
+
+export const bulkUpdateProducts = {
+  body: z.object({
+    items: z
+      .array(bulkRow)
+      .min(1)
+      .max(100, 'Up to 100 products at a time')
+      .refine((rows) => new Set(rows.map((r) => r._id)).size === rows.length, 'Each product can appear only once'),
+  }),
 };
 
 export const adminUpdateProduct = {

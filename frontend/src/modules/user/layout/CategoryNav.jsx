@@ -85,8 +85,11 @@ export function CategoryBar() {
                       current?._id === c._id ? 'bg-slate-100 font-semibold text-slate-900' : 'text-slate-700 hover:bg-slate-50',
                     )}
                   >
-                    {c.name}
-                    {c.children?.length > 0 && <ChevronRight className="size-4 text-slate-400" />}
+                    <span className="flex min-w-0 items-center gap-2.5">
+                      {c.image?.url && <Thumb src={c.image.url} className="size-7 shrink-0 rounded" fit="cover" />}
+                      <span className="truncate">{c.name}</span>
+                    </span>
+                    {c.children?.length > 0 && <ChevronRight className="size-4 shrink-0 text-slate-400" />}
                   </Link>
                 </li>
               ))}
@@ -106,14 +109,16 @@ export function CategoryBar() {
                   <div className="grid grid-cols-3 gap-x-10 gap-y-7 xl:grid-cols-4">
                     {current.children.map((sub) => (
                       <div key={sub._id}>
-                        <Link to={`/c/${sub.slug}`} className="text-[15px] font-semibold text-slate-900 hover:underline">
+                        <Link to={`/c/${sub.slug}`} className="flex items-center gap-2.5 text-[15px] font-semibold text-slate-900 hover:underline">
+                          {sub.image?.url && <Thumb src={sub.image.url} className="size-9 shrink-0 rounded border border-slate-200" fit="cover" />}
                           {sub.name}
                         </Link>
                         {sub.children?.length > 0 && (
                           <ul className="mt-2 flex flex-col gap-1.5">
                             {sub.children.map((leaf) => (
                               <li key={leaf._id}>
-                                <Link to={`/c/${leaf.slug}`} className="text-sm text-slate-600 hover:text-slate-900 hover:underline">
+                                <Link to={`/c/${leaf.slug}`} className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 hover:underline">
+                                  {leaf.image?.url && <Thumb src={leaf.image.url} className="size-5 shrink-0 rounded-sm" fit="cover" />}
                                   {leaf.name}
                                 </Link>
                               </li>
@@ -158,7 +163,11 @@ function AccordionNode({ node, depth = 0, onNavigate }) {
           onClick={onNavigate}
           className={cn('flex flex-1 items-center gap-3 px-4 py-3', depth === 0 ? 'text-[15px] font-semibold text-slate-900' : 'text-sm text-slate-700')}
         >
-          {depth === 0 && <Thumb src={node.image?.url} className="size-8 rounded" fit="cover" />}
+          {depth === 0 ? (
+            <Thumb src={node.image?.url} className="size-8 rounded" fit="cover" />
+          ) : (
+            node.image?.url && <Thumb src={node.image.url} className="size-6 rounded-sm" fit="cover" />
+          )}
           {node.name}
         </Link>
         {hasChildren && (

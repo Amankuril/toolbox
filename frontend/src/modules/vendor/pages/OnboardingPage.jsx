@@ -1,10 +1,10 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Building2, Check, CircleCheckBig, FileText, Landmark, LogOut, MapPin, PencilLine, Send, TriangleAlert } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Building2, Check, Clock, FileText, Landmark, LogOut, MapPin, PencilLine, RefreshCw, Send, TriangleAlert } from 'lucide-react'
 import { useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { pincodeHint, usePincodeAutofill } from '@/core/hooks/usePincodeAutofill'
-import { Link, Navigate, useNavigate } from 'react-router'
+import { Navigate, useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { signOutEverywhere } from '@/core/api/http'
@@ -63,9 +63,6 @@ export default function OnboardingPage() {
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
           <Logo to="/vendor" suffix="Seller" />
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" asChild>
-              <Link to="/vendor">Save &amp; exit</Link>
-            </Button>
             <Button
               variant="ghost"
               size="icon-sm"
@@ -84,7 +81,10 @@ export default function OnboardingPage() {
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-slate-900">Set up {vendor.store?.name}</h1>
-          <p className="mt-1 text-sm text-slate-500">Your progress is saved after every step. We verify these details before your store goes live.</p>
+          <p className="mt-1 text-sm text-slate-500">
+            Your progress is saved after every step. Once you submit, our team reviews your application; your seller panel opens as soon as it&apos;s
+            approved.
+          </p>
         </div>
 
         {vendor.status === 'rejected' && vendor.review?.note && (
@@ -519,19 +519,21 @@ function ReviewStep({ vendor, onEdit }) {
 }
 
 function Submitted({ vendor }) {
+  // Keep checking while under review: approval redirects straight into the seller panel.
+  const { refetch, isFetching } = useQuery({ queryKey: vendorKeys.me, queryFn: vendorApi.me, refetchInterval: 30_000 })
   return (
     <Card>
       <CardBody className="flex flex-col items-center py-14 text-center">
-        <div className="mb-5 grid size-14 place-items-center rounded-full bg-accent-soft text-accent-ink">
-          <CircleCheckBig className="size-7" />
+        <div className="mb-5 grid size-14 place-items-center rounded-full bg-sky-50 text-sky-700">
+          <Clock className="size-7" />
         </div>
-        <h2 className="text-xl font-bold text-slate-900">Application submitted</h2>
+        <h2 className="text-xl font-bold text-slate-900">Your application is under review</h2>
         <p className="mt-2 max-w-md text-sm text-slate-600">
-          Thanks, {vendor.contactName.split(' ')[0]}! We&apos;re verifying your details. Check back here — your dashboard updates as soon as your store is
-          approved.
+          Thanks, {vendor.contactName.split(' ')[0]}! Our team is verifying your business, bank and document details. You&apos;ll be able to open your seller
+          panel and list products as soon as your store is approved.
         </p>
-        <Button className="mt-6" asChild>
-          <Link to="/vendor">Go to dashboard</Link>
+        <Button variant="outline" className="mt-6" loading={isFetching} onClick={() => refetch()}>
+          <RefreshCw /> Check status
         </Button>
       </CardBody>
     </Card>

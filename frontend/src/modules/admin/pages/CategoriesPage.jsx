@@ -271,7 +271,8 @@ function CategoryDialog({ category, onClose, onSaved }) {
           {(p) => <Textarea {...p} rows={3} {...register('description')} />}
         </Field>
         <div className="sm:col-span-2">
-          <p className="mb-1.5 text-sm font-medium text-slate-800">Image</p>
+          <p className="text-sm font-medium text-slate-800">Image / icon</p>
+          <p className="mb-1.5 text-xs text-slate-500">Shown to buyers in the department menu and on category pages, for sub-categories too. A square image works best.</p>
           <Controller
             name="image"
             control={control}

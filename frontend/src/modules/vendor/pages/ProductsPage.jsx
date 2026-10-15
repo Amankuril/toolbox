@@ -1,5 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Archive, Download, Eye, EyeOff, IndianRupee, MoreHorizontal, Package, PackagePlus, Pencil, Upload } from 'lucide-react'
+import { Archive, Copy, Download, Eye, EyeOff, IndianRupee, MoreHorizontal, Package, PackagePlus, Pencil, Sheet, Upload } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { toast } from 'sonner'
@@ -18,6 +18,7 @@ import { Field, Select } from '@/ui/Field'
 import { NumberInput, PriceInput } from '@/ui/inputs'
 import { PageHeader } from '@/ui/PageHeader'
 import { SearchField } from '@/ui/SearchField'
+import { BulkEditSheet } from '@/modules/shared/BulkEditSheet'
 import { useSeller } from '../seller'
 
 const TABS = [
@@ -37,6 +38,7 @@ export default function VendorProductsPage() {
   const [filters, setFilters] = useSearchParamsState()
   const [quickEdit, setQuickEdit] = useState(null)
   const [archiving, setArchiving] = useState(null)
+  const [bulkOpen, setBulkOpen] = useState(false)
   const approved = vendor?.status === 'approved'
   const params = { page: Number(filters.page ?? 1), limit: 20, status: filters.status || undefined, type: filters.type || undefined, q: filters.q || undefined }
   const { data, isLoading } = useQuery({
@@ -90,6 +92,11 @@ export default function VendorProductsPage() {
           <Link to={`${seller.base}/products/import`}>
             <Upload /> Bulk upload
           </Link>
+        </Button>
+      )}
+      {approved && (
+        <Button variant="outline" onClick={() => setBulkOpen(true)}>
+          <Sheet /> Bulk edit
         </Button>
       )}
       {addButton}
@@ -233,6 +240,7 @@ export default function VendorProductsPage() {
                       }
                       items={[
                         { label: 'Edit', icon: Pencil, onSelect: () => navigate(`${seller.base}/products/${p._id}`) },
+                        approved && { label: 'Clone', icon: Copy, onSelect: () => navigate(`${seller.base}/products/new?clone=${p._id}`) },
                         // Variant products are priced per variant in the editor.
                         approved && !p.variants?.length && { label: 'Update price & stock', icon: IndianRupee, onSelect: () => setQuickEdit(p) },
                         approved &&
@@ -253,6 +261,16 @@ export default function VendorProductsPage() {
       )}
 
       <QuickEditDialog product={quickEdit} onClose={() => setQuickEdit(null)} onSaved={refresh} />
+      <BulkEditSheet
+        open={bulkOpen}
+        onOpenChange={setBulkOpen}
+        filters={{ status: params.status, type: params.type, q: params.q }}
+        queryKey={[...seller.keys.all, 'products', 'bulk-sheet']}
+        load={seller.api.products}
+        save={seller.api.bulkUpdateProducts}
+        onSaved={refresh}
+        reviewNote={seller.isStore ? undefined : 'Renaming a live product or changing its brand may send it for review again; price and stock changes never do.'}
+      />
       <ConfirmDialog
         open={Boolean(archiving)}
         onOpenChange={(v) => !v && setArchiving(null)}

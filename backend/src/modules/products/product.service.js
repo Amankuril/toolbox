@@ -8,6 +8,7 @@ import { Vendor } from '#modules/vendors/vendor.model.js';
 import { serializePublicVendor } from '#modules/vendors/vendor.serializer.js';
 import { settingsService } from '#services/settings/settings.service.js';
 import { Product } from './product.model.js';
+import { mediaOrderOf } from './gallery.js';
 import { assertValidVariants, hasVariants, isTracked, syncInventory } from './inventory.js';
 import { assertValidBulkPricing } from './pricing.js';
 import { CARD_FIELDS, serializeProduct, serializeProductCard, serializePublicProduct } from './product.serializer.js';
@@ -24,6 +25,7 @@ const SIMPLE_FIELDS = [
   'modelNumber',
   'shortDescription',
   'description',
+  'mediaOrder',
   'pricing',
   'inventory',
   'variantOptions',
@@ -66,8 +68,11 @@ async function assertCompatibleTargets(ids, selfId) {
   return unique;
 }
 
-/** Converts validated input into model fields, resolving refs the client isn't trusted with. */
-async function buildChanges(input, actor, selfId) {
+/**
+ * Converts validated input into model fields, resolving refs the client isn't trusted with.
+ * `allowMedia`: media ids usable although the actor didn't upload them (the source of a clone).
+ */
+async function buildChanges(input, actor, selfId, { allowMedia } = {}) {
   const changes = {};
   for (const key of SIMPLE_FIELDS) if (input[key] !== undefined) changes[key] = input[key];
   // No rate on the product: it follows the category's (see applyTax).
@@ -76,14 +81,15 @@ async function buildChanges(input, actor, selfId) {
     changes.pricing = pricing;
   }
   if (input.category !== undefined) Object.assign(changes, await categoryService.assertUsableForProduct(input.category, actor));
-  if (input.images !== undefined) changes.images = await mediaService.resolve(input.images, actor);
-  if (input.videos !== undefined) changes.videos = await mediaService.resolveVideos(input.videos, actor);
+  if (input.images !== undefined) changes.images = await mediaService.resolve(input.images, actor, { allow: allowMedia });
+  if (input.videos !== undefined) changes.videos = await mediaService.resolveVideos(input.videos, actor, { allow: allowMedia });
   if (input.compatibleWith !== undefined) changes.compatibleWith = await assertCompatibleTargets(input.compatibleWith, selfId);
   if (input.variants !== undefined) {
     // Variant ids are kept from the input so cart lines pointing at them stay valid.
     const resolved = await mediaService.resolve(
       input.variants.filter((v) => v.image).map((v) => v.image),
       actor,
+      { allow: allowMedia },
     );
     let next = 0;
     changes.variants = input.variants.map(({ image, ...v }) => (image ? { ...v, image: resolved[next++] } : v));
@@ -131,6 +137,7 @@ async function applyTax(product, input, { creating = false } = {}) {
 
 /** Cross-field rules, derived fields and auto SKUs; runs before every product save. */
 function prepareForSave(product) {
+  product.mediaOrder = mediaOrderOf(product);
   assertValidVariants(product);
   syncInventory(product);
   assertValidBulkPricing(product);
@@ -198,6 +205,102 @@ function commonFilter({ q, type, category, status }) {
   return filter;
 }
 
+/** Ids of every photo and video file on a product (gallery and variant photos). */
+function mediaIdsOf(product) {
+  const ids = [
+    ...(product.images ?? []).map((i) => i.media),
+    ...(product.videos ?? []).map((v) => v.media),
+    ...(product.variants ?? []).map((v) => v.image?.media),
+  ];
+  return new Set(ids.filter(Boolean).map(String));
+}
+
+/**
+ * Photos and videos of the product a new listing is cloned from, which the clone may reuse.
+ * Sellers clone their own products; the platform store (run by admins) can clone any listing.
+ */
+async function cloneMedia(vendor, sourceId) {
+  if (!sourceId) return undefined;
+  const filter = { _id: sourceId, ...(vendor.isPlatform ? {} : { vendor: vendor._id }) };
+  const source = await Product.findOne(filter).select('images videos variants.image').lean();
+  if (!source) throw ApiError.unprocessable('The product you are copying was not found', { code: 'CLONE_SOURCE_NOT_FOUND' });
+  return mediaIdsOf(source);
+}
+
+/** Bulk-edit sheet row → the partial input vendorUpdate/adminUpdate take, merged with the product's current values. */
+function bulkRowInput(product, row) {
+  const input = {};
+  // An emptied cell clears the value (null also keeps an empty SKU out of the unique SKU index).
+  for (const key of ['name', 'sku', 'brand']) if (row[key] !== undefined) input[key] = row[key] === '' ? null : row[key];
+  if (row.hsnCode !== undefined) input.hsnCode = row.hsnCode;
+
+  const touchesPrice = row.mrp !== undefined || row.price !== undefined;
+  if ((touchesPrice || row.stock !== undefined) && hasVariants(product)) {
+    throw ApiError.unprocessable('This product has variants. Open the product to change variant prices and stock.', {
+      code: 'HAS_VARIANTS',
+      details: [{ path: row.stock !== undefined ? 'stock' : 'price', message: 'Set per variant' }],
+    });
+  }
+  if (touchesPrice || row.gstRate !== undefined) {
+    const mrp = row.mrp ?? product.pricing.mrp;
+    const price = row.price ?? product.pricing.price;
+    if (price > mrp) {
+      throw ApiError.unprocessable('Selling price cannot be more than MRP', {
+        details: [{ path: 'price', message: 'More than MRP' }],
+      });
+    }
+    // Left alone, the rate keeps following the category if it did.
+    const gst = row.gstRate !== undefined ? row.gstRate : product.taxInherit?.gst ? null : (product.pricing.gstRate ?? null);
+    input.pricing = { mrp, price, gstRate: gst };
+  }
+
+  if (row.stock !== undefined || row.moq !== undefined || row.available !== undefined) {
+    if (row.stock !== undefined && !isTracked(product)) {
+      throw ApiError.unprocessable('Quantity is not tracked for this product', {
+        code: 'NOT_TRACKED',
+        details: [{ path: 'stock', message: 'Not tracked' }],
+      });
+    }
+    const inventory = { ...product.inventory };
+    if (row.stock !== undefined) inventory.stock = row.stock;
+    if (row.moq !== undefined) inventory.moq = row.moq;
+    if (row.available !== undefined) inventory.available = row.available;
+    if (inventory.maxOrderQty && inventory.maxOrderQty < inventory.moq) {
+      throw ApiError.unprocessable('Minimum order is more than the maximum per order', {
+        details: [{ path: 'moq', message: `Max per order is ${inventory.maxOrderQty}` }],
+      });
+    }
+    input.inventory = inventory;
+  }
+  return input;
+}
+
+/**
+ * Applies sheet rows one by one; a row that fails doesn't stop the others.
+ * @returns {{ updated: object[], failed: { _id: string, message: string, code?: string, details?: any }[] }}
+ */
+async function applyBulk(rows, filter, update) {
+  const products = await Product.find({ ...filter, _id: { $in: rows.map((r) => r._id) }, status: { $ne: 'archived' } }).lean();
+  const byId = new Map(products.map((p) => [String(p._id), p]));
+  const updated = [];
+  const failed = [];
+  for (const row of rows) {
+    const product = byId.get(String(row._id));
+    if (!product) {
+      failed.push({ _id: row._id, message: 'Product not found', code: 'NOT_FOUND' });
+      continue;
+    }
+    try {
+      updated.push(await update(product, bulkRowInput(product, row)));
+    } catch (err) {
+      if (!(err instanceof ApiError) && err?.name !== 'ValidationError') throw err;
+      const details = err.details ?? Object.values(err.errors ?? {}).map((e) => ({ path: e.path, message: e.message }));
+      failed.push({ _id: row._id, message: err.message, code: err.code, details });
+    }
+  }
+  return { updated, failed };
+}
+
 /** The platform's own store publishes straight away; other sellers follow the moderation setting. */
 async function autoApproves(vendor) {
   if (vendor.isPlatform) return true;
@@ -209,7 +312,7 @@ export const productService = {
 
   async vendorCreate(vendor, input) {
     const actor = { kind: 'vendor', id: vendor._id };
-    const changes = await buildChanges(input, actor);
+    const changes = await buildChanges(input, actor, undefined, { allowMedia: await cloneMedia(vendor, input.cloneOf) });
     const product = new Product({
       ...changes,
       vendor: vendor._id,
@@ -235,7 +338,8 @@ export const productService = {
     if (!product) throw ApiError.notFound('Product not found');
 
     const actor = { kind: 'vendor', id: vendor._id };
-    const changes = await buildChanges(input, actor, product._id);
+    // Media already on the product stays usable even if someone else uploaded it (an admin's edit, the demo seed).
+    const changes = await buildChanges(input, actor, product._id, { allowMedia: mediaIdsOf(product) });
     keepUntouchedStock(changes, product, input.stockBase);
     const before = product.toObject();
     const reviewedChange = REVIEWED_FIELDS.some((f) => f in changes && toComparable(before[f]) !== toComparable(changes[f]));
@@ -282,6 +386,11 @@ export const productService = {
     }
     await product.save();
     return serializeProduct(product.toObject());
+  },
+
+  /** Bulk-edit sheet: same rules as editing each product (live listings may go back to review). */
+  vendorBulkUpdate(vendor, rows) {
+    return applyBulk(rows, { vendor: vendor._id }, (product, input) => productService.vendorUpdate(vendor, product._id, input));
   },
 
   async vendorSetVisibility(vendor, id, visible) {
@@ -399,6 +508,10 @@ export const productService = {
     prepareForSave(product);
     await product.save().catch(assertSkuFree);
     return serializeProduct(product.toObject());
+  },
+
+  adminBulkUpdate(rows, admin) {
+    return applyBulk(rows, {}, (product, input) => productService.adminUpdate(product._id, input, admin));
   },
 
   async adminReview(id, { action, note }, admin) {

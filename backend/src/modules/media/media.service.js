@@ -92,9 +92,10 @@ export const mediaService = {
    *
    * @param {Array<{ media: string, alt?: string }>} refs
    * @param {{ kind: string, id: any }} actor
-   * @param {{ type?: 'image'|'video' }} [opts] what the refs must point at
+   * @param {{ type?: 'image'|'video', allow?: Set<string> }} [opts] what the refs must point at; `allow`:
+   *   ids the actor may use although someone else uploaded them (e.g. the photos of a product being cloned)
    */
-  async resolve(refs, actor, { type = 'image' } = {}) {
+  async resolve(refs, actor, { type = 'image', allow } = {}) {
     if (!refs?.length) return [];
     const ids = [...new Set(refs.map((r) => String(r.media)))];
     const docs = await Media.find({ _id: { $in: ids } }).lean();
@@ -103,7 +104,8 @@ export const mediaService = {
     return refs.map((ref) => {
       const doc = byId.get(String(ref.media));
       if (!doc) throw ApiError.unprocessable('One of the images no longer exists. Please upload it again.', { code: 'MEDIA_NOT_FOUND' });
-      const owns = doc.uploadedBy.kind === actor.kind && String(doc.uploadedBy.id) === String(actor.id);
+      const owns =
+        (doc.uploadedBy.kind === actor.kind && String(doc.uploadedBy.id) === String(actor.id)) || Boolean(allow?.has(String(doc._id)));
       if (actor.kind !== 'admin' && !owns) throw ApiError.forbidden('You can only use images you uploaded', { code: 'MEDIA_FORBIDDEN' });
       if (isVideo(doc) !== (type === 'video')) {
         throw ApiError.unprocessable(type === 'video' ? 'That file is not a video' : 'That file is not an image', {
@@ -126,12 +128,12 @@ export const mediaService = {
    *
    * @param {Array<{ media?: string, url?: string, title?: string }>} inputs
    */
-  async resolveVideos(inputs, actor) {
+  async resolveVideos(inputs, actor, { allow } = {}) {
     if (!inputs?.length) return [];
     const uploads = await this.resolve(
       inputs.filter((v) => v.media),
       actor,
-      { type: 'video' },
+      { type: 'video', allow },
     );
     let next = 0;
     return inputs.map((v, i) => {

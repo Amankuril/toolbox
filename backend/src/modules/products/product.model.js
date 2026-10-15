@@ -18,6 +18,7 @@ export const PRODUCT_STATUSES = ['draft', 'pending', 'active', 'rejected', 'inac
 export const MAX_PRODUCT_IMAGES = 10;
 export const MAX_PRODUCT_VIDEOS = 5;
 export const VIDEO_SOURCES = ['upload', 'youtube', 'vimeo'];
+export const MEDIA_KINDS = ['image', 'video'];
 /** Quantity price breaks on top of the base selling price (Amazon Business allows 5 as well). */
 export const MAX_BULK_TIERS = 5;
 /** Variant options (Size, Colour…) and the combinations they produce, Shopify-style. */
@@ -107,6 +108,9 @@ const productSchema = new Schema(
       default: [],
       validate: [(v) => v.length <= MAX_PRODUCT_VIDEOS, `At most ${MAX_PRODUCT_VIDEOS} videos`],
     },
+    // Gallery sequence across both lists, e.g. ['image', 'video', 'image']: the nth 'image' is images[n].
+    // Lets sellers put a video between photos. Empty (older products) = photos first, then videos.
+    mediaOrder: { type: [{ type: String, enum: MEDIA_KINDS }], default: [] },
 
     // All money in paise.
     pricing: {

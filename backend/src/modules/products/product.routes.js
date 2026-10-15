@@ -10,6 +10,7 @@ import { productService } from './product.service.js';
 import {
   adminListProducts,
   adminUpdateProduct,
+  bulkUpdateProducts,
   productSlugParams,
   publicListProducts,
   reviewProduct,
@@ -70,6 +71,10 @@ export const vendorProductRoutes = Router()
   .post('/', requireApprovedVendor, validate(vendorCreateProduct), async (req, res) => {
     created(res, await productService.vendorCreate(req.account, req.body));
   })
+  // Before /:id so "bulk" isn't taken for a product id.
+  .patch('/bulk', requireApprovedVendor, validate(bulkUpdateProducts), async (req, res) => {
+    ok(res, await productService.vendorBulkUpdate(req.account, req.body.items));
+  })
   .patch('/:id', requireApprovedVendor, validate(vendorUpdateProduct), async (req, res) => {
     ok(res, await productService.vendorUpdate(req.account, req.params.id, req.body));
   })
@@ -91,6 +96,9 @@ export const adminProductRoutes = Router()
   })
   .get('/:id', validate({ params: idParams }), async (req, res) => {
     ok(res, await productService.adminGet(req.params.id));
+  })
+  .patch('/bulk', validate(bulkUpdateProducts), async (req, res) => {
+    ok(res, await productService.adminBulkUpdate(req.body.items, actorOf(req)));
   })
   .patch('/:id', validate(adminUpdateProduct), async (req, res) => {
     ok(res, await productService.adminUpdate(req.params.id, req.body, actorOf(req)));

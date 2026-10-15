@@ -45,7 +45,7 @@ export default function CategoryPage() {
               crumbs={[...category.breadcrumbs.map((b) => ({ label: b.name, to: `/c/${b.slug}` })), { label: category.name }]}
               title={category.name}
               description={category.description}
-              subLinks={category.children?.map((c) => ({ to: `/c/${c.slug}`, label: c.name }))}
+              subLinks={category.children?.map((c) => ({ to: `/c/${c.slug}`, label: c.name, image: c.image?.url }))}
             />
           )
         }
