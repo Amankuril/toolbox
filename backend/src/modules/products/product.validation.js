@@ -296,5 +296,17 @@ export const publicListProducts = {
   }),
 };
 
+export const COMPARE_MAX = 4;
+
+export const compareProducts = {
+  query: z.object({
+    ids: z
+      .string()
+      .max(200)
+      .transform((v) => [...new Set(v.split(',').filter(Boolean))])
+      .pipe(z.array(objectId).min(1).max(COMPARE_MAX)),
+  }),
+};
+
 export const suggestQuery = { query: z.object({ q: z.string().trim().min(2).max(100) }) };
 export const productSlugParams = { params: z.object({ slug: z.string().trim().min(1).max(200) }) };

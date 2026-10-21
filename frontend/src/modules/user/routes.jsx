@@ -16,6 +16,7 @@ export const userRoutes = {
         { path: 'store/:slug', ...page(() => import('./pages/StorePage')) },
         { path: 'cart', ...page(() => import('./pages/CartPage')) },
         { path: 'wishlist', ...page(() => import('./pages/WishlistPage')) },
+        { path: 'compare', ...page(() => import('./pages/ComparePage')) },
         { path: 'login', ...page(() => import('./pages/LoginPage')) },
         { path: 'onboarding', ...page(() => import('./pages/OnboardingPage')) },
         {

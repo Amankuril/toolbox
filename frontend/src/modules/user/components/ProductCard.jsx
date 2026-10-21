@@ -12,6 +12,7 @@ import { Skeleton } from '@/ui/Card'
 import { useCart } from '../cart/useCart'
 import { unitShort } from '@/core/lib/units'
 import { trackCartChange } from '@/core/analytics/ga'
+import { CompareToggle } from './CompareToggle'
 import { WishlistButton } from './WishlistButton'
 
 /** "550 W · 13 mm" — the two specs that matter most, straight from the listing. */
@@ -43,7 +44,7 @@ export function BulkHint({ bulk, unit, className }) {
   )
 }
 
-function useAddToCart(p) {
+export function useAddToCart(p) {
   const cart = useCart()
   const navigate = useNavigate()
   const [busy, setBusy] = useState(false)
@@ -67,7 +68,7 @@ function useAddToCart(p) {
 }
 
 /** Catalogue tile. The link and the button are siblings: interactive elements can't nest inside an <a>. */
-export function ProductCard({ product: p, className }) {
+export function ProductCard({ product: p, compare = false, className }) {
   const { add, busy, inCart } = useAddToCart(p)
   const facts = keyFacts(p)
   return (
@@ -118,6 +119,7 @@ export function ProductCard({ product: p, className }) {
       >
         {p.hasVariants ? 'Choose options' : inCart ? `In cart · ${inCart}` : p.moq > 1 ? `Add ${p.moq} ${unitShort(p.unit)}` : 'Add to cart'}
       </Button>
+      {compare && <CompareToggle product={p} className="mt-2 self-start" />}
     </article>
   )
 }
@@ -148,6 +150,7 @@ export function ProductRow({ product: p }) {
           </dl>
         )}
         <Availability product={p} className="mt-2" />
+        <CompareToggle product={p} className="mt-2" />
       </div>
       <div className="col-span-2 flex items-end justify-between gap-3 sm:col-span-1 sm:flex-col sm:items-end sm:justify-start sm:text-right">
         <div>
@@ -202,7 +205,9 @@ export function ProductGrid({ products, loading, count = 10, view = 'grid' }) {
   }
   return (
     <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-      {loading ? Array.from({ length: count }, (_, i) => <ProductCardSkeleton key={i} />) : products.map((p) => <ProductCard key={p._id} product={p} />)}
+      {loading
+        ? Array.from({ length: count }, (_, i) => <ProductCardSkeleton key={i} />)
+        : products.map((p) => <ProductCard key={p._id} product={p} compare />)}
     </div>
   )
 }

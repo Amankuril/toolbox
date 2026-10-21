@@ -11,6 +11,7 @@ import {
   adminListProducts,
   adminUpdateProduct,
   bulkUpdateProducts,
+  compareProducts,
   productSlugParams,
   publicListProducts,
   reviewProduct,
@@ -51,6 +52,10 @@ export const publicProductRoutes = Router()
         productService.suggest(req.query.q),
       ),
     );
+  })
+  .get('/compare', validate(compareProducts), async (req, res) => {
+    res.set('Cache-Control', 'public, max-age=30');
+    ok(res, await productService.publicCompare(req.query.ids));
   })
   .get('/:slug', validate(productSlugParams), async (req, res) => {
     res.set('Cache-Control', 'public, max-age=30');

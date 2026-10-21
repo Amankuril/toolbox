@@ -17,6 +17,7 @@ import { useCart } from '../cart/useCart'
 import { useCategoryTree } from '../hooks'
 import { useWishlist } from '../wishlist/useWishlist'
 import { CategoryAccordion, CategoryBar } from './CategoryNav'
+import { CompareTray } from './CompareTray'
 import { SearchBox } from './SearchBox'
 
 function AccountButton() {
@@ -288,6 +289,7 @@ export default function StoreLayout() {
         <Outlet />
       </main>
       <Footer />
+      <CompareTray />
       <ScrollRestoration />
     </div>
   )

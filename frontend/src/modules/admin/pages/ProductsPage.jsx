@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Copy, ExternalLink, Eye, EyeOff, Layers, MessageSquareWarning, Plus, Sheet, Star, Upload, X } from 'lucide-react'
+import { Check, Copy, ExternalLink, Eye, EyeOff, Layers, MessageSquareWarning, Plus, Share2, Sheet, Star, Upload, X } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { toast } from 'sonner'
@@ -18,6 +18,8 @@ import { PageHeader } from '@/ui/PageHeader'
 import { ActionDialog, RowActions } from '@/ui/RowActions'
 import { SearchField } from '@/ui/SearchField'
 import { BulkEditSheet } from '@/modules/shared/BulkEditSheet'
+import { productShareItem, useShare } from '@/modules/shared/share'
+import { useBranding } from '@/core/settings/usePublicSettings'
 import { useAdminAccess } from '../access'
 import { adminApi, adminKeys } from '../api'
 
@@ -33,6 +35,8 @@ const TABS = [
 
 export default function ProductsPage() {
   const navigate = useNavigate()
+  const { siteName } = useBranding()
+  const { share, dialog: shareDialog } = useShare()
   const qc = useQueryClient()
   const [filters, setFilters] = useSearchParamsState()
   const [action, setAction] = useState(null)
@@ -169,6 +173,7 @@ export default function ProductsPage() {
                     can('store', 'manage') && { label: 'Clone to our store', icon: Copy, onSelect: () => navigate(`/admin/store/products/new?clone=${p._id}`) },
                     p.status === 'active' &&
                       p.vendorApproved && { label: 'View on store', icon: ExternalLink, onSelect: () => window.open(`/p/${p.slug}`, '_blank', 'noopener') },
+                    p.status === 'active' && p.vendorApproved && { label: 'Share link', icon: Share2, onSelect: () => share(productShareItem(p, siteName)) },
                     ['pending', 'rejected'].includes(p.status) && 'separator',
                     ['pending', 'rejected'].includes(p.status) && { label: 'Approve', icon: Check, onSelect: () => setAction({ type: 'approve', row: p }) },
                     p.status === 'pending' && { label: 'Reject', icon: MessageSquareWarning, onSelect: () => setAction({ type: 'reject', row: p }) },
@@ -189,6 +194,7 @@ export default function ProductsPage() {
         <Pagination meta={data?.meta} onPageChange={(page) => setFilters({ page })} />
       </Card>
 
+      {shareDialog}
       <BulkEditSheet
         open={bulkOpen}
         onOpenChange={setBulkOpen}

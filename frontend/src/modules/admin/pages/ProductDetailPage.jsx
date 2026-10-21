@@ -16,12 +16,15 @@ import { ConfirmDialog } from '@/ui/Dialog'
 import { DescriptionList, PageHeader } from '@/ui/PageHeader'
 import { ReasonDialog } from '@/ui/ReasonDialog'
 import { MediaUploader } from '@/ui/MediaUploader'
+import { productShareItem, ShareButton } from '@/modules/shared/share'
+import { useBranding } from '@/core/settings/usePublicSettings'
 import { adminApi, adminKeys } from '../api'
 
 export default function ProductDetailPage() {
   const { id } = useParams()
   const qc = useQueryClient()
   const { data: p, isLoading } = useQuery({ queryKey: adminKeys.product(id), queryFn: () => adminApi.product(id) })
+  const { siteName } = useBranding()
 
   const done = (message) => () => {
     qc.invalidateQueries({ queryKey: adminKeys.product(id) })
@@ -57,6 +60,7 @@ export default function ProductDetailPage() {
                 </a>
               </Button>
             )}
+            {p.status === 'active' && p.vendorApproved && <ShareButton item={productShareItem(p, siteName)} />}
             {['active', 'inactive'].includes(p.status) && (
               <Button
                 variant="outline"

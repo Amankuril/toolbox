@@ -1,5 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Archive, Copy, Download, Eye, EyeOff, IndianRupee, MoreHorizontal, Package, PackagePlus, Pencil, Sheet, Upload } from 'lucide-react'
+import { Archive, Copy, Download, Eye, EyeOff, IndianRupee, MoreHorizontal, Package, PackagePlus, Pencil, Share2, Sheet, Upload } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { toast } from 'sonner'
@@ -19,6 +19,8 @@ import { NumberInput, PriceInput } from '@/ui/inputs'
 import { PageHeader } from '@/ui/PageHeader'
 import { SearchField } from '@/ui/SearchField'
 import { BulkEditSheet } from '@/modules/shared/BulkEditSheet'
+import { productShareItem, useShare } from '@/modules/shared/share'
+import { useBranding } from '@/core/settings/usePublicSettings'
 import { useSeller } from '../seller'
 
 const TABS = [
@@ -39,6 +41,8 @@ export default function VendorProductsPage() {
   const [quickEdit, setQuickEdit] = useState(null)
   const [archiving, setArchiving] = useState(null)
   const [bulkOpen, setBulkOpen] = useState(false)
+  const { siteName } = useBranding()
+  const { share, dialog: shareDialog } = useShare()
   const approved = vendor?.status === 'approved'
   const params = { page: Number(filters.page ?? 1), limit: 20, status: filters.status || undefined, type: filters.type || undefined, q: filters.q || undefined }
   const { data, isLoading } = useQuery({
@@ -240,6 +244,8 @@ export default function VendorProductsPage() {
                       }
                       items={[
                         { label: 'Edit', icon: Pencil, onSelect: () => navigate(`${seller.base}/products/${p._id}`) },
+                        p.status === 'active' &&
+                          p.vendorApproved && { label: 'Share link', icon: Share2, onSelect: () => share(productShareItem(p, siteName)) },
                         approved && { label: 'Clone', icon: Copy, onSelect: () => navigate(`${seller.base}/products/new?clone=${p._id}`) },
                         // Variant products are priced per variant in the editor.
                         approved && !p.variants?.length && { label: 'Update price & stock', icon: IndianRupee, onSelect: () => setQuickEdit(p) },
@@ -260,6 +266,7 @@ export default function VendorProductsPage() {
         </Card>
       )}
 
+      {shareDialog}
       <QuickEditDialog product={quickEdit} onClose={() => setQuickEdit(null)} onSaved={refresh} />
       <BulkEditSheet
         open={bulkOpen}

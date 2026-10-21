@@ -665,6 +665,34 @@ export const productService = {
     };
   },
 
+  /** Side-by-side comparison: everything a buyer weighs, in the order asked. Unlisted products are left out. */
+  async publicCompare(ids) {
+    const products = await Product.find({ _id: { $in: ids }, ...VISIBLE })
+      .select('-description -videos -seo -compatibleWith -moderation')
+      .populate('vendor', 'store address.city address.state createdAt isPlatform phone')
+      .populate('category', 'name slug')
+      .lean();
+    const byId = new Map(products.map((p) => [String(p._id), p]));
+    return ids
+      .map((id) => byId.get(String(id)))
+      .filter(Boolean)
+      .map((p) => {
+        const full = serializePublicProduct(p);
+        return {
+          ...serializeProductCard(p),
+          shortDescription: full.shortDescription,
+          specifications: full.specifications,
+          warranty: full.warranty,
+          shipping: full.shipping,
+          gstRate: full.pricing.gstRate,
+          hsnCode: full.hsnCode,
+          quotes: full.quotes,
+          category: p.category ? { _id: p.category._id, name: p.category.name, slug: p.category.slug } : null,
+          vendor: serializePublicVendor(p.vendor),
+        };
+      });
+  },
+
   async suggest(q) {
     const rx = new RegExp(escapeRegex(q), 'i');
     const [products, categories] = await Promise.all([

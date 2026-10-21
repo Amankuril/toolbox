@@ -21,6 +21,8 @@ import { Checkbox, Field, Input, Select, Textarea } from '@/ui/Field'
 import { MediaUploader } from '@/ui/MediaUploader'
 import { NumberInput, PriceInput, TagInput } from '@/ui/inputs'
 import { PageHeader } from '@/ui/PageHeader'
+import { productShareItem, ShareButton } from '@/modules/shared/share'
+import { useBranding } from '@/core/settings/usePublicSettings'
 import { useSeller } from '../seller'
 import { CategoryDialog } from '../components/CategoryDialog'
 import { ClonePickerDialog } from '../components/ClonePickerDialog'
@@ -319,6 +321,7 @@ export default function ProductFormPage() {
 
 function ProductForm({ product, cloneFrom }) {
   const seller = useSeller()
+  const { siteName } = useBranding()
   const isNew = !product
   const navigate = useNavigate()
   const qc = useQueryClient()
@@ -381,6 +384,7 @@ function ProductForm({ product, cloneFrom }) {
       () => toast.error('Please fix the highlighted fields'),
     )
   const status = product?.status
+  const live = status === 'active' && product?.vendorApproved
   const canSubmit = isNew || ['draft', 'rejected'].includes(status)
   const discount = pricing?.mrp > pricing?.price ? Math.round(((pricing.mrp - pricing.price) / pricing.mrp) * 100) : 0
 
@@ -399,11 +403,14 @@ function ProductForm({ product, cloneFrom }) {
               <Copy /> {cloneFrom ? 'Copy a different product' : 'Clone existing product'}
             </Button>
           ) : (
-            <Button variant="outline" asChild>
-              <Link to={`${seller.base}/products/new?clone=${product._id}`}>
-                <Copy /> Clone product
-              </Link>
-            </Button>
+            <>
+              {live && <ShareButton item={productShareItem(product, siteName)} />}
+              <Button variant="outline" asChild>
+                <Link to={`${seller.base}/products/new?clone=${product._id}`}>
+                  <Copy /> Clone product
+                </Link>
+              </Button>
+            </>
           )
         }
       />

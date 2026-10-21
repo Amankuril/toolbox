@@ -26,6 +26,8 @@ import { QuoteRequestDialog } from '../components/QuoteRequestDialog'
 import { ServiceTiles } from '../components/Highlights'
 import { Reviews } from '../components/Reviews'
 import { WishlistButton } from '../components/WishlistButton'
+import { CompareCard } from '../components/CompareToggle'
+import { productShareItem, ShareButton } from '@/modules/shared/share'
 import { RatingInline } from '../components/Stars'
 import { useRecentlyViewed, useTrackView } from '../cart/recentlyViewed'
 import { unitPlural, unitShort } from '@/core/lib/units'
@@ -261,6 +263,13 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related, fro
       <div className="mt-4 grid gap-6 lg:grid-cols-[380px_1fr] xl:grid-cols-[440px_1fr] lg:gap-8 xl:gap-10 items-start">
         <div className="relative lg:sticky lg:top-24 lg:self-start">
           <WishlistButton product={p} className="absolute top-3 right-3 z-10 size-11" />
+          <ShareButton
+            iconOnly
+            variant="outline"
+            item={productShareItem(p, siteName)}
+            onShare={(method) => track('share', { method, content_type: 'product', item_id: p._id })}
+            className="absolute top-16 right-3 z-10 size-11 rounded-full bg-white/95 text-slate-700 shadow-[0_1px_2px_rgb(0_0_0/0.12)] [&_svg]:size-[18px]"
+          />
           <Gallery key={variant?.image?.url ?? 'default'} media={galleryFor(p, variant)} name={p.name} />
         </div>
 
@@ -420,6 +429,8 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related, fro
               <ChevronRight className="size-5 shrink-0 text-emerald-600" />
             </button>
           )}
+
+          <CompareCard product={p} className="mt-3" />
 
           <ul className="mt-3.5 divide-y divide-slate-200 border-y border-slate-200 text-xs sm:text-sm">
             {(p.warranty?.months || p.warranty?.details) && (
