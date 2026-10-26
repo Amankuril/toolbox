@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChartColumn, FileText, FolderTree, LayoutDashboard, Package, ShoppingBag, Store, TicketPercent, UserRoundSearch } from 'lucide-react'
+import { BellRing, ChartColumn, FileText, FolderTree, LayoutDashboard, Package, ShoppingBag, Store, TicketPercent, UserRoundSearch } from 'lucide-react'
 import { Navigate, useNavigate } from 'react-router'
 import { signOutEverywhere } from '@/core/api/http'
 import { formatPhone } from '@/core/lib/format'
@@ -20,6 +20,7 @@ const buildNav = (newQuotes, abandonedCarts) => [
     title: 'Customers',
     items: [
       { to: '/vendor/leads', label: 'Leads', icon: UserRoundSearch, badge: abandonedCarts },
+      { to: '/vendor/enquiries', label: 'Enquiries', icon: BellRing },
       { to: '/vendor/coupons', label: 'Coupons', icon: TicketPercent },
     ],
   },

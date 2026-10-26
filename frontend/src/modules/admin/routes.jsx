@@ -21,6 +21,7 @@ export const adminRoutes = {
               children: [
                 { path: 'orders', ...page(() => import('./pages/OrdersPage')) },
                 { path: 'orders/:id', ...page(() => import('./pages/OrderDetailPage')) },
+                { path: 'enquiries', ...page(() => import('./pages/EnquiriesPage')) },
               ],
             },
             { element: <RequireSection section="quotes" />, children: [{ path: 'quotes', ...page(() => import('./pages/QuotesPage')) }] },
@@ -53,6 +54,7 @@ export const adminRoutes = {
                     { path: 'quotes', ...page(() => import('@/modules/vendor/pages/QuotesPage')) },
                     { path: 'quotes/:id', ...page(() => import('@/modules/vendor/pages/QuoteDetailPage')) },
                     { path: 'leads', ...page(() => import('@/modules/vendor/pages/LeadsPage')) },
+                    { path: 'enquiries', ...page(() => import('@/modules/vendor/pages/EnquiriesPage')) },
                     { path: 'leads/:userId', ...page(() => import('@/modules/vendor/pages/LeadDetailPage')) },
                     { path: 'coupons', ...page(() => import('@/modules/vendor/pages/CouponsPage')) },
                     { path: 'categories', ...page(() => import('@/modules/vendor/pages/CategoriesPage')) },

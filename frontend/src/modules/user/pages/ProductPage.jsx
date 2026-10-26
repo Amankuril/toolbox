@@ -22,6 +22,7 @@ import { useCart } from '../cart/useCart'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { BulkPricingTable } from '../components/BulkPricingTable'
 import { ProductCard, ProductRail, SectionHeading } from '../components/ProductCard'
+import { EnquiryCard } from '../components/EnquiryDialog'
 import { QuoteRequestDialog } from '../components/QuoteRequestDialog'
 import { ServiceTiles } from '../components/Highlights'
 import { Reviews } from '../components/Reviews'
@@ -395,6 +396,8 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related, fro
               )}
             </div>
           )}
+
+          {!sellable.inStock && <EnquiryCard product={p} variant={variant} className="mt-3.5" />}
 
           {p.quotes.enabled && (
             <button

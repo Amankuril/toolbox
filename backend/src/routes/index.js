@@ -21,6 +21,7 @@ import { dashboardService } from '#modules/dashboard/dashboard.service.js';
 import { adminMediaRouter, mediaUploadRouter } from '#modules/media/media.routes.js';
 import { manualOrderRoutes, publicPayRoutes } from '#modules/orders/manual.routes.js';
 import { publicTrackRoutes, sellerAnalyticsRoutes } from '#modules/analytics/analytics.routes.js';
+import { enquiryRoutes, publicEnquiryRoutes } from '#modules/enquiries/enquiry.routes.js';
 import { adminPageRoutes, publicPageRoutes } from '#modules/pages/page.routes.js';
 import { publicPickupRoutes, sellerPickupRoutes } from '#modules/pickup/pickup.routes.js';
 import { adminOrderRoutes, userOrderRoutes, vendorOrderRoutes } from '#modules/orders/order.routes.js';
@@ -42,6 +43,7 @@ import { adminVendorRoutes, publicStoreRoutes, vendorSelfRoutes } from '#modules
  *   /vendor   signed-in seller
  *   /admin    signed-in admin
  */
+const sellerEnquiries = enquiryRoutes({ scope: (req) => ({ vendorId: req.auth.id }) });
 // Sellers and the house store make orders from their own products only.
 const sellerManualOrders = manualOrderRoutes({ scope: (req) => ({ vendorId: req.auth.id }) });
 
@@ -55,6 +57,7 @@ export function buildRoutes() {
     .use('/categories', publicCategoryRoutes)
     .use('/products', publicProductRoutes)
     .use('/products', publicReviewRoutes)
+    .use('/products', publicEnquiryRoutes)
     .get('/stats', async (_req, res) => {
       res.set('Cache-Control', 'public, max-age=600');
       ok(res, await storeStats());
@@ -109,6 +112,7 @@ export function buildRoutes() {
     .use('/coupons', vendorCouponRoutes)
     .use('/customers', sellerCustomerRoutes)
     .use('/analytics', sellerAnalyticsRoutes)
+    .use('/enquiries', sellerEnquiries)
     .use('/leads', vendorLeadRoutes)
     .use(vendorShippingRoutes);
   api.use('/vendor', vendorApi);
@@ -127,6 +131,7 @@ export function buildRoutes() {
     .use('/coupons', vendorCouponRoutes)
     .use('/customers', sellerCustomerRoutes)
     .use('/analytics', sellerAnalyticsRoutes)
+    .use('/enquiries', sellerEnquiries)
     .use('/leads', vendorLeadRoutes)
     .use(vendorShippingRoutes)
     .use('/media', mediaUploadRouter());
@@ -145,6 +150,7 @@ export function buildRoutes() {
     .use('/product-imports', requireSection('products'), adminProductImportRoutes)
     .use('/orders', requireSection('orders'), adminOrderRoutes)
     .use('/manual-orders', requireSection('orders'), manualOrderRoutes({ scope: () => ({}) }))
+    .use('/enquiries', requireSection('orders'), enquiryRoutes({ scope: () => ({}) }))
     .use(['/shipments', '/shipping'], requireSection('orders'))
     .use('/quotes', requireSection('quotes'), adminQuoteRoutes)
     .use('/reviews', requireSection('reviews'), adminReviewRoutes)

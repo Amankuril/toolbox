@@ -85,6 +85,8 @@ export function createSellerApi(v) {
     shareCoupon: (id, userIds) => one(v.post(`/coupons/${id}/share`, { userIds })),
     customers: (params) => list(v.get('/customers', { params })),
     analytics: (params) => one(v.get('/analytics', { params })),
+    enquiries: (params) => list(v.get('/enquiries', { params })),
+    setEnquiryStatus: (id, status) => one(v.patch(`/enquiries/${id}`, { status })),
 
     leadCounts: () => one(v.get('/leads/counts')),
     cartLeads: (params) => list(v.get('/leads/carts', { params })),

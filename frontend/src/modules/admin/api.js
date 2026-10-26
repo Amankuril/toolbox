@@ -86,6 +86,8 @@ export const adminApi = {
   reviewProduct: (id, body) => one(a.post(`/products/${id}/review`, body)),
 
   orders: (params) => list(a.get('/orders', { params })),
+  enquiries: (params) => list(a.get('/enquiries', { params })),
+  setEnquiryStatus: (id, status) => one(a.patch(`/enquiries/${id}`, { status })),
   markCashCollected: (id, note) => one(a.post(`/orders/${id}/cash-collected`, { note })),
   order: (id) => one(a.get(`/orders/${id}`)),
   orderInvoices: (id) => one(a.get(`/orders/${id}/invoices`)),

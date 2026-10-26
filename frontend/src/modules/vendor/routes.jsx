@@ -27,6 +27,7 @@ export const vendorRoutes = {
             { path: 'orders', ...page(() => import('./pages/OrdersPage')) },
             { path: 'orders/:id', ...page(() => import('./pages/OrderDetailPage')) },
             { path: 'leads', ...page(() => import('./pages/LeadsPage')) },
+            { path: 'enquiries', ...page(() => import('./pages/EnquiriesPage')) },
             { path: 'leads/:userId', ...page(() => import('./pages/LeadDetailPage')) },
             { path: 'coupons', ...page(() => import('./pages/CouponsPage')) },
             { path: 'profile', ...page(() => import('./pages/ProfilePage')) },

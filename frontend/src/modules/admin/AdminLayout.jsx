@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  BellRing,
   Boxes,
   ChartColumn,
   FileStack,
@@ -57,6 +58,7 @@ export default function AdminLayout() {
       items: [
         allow('dashboard', { to: '/admin', end: true, label: 'Dashboard', icon: LayoutDashboard }),
         allow('orders', { to: '/admin/orders', label: 'Orders', icon: ShoppingBag }),
+        allow('orders', { to: '/admin/enquiries', label: 'Enquiries', icon: BellRing }),
         allow('quotes', { to: '/admin/quotes', label: 'Bulk quotes', icon: FileText }),
         allow('reviews', { to: '/admin/reviews', label: 'Reviews', icon: Star }),
       ],
@@ -116,6 +118,7 @@ export default function AdminLayout() {
       title: 'Customers',
       items: [
         { to: '/admin/store/leads', label: 'Leads', icon: UserRoundSearch, badge: storeLeadCounts?.abandoned ?? 0 },
+        { to: '/admin/store/enquiries', label: 'Enquiries', icon: BellRing },
         { to: '/admin/store/coupons', label: 'Coupons', icon: TicketPercent },
       ],
     },
