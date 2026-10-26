@@ -35,6 +35,7 @@ export const adminKeys = {
   warehouses: ['admin', 'warehouses'],
   banners: ['admin', 'banners'],
   settings: ['admin', 'settings'],
+  pages: ['admin', 'pages'],
   admins: ['admin', 'admins'],
 }
 
@@ -44,6 +45,10 @@ export const adminApi = {
   me: () => one(a.get('/me')),
   changePassword: (body) => one(a.post('/me/password', body)),
   dashboard: () => one(a.get('/dashboard')),
+
+  pages: () => one(a.get('/pages')),
+  savePage: (key, body) => one(a.put(`/pages/${key}`, body)),
+  resetPage: (key) => one(a.delete(`/pages/${key}`)),
 
   vendors: (params) => list(a.get('/vendors', { params })),
   vendor: (id) => one(a.get(`/vendors/${id}`)),

@@ -141,4 +141,8 @@ export const seoRoutes = Router()
   .get(
     '/store/:slug',
     page(({ slug }) => seoService.store(slug.toLowerCase())),
+  )
+  .get(
+    '/pages/:slug',
+    page(({ slug }) => seoService.page(slug.toLowerCase())),
   );

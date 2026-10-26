@@ -15,6 +15,7 @@ export const SECTIONS = [
   { key: 'reviews', label: 'Reviews', help: 'Hide or publish product reviews', to: '/admin/reviews' },
   { key: 'banners', label: 'Banners', help: 'Home page banners', to: '/admin/banners' },
   { key: 'media', label: 'Media library', help: 'Browse and delete uploaded files', to: null },
+  { key: 'content', label: 'Pages & SEO', help: 'Policy and support pages, SEO titles and descriptions', to: '/admin/pages' },
   { key: 'settings', label: 'Settings', help: 'Theme, branding, payments, shipping, storage', to: '/admin/settings' },
 ]
 const RANK = { none: 0, view: 1, manage: 2 }

@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Boxes,
+  FileStack,
   FileText,
   FolderTree,
   Image,
@@ -75,7 +76,10 @@ export default function AdminLayout() {
         isSuper && { to: '/admin/admins', label: 'Admins', icon: ShieldCheck },
       ],
     },
-    { title: 'System', items: [allow('settings', { to: '/admin/settings', label: 'Settings', icon: Settings })] },
+    {
+      title: 'System',
+      items: [allow('content', { to: '/admin/pages', label: 'Pages', icon: FileStack }), allow('settings', { to: '/admin/settings', label: 'Settings', icon: Settings })],
+    },
   ]
     .map((g) => ({ ...g, items: g.items.filter(Boolean) }))
     .filter((g) => g.items.length)

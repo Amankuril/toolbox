@@ -17,6 +17,7 @@ export const ADMIN_SECTIONS = [
   { key: 'reviews', label: 'Reviews', help: 'Hide or publish product reviews' },
   { key: 'banners', label: 'Banners', help: 'Home page banners' },
   { key: 'media', label: 'Media library', help: 'Browse and delete uploaded files' },
+  { key: 'content', label: 'Pages & SEO', help: 'Policy and support pages, SEO titles and descriptions' },
   { key: 'settings', label: 'Settings', help: 'Theme, branding, payments, shipping, storage' },
 ];
 export const SECTION_KEYS = ADMIN_SECTIONS.map((s) => s.key);

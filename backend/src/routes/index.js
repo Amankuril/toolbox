@@ -20,6 +20,7 @@ import { adminCategoryRoutes, publicCategoryRoutes, vendorCategoryRoutes } from 
 import { dashboardService } from '#modules/dashboard/dashboard.service.js';
 import { adminMediaRouter, mediaUploadRouter } from '#modules/media/media.routes.js';
 import { manualOrderRoutes, publicPayRoutes } from '#modules/orders/manual.routes.js';
+import { adminPageRoutes, publicPageRoutes } from '#modules/pages/page.routes.js';
 import { adminOrderRoutes, userOrderRoutes, vendorOrderRoutes } from '#modules/orders/order.routes.js';
 import { adminProductImportRoutes, vendorProductImportRoutes } from '#modules/products/imports/import.routes.js';
 import { adminProductRoutes, publicProductRoutes, vendorProductRoutes } from '#modules/products/product.routes.js';
@@ -60,6 +61,7 @@ export function buildRoutes() {
     .use('/banners', publicBannerRoutes)
     .use('/shipping', publicShippingRoutes)
     .use('/pay', publicPayRoutes)
+    .use('/pages', publicPageRoutes)
     .get(
       '/pincodes/:pincode',
       rateLimit({ keyPrefix: 'pincode', points: 30, duration: 60 }),
@@ -139,6 +141,7 @@ export function buildRoutes() {
     // browsing and deleting the library is its own permission.
     .use('/media', requireSection('media', { writeMethods: ['DELETE'] }), adminMediaRouter())
     .use('/settings', requireSection('settings'), adminSettingsRoutes)
+    .use('/pages', requireSection('content'), adminPageRoutes)
     .use('/store', requireSection('store'), actAsStore, storeApi)
     .use(adminShippingRoutes);
   api.use('/admin', adminApi);

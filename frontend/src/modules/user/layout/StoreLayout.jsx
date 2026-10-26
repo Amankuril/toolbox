@@ -1,4 +1,4 @@
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { FileText, Heart, LogOut, MapPin, Menu as MenuIcon, Package, ShoppingCart, User } from 'lucide-react'
 import { useState } from 'react'
 import { Link, Outlet, ScrollRestoration, useNavigate } from 'react-router'
@@ -13,7 +13,7 @@ import { Logo } from '@/ui/Brand'
 import { Button } from '@/ui/Button'
 import { Menu } from '@/ui/Controls'
 import { Sheet } from '@/ui/Dialog'
-import { storeKeys } from '../api'
+import { storeApi, storeKeys } from '../api'
 import { useCart } from '../cart/useCart'
 import { useCategoryTree } from '../hooks'
 import { useWishlist } from '../wishlist/useWishlist'
@@ -119,6 +119,7 @@ function Footer() {
   const { data: settings } = usePublicSettings()
   const { siteName, tagline, supportEmail, supportPhone } = settings?.branding ?? { siteName: 'ToolsHubs' }
   const { data: tree = [] } = useCategoryTree()
+  const { data: pages = [] } = useQuery({ queryKey: storeKeys.pages, queryFn: storeApi.pages, staleTime: 10 * 60_000 })
   const payments = settings?.payments
   const payWith = [payments?.razorpayEnabled && 'UPI, cards & net banking', payments?.codEnabled && 'Cash on delivery'].filter(Boolean)
 
@@ -126,7 +127,7 @@ function Footer() {
   const head = 'code mb-4 text-xs tracking-[0.12em] text-accent uppercase'
   return (
     <footer className="mt-20 bg-secondary text-secondary-fg">
-      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:grid-cols-2 sm:px-6 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
+      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:grid-cols-2 sm:px-6 lg:grid-cols-[1.4fr_1fr_1fr_1fr_1fr]">
         <div>
           <Logo inverted />
           {tagline && <p className="mt-4 max-w-xs text-sm leading-relaxed text-secondary-fg/70">{tagline}</p>}
@@ -198,6 +199,20 @@ function Footer() {
             </li>
           </ul>
         </div>
+        {pages.length > 0 && (
+          <div>
+            <h3 className={head}>Help &amp; policies</h3>
+            <ul className={col}>
+              {pages.map((p) => (
+                <li key={p.key}>
+                  <Link to={`/pages/${p.slug}`} className="hover:text-secondary-fg">
+                    {p.title}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
       <div className="border-t border-white/10">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-5 text-xs text-secondary-fg/55 sm:px-6">

@@ -4,6 +4,7 @@ import { Category } from '#modules/categories/category.model.js';
 import { isInStock } from '#modules/products/inventory.js';
 import { Product } from '#modules/products/product.model.js';
 import { VISIBLE } from '#modules/products/product.service.js';
+import { pageService } from '#modules/pages/page.service.js';
 import { Vendor } from '#modules/vendors/vendor.model.js';
 import { settingsService } from '#services/settings/settings.service.js';
 
@@ -301,6 +302,25 @@ export const seoService = {
     };
   },
 
+  /** An information page (terms, privacy…): its text as plain paragraphs. */
+  async page(slug) {
+    const { siteName } = await branding();
+    let page;
+    try {
+      page = await pageService.publicGet(slug);
+    } catch {
+      return { status: 404, title: `Page not found | ${siteName}` };
+    }
+    const plain = page.content.replace(/^#+\s*/gm, '').replace(/\*\*/g, '');
+    return {
+      siteName,
+      title: `${page.seo.title || page.title} | ${siteName}`,
+      description: snippet(page.seo.description || plain),
+      path: `/pages/${page.slug}`,
+      content: { heading: page.title, body: plain },
+    };
+  },
+
   robots() {
     return [
       'User-agent: *',
@@ -322,7 +342,7 @@ const xmlEscape = (s) =>
 const sitemap = cached(
   'seo:sitemap',
   async () => {
-    const [categories, products, stores] = await Promise.all([
+    const [categories, products, stores, pages] = await Promise.all([
       Category.find({}).select('slug status ancestors updatedAt').lean(),
       Product.find({ ...VISIBLE })
         .sort({ publishedAt: -1 })
@@ -332,6 +352,7 @@ const sitemap = cached(
       Vendor.find({ status: 'approved', 'store.slug': { $type: 'string' } })
         .select('store.slug updatedAt')
         .lean(),
+      pageService.list(),
     ]);
 
     // A category (and anything filed under it) is public only when it and every ancestor is active.
@@ -347,6 +368,9 @@ const sitemap = cached(
         .filter((p) => allActive(p.categoryPath))
         .map((p) => ({ path: `/p/${p.slug}`, lastmod: p.updatedAt, changefreq: 'weekly', priority: '0.7' })),
       ...stores.map((v) => ({ path: `/store/${v.store.slug}`, lastmod: v.updatedAt, changefreq: 'weekly', priority: '0.5' })),
+      ...pages
+        .filter((p) => p.published)
+        .map((p) => ({ path: `/pages/${p.slug}`, lastmod: p.updatedAt, changefreq: 'monthly', priority: '0.3' })),
     ].slice(0, SITEMAP_MAX_URLS);
 
     const entries = urls.map(
