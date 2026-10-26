@@ -43,6 +43,13 @@ export const adminSettingsRoutes = Router()
         }
       }
 
+      // The social share image, the same way.
+      if (req.params.key === 'seo' && patch.home?.ogImage !== undefined) {
+        const image = patch.home.ogImage && imageInput.parse(patch.home.ogImage);
+        const ref = image ? await mediaService.resolveOne(image, actor) : null;
+        patch = { ...patch, home: { ...patch.home, ogImage: ref && { media: String(ref.media), url: ref.url } } };
+      }
+
       await settingsService.update(req.params.key, patch, actor);
       ok(res, await settingsService.adminView());
     },

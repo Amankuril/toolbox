@@ -38,6 +38,7 @@ const SIMPLE_FIELDS = [
   'compatibleModels',
   'tags',
   'searchKeywords',
+  'seo',
 ];
 
 /** Editing any of these on a live product sends it back for review (when moderation is on). */

@@ -197,9 +197,12 @@ const productSchema = new Schema(
       count: { type: Number, default: 0 },
       breakdown: { type: [Number], default: () => [0, 0, 0, 0, 0] },
     },
+    // Empty = the templates in Admin → SEO. og* = how a shared link looks on WhatsApp / Facebook.
     seo: {
       title: { type: String, trim: true, maxlength: 160 },
       description: { type: String, trim: true, maxlength: 320 },
+      ogTitle: { type: String, trim: true, maxlength: 120 },
+      ogDescription: { type: String, trim: true, maxlength: 300 },
     },
     publishedAt: Date,
   },

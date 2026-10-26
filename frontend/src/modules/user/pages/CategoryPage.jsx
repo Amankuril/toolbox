@@ -6,11 +6,13 @@ import { EmptyState, Skeleton } from '@/ui/Card'
 import { storeApi, storeKeys } from '../api'
 import { ListingHeader } from '../components/ListingHeader'
 import { ProductListing } from '../components/ProductListing'
+import { useSeoTitle } from '@/core/seo/templates'
 
 export default function CategoryPage() {
   const { slug } = useParams()
   const { siteName } = useBranding()
   const { data: category, isLoading, isError } = useQuery({ queryKey: storeKeys.category(slug), queryFn: () => storeApi.category(slug), retry: false })
+  const title = useSeoTitle('category', { name: category?.name }, category?.seo?.title)
 
   if (isError) {
     return (
@@ -29,7 +31,7 @@ export default function CategoryPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
-      {category && <title>{`${category.seo?.title || category.name} | ${siteName}`}</title>}
+      {category && <title>{title}</title>}
       {category && (
         <meta
           name="description"

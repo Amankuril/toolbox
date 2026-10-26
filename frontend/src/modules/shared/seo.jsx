@@ -1,4 +1,5 @@
 import { CheckCircle2, CircleAlert } from 'lucide-react'
+import { useState } from 'react'
 import { cn } from '@/core/lib/cn'
 import { Field, Input, Textarea } from '@/ui/Field'
 
@@ -76,6 +77,68 @@ export function SeoFields({ value, onChange, placeholder = {}, url, showPreview 
           <p className="mb-2 text-xs font-semibold tracking-wide text-slate-500 uppercase">Google preview</p>
           <GooglePreview url={url} title={v.title || placeholder.title} description={v.description || placeholder.description} />
         </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * A product's own search and share text, in two tabs like the screenshots sellers know from other store builders.
+ * `value` is { title, description, ogTitle, ogDescription }; empty fields fall back to `defaults`.
+ */
+export function ProductSeoCard({ value, onChange, defaults, url, image }) {
+  const [tab, setTab] = useState('general')
+  const v = value ?? {}
+  const set = (key) => (e) => onChange({ ...v, [key]: e.target.value })
+  return (
+    <div>
+      <div role="tablist" className="mb-4 flex gap-1 border-b border-slate-200">
+        {[
+          { value: 'general', label: 'General' },
+          { value: 'social', label: 'Social share' },
+        ].map((t) => (
+          <button
+            key={t.value}
+            type="button"
+            role="tab"
+            aria-selected={tab === t.value}
+            onClick={() => setTab(t.value)}
+            className={cn('-mb-px border-b-2 px-3 py-2 text-sm font-semibold', tab === t.value ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-800')}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {tab === 'general' ? (
+        <>
+          <p className="mb-4 text-sm text-slate-600">Optimise your product with relevant keywords to drive traffic and boost sales. Allow some time for updates to appear on Google.</p>
+          <SeoFields value={{ title: v.title, description: v.description }} onChange={(next) => onChange({ ...v, ...next })} placeholder={defaults} url={url} />
+        </>
+      ) : (
+        <>
+          <p className="mb-4 text-sm text-slate-600">Open graph (og) tags are used by social networks like Facebook &amp; WhatsApp to show text and an image when this page is shared.</p>
+          <div className="grid gap-5 lg:grid-cols-2">
+            <div className="space-y-4">
+              <Field label="og:title" hint={`(${(v.ogTitle ?? '').length}/${SEO_LIMITS.ogTitle.hard})`}>
+                {(p) => <Input {...p} value={v.ogTitle ?? ''} onChange={set('ogTitle')} placeholder={v.title || defaults.title} maxLength={SEO_LIMITS.ogTitle.hard} />}
+              </Field>
+              <Field label="og:description" hint={`(${(v.ogDescription ?? '').length}/${SEO_LIMITS.ogDescription.hard})`}>
+                {(p) => (
+                  <Textarea {...p} rows={4} value={v.ogDescription ?? ''} onChange={set('ogDescription')} placeholder={v.description || defaults.description} maxLength={SEO_LIMITS.ogDescription.hard} />
+                )}
+              </Field>
+            </div>
+            <div className="self-start rounded-lg bg-slate-50 p-4">
+              <p className="mb-2 text-xs font-semibold tracking-wide text-slate-500 uppercase">Preview</p>
+              <SharePreview
+                url={url}
+                image={image}
+                title={v.ogTitle || v.title || defaults.title}
+                description={v.ogDescription || v.description || defaults.description}
+              />
+            </div>
+          </div>
+        </>
       )}
     </div>
   )

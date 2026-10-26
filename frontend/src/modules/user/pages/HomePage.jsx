@@ -11,6 +11,7 @@ import { HeroCarousel } from '../components/HeroCarousel'
 import { ServiceStrip, StatsBand } from '../components/Highlights'
 import { ProductRail, SectionHeading } from '../components/ProductCard'
 import { useCategoryTree } from '../hooks'
+import { fillTemplate, useSeoTitle } from '@/core/seo/templates'
 
 function useProducts(params) {
   return useQuery({ queryKey: storeKeys.products(params), queryFn: () => storeApi.products(params), staleTime: 60_000 })
@@ -200,14 +201,18 @@ export default function HomePage() {
   const brands = useProducts({ limit: 1 }).data?.meta?.facets?.brands
 
   const siteName = settings?.branding.siteName ?? 'ToolsHubs'
+  const title = useSeoTitle('home', {})
   const hero = banners.filter((b) => b.placement === 'home_hero')
   const offers = banners.filter((b) => b.placement === 'home_offer')
   const strip = banners.find((b) => b.placement === 'home_strip')
 
   return (
     <>
-      <title>{`${siteName} — Tools for a Greener Tomorrow`}</title>
-      <meta name="description" content="Buy tools, machinery and spare parts from reviewed sellers across India, with bulk pricing and quotes for business buyers." />
+      <title>{title}</title>
+      <meta
+        name="description"
+        content={fillTemplate(settings?.seo?.home?.description, { site: siteName }) || 'Buy tools, machinery and spare parts from reviewed sellers across India, with bulk pricing and quotes for business buyers.'}
+      />
 
       <div className="mx-auto max-w-7xl px-4 pt-5 sm:px-6">
         {bannersLoading || treeLoading ? (

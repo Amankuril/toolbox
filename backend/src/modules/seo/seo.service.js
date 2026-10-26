@@ -7,6 +7,7 @@ import { VISIBLE } from '#modules/products/product.service.js';
 import { pageService } from '#modules/pages/page.service.js';
 import { Vendor } from '#modules/vendors/vendor.model.js';
 import { settingsService } from '#services/settings/settings.service.js';
+import { fillTemplate } from './templates.js';
 
 /** Storefront paths crawlers should skip: private, per-visitor or endlessly varied by query string. */
 const PRIVATE_PATHS = [
@@ -83,15 +84,18 @@ export const seoService = {
         .select('name slug pricing')
         .lean(),
     ]);
-    const description =
-      'Buy tools, machinery and spare parts from reviewed sellers across India, with bulk pricing and quotes for business buyers.';
+    const { home } = await settingsService.get('seo');
+    const description = fillTemplate(home.description, { site: siteName });
     return {
       siteName,
       // Same as the home page's own title (frontend HomePage.jsx).
-      title: `${siteName} — Tools for a Greener Tomorrow`,
+      title: fillTemplate(home.title, { site: siteName }) || siteName,
       description: snippet(description),
+      keywords: home.keywords || undefined,
+      ogTitle: home.ogTitle || undefined,
+      ogDescription: home.ogDescription || undefined,
       path: '/',
-      image: logo,
+      image: home.ogImage?.url ? absoluteUrl(home.ogImage.url) : logo,
       jsonLd: [
         {
           '@context': 'https://schema.org',
@@ -139,7 +143,9 @@ export const seoService = {
     const high = Math.max(...prices);
     const availability = `https://schema.org/${inStock ? 'InStock' : 'OutOfStock'}`;
     const seller = p.vendor?.store?.name ? { '@type': 'Organization', name: p.vendor.store.name } : undefined;
-    const description = p.seo?.description || p.shortDescription || snippet(p.description) || `Buy ${p.name} on ${siteName}.`;
+    const templates = (await settingsService.get('seo')).product;
+    const vars = { site: siteName, name: p.name, brand: p.brand, price: inr(low), category: crumbs.at(-1)?.name };
+    const description = p.seo?.description || p.shortDescription || fillTemplate(templates.description, vars) || snippet(p.description);
 
     const product = {
       '@context': 'https://schema.org',
@@ -182,8 +188,10 @@ export const seoService = {
 
     return {
       siteName,
-      title: `${p.seo?.title || p.name} | ${siteName}`,
+      title: p.seo?.title || fillTemplate(templates.title, vars) || p.name,
       description: snippet(description),
+      ogTitle: p.seo?.ogTitle || undefined,
+      ogDescription: p.seo?.ogDescription || undefined,
       keywords: [...new Set([...(p.searchKeywords ?? []), ...(p.tags ?? [])])].join(', ') || undefined,
       path,
       image: images[0],
@@ -224,14 +232,13 @@ export const seoService = {
         .select('name slug pricing')
         .lean(),
     ]);
-    const description =
-      category.seo?.description ||
-      category.description ||
-      `Shop ${category.name} online at ${siteName}: compare prices from reviewed sellers, with bulk pricing and quotes.`;
+    const templates = (await settingsService.get('seo')).category;
+    const vars = { site: siteName, name: category.name };
+    const description = category.seo?.description || category.description || fillTemplate(templates.description, vars);
 
     return {
       siteName,
-      title: `${category.seo?.title || category.name} | ${siteName}`,
+      title: category.seo?.title || fillTemplate(templates.title, vars) || category.name,
       description: snippet(description),
       path,
       image: category.image?.url && absoluteUrl(category.image.url),
@@ -272,13 +279,13 @@ export const seoService = {
       .select('name slug pricing')
       .lean();
     const place = [vendor.address?.city, vendor.address?.state].filter(Boolean).join(', ');
-    const description =
-      vendor.store.description ||
-      `Shop tools, machinery and spare parts from ${vendor.store.name}${place ? ` (${place})` : ''} on ${siteName}.`;
+    const templates = (await settingsService.get('seo')).store;
+    const vars = { site: siteName, name: vendor.store.name, city: place ? ` (${place})` : null };
+    const description = vendor.store.description || fillTemplate(templates.description, vars);
 
     return {
       siteName,
-      title: `${vendor.store.name} | ${siteName}`,
+      title: fillTemplate(templates.title, vars) || vendor.store.name,
       description: snippet(description),
       path,
       image: vendor.store.logo?.url && absoluteUrl(vendor.store.logo.url),

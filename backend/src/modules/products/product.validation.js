@@ -150,6 +150,7 @@ const fields = {
   // Lowercased before de-duplicating, so "Drill" and "drill" are one tag.
   tags: stringList(20, 40).transform((t) => [...new Set(t.map((s) => s.toLowerCase()))]),
   searchKeywords: stringList(30, 80).transform((t) => [...new Set(t.map((s) => s.toLowerCase()))]),
+  seo: z.object({ title: optionalText(160), description: optionalText(320), ogTitle: optionalText(120), ogDescription: optionalText(300) }),
 };
 
 const required = ['type', 'name', 'category', 'pricing', 'inventory'];
@@ -158,7 +159,6 @@ const createShape = Object.fromEntries(Object.entries(fields).map(([k, v]) => [k
 const adminFields = {
   status: z.enum(PRODUCT_STATUSES).optional(),
   isFeatured: z.boolean().optional(),
-  seo: z.object({ title: optionalText(160), description: optionalText(320) }).optional(),
 };
 
 export const vendorCreateProduct = {

@@ -10,6 +10,7 @@ import {
   KeyRound,
   LayoutDashboard,
   Package,
+  Search,
   Settings,
   ShieldCheck,
   ShoppingBag,
@@ -82,7 +83,11 @@ export default function AdminLayout() {
     },
     {
       title: 'System',
-      items: [allow('content', { to: '/admin/pages', label: 'Pages', icon: FileStack }), allow('settings', { to: '/admin/settings', label: 'Settings', icon: Settings })],
+      items: [
+        allow('content', { to: '/admin/pages', label: 'Pages', icon: FileStack }),
+        allow('settings', { to: '/admin/seo', label: 'SEO settings', icon: Search }),
+        allow('settings', { to: '/admin/settings', label: 'Settings', icon: Settings }),
+      ],
     },
   ]
     .map((g) => ({ ...g, items: g.items.filter(Boolean) }))

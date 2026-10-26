@@ -131,6 +131,42 @@ export const SETTINGS = {
     defaults: { gaMeasurementId: '' },
   },
 
+  /**
+   * Search and social titles/descriptions. Templates fill {site}, {name}, {brand}, {price}, {category}, {city};
+   * a product's or category's own SEO fields win over these.
+   */
+  seo: {
+    schema: z.object({
+      home: z.object({
+        title: z.string().trim().max(160),
+        description: z.string().trim().max(320),
+        keywords: z.string().trim().max(500),
+        ogTitle: z.string().trim().max(120),
+        ogDescription: z.string().trim().max(300),
+        ogImage: imageRef.nullable(),
+      }),
+      product: z.object({ title: z.string().trim().max(160), description: z.string().trim().max(320) }),
+      category: z.object({ title: z.string().trim().max(160), description: z.string().trim().max(320) }),
+      store: z.object({ title: z.string().trim().max(160), description: z.string().trim().max(320) }),
+    }),
+    defaults: {
+      home: {
+        title: '{site} — Tools for a Greener Tomorrow',
+        description: 'Buy tools, machinery and spare parts from reviewed sellers across India, with bulk pricing and quotes for business buyers.',
+        keywords: '',
+        ogTitle: '',
+        ogDescription: '',
+        ogImage: null,
+      },
+      product: { title: '{name} | {site}', description: 'Buy {name} online at the best price in India on {site}.' },
+      category: {
+        title: '{name} | {site}',
+        description: 'Shop {name} online at {site}: compare prices from reviewed sellers, with bulk pricing and quotes.',
+      },
+      store: { title: '{name} | {site}', description: 'Shop tools, machinery and spare parts from {name}{city} on {site}.' },
+    },
+  },
+
   moderation: {
     schema: z.object({
       autoApproveVendors: z.boolean(),

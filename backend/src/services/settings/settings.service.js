@@ -107,6 +107,7 @@ export const settingsService = {
       },
       shipping: { flatFee: values.shipping.flatFee, freeAbove: values.shipping.freeAbove },
       analytics: { gaMeasurementId: values.analytics.gaMeasurementId || null },
+      seo: values.seo,
     };
   },
 

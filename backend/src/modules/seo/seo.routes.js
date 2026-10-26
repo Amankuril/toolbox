@@ -68,8 +68,8 @@ function renderHead(page) {
   tags.push(`<link data-ssr rel="canonical" href="${escapeHtml(url)}">`);
   meta('property', 'og:type', page.ogType ?? 'website');
   meta('property', 'og:site_name', page.siteName);
-  meta('property', 'og:title', page.title);
-  meta('property', 'og:description', page.description);
+  meta('property', 'og:title', page.ogTitle ?? page.title);
+  meta('property', 'og:description', page.ogDescription ?? page.description);
   meta('property', 'og:url', url);
   meta('property', 'og:locale', 'en_IN');
   meta('property', 'og:image', page.image);
@@ -77,8 +77,8 @@ function renderHead(page) {
   meta('property', 'product:price:amount', page.price?.amount);
   meta('property', 'product:price:currency', page.price?.currency);
   meta('name', 'twitter:card', page.image ? 'summary_large_image' : 'summary');
-  meta('name', 'twitter:title', page.title);
-  meta('name', 'twitter:description', page.description);
+  meta('name', 'twitter:title', page.ogTitle ?? page.title);
+  meta('name', 'twitter:description', page.ogDescription ?? page.description);
   meta('name', 'twitter:image', page.image);
   for (const data of page.jsonLd ?? []) tags.push(`<script data-ssr type="application/ld+json">${jsonForScript(data)}</script>`);
   return tags.join('\n    ');

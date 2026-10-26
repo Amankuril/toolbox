@@ -34,6 +34,7 @@ import { useRecentlyViewed, useTrackView } from '../cart/recentlyViewed'
 import { unitPlural, unitShort } from '@/core/lib/units'
 import { gaItem, track, trackCartChange, trackItems } from '@/core/analytics/ga'
 import { useStoreVisit } from '@/core/analytics/storeVisits'
+import { useSeoTitle } from '@/core/seo/templates'
 
 export default function ProductPage() {
   const { slug } = useParams()
@@ -166,6 +167,7 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related, fro
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [p._id])
   const { siteName } = useBranding()
+  const title = useSeoTitle('product', { name: p.name, brand: p.brand }, p.seo?.title)
   const cart = useCart()
   const navigate = useNavigate()
   const account = useSession('user', (s) => s.account)
@@ -257,7 +259,7 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related, fro
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 sm:py-4">
-      <title>{`${p.seo?.title || p.name} | ${siteName}`}</title>
+      <title>{title}</title>
       <meta name="description" content={p.seo?.description || p.shortDescription || `Buy ${p.name} on ${siteName}.`} />
       {p.images[0] && <meta property="og:image" content={p.images[0].url} />}
 

@@ -9,12 +9,14 @@ import { EmptyState, Skeleton } from '@/ui/Card'
 import { storeApi, storeKeys } from '../api'
 import { ProductListing } from '../components/ProductListing'
 import { useStoreVisit } from '@/core/analytics/storeVisits'
+import { useSeoTitle } from '@/core/seo/templates'
 
 export default function StorePage() {
   const { slug } = useParams()
   useStoreVisit({ storeSlug: slug })
   const { siteName } = useBranding()
   const { data: store, isLoading, isError } = useQuery({ queryKey: storeKeys.store(slug), queryFn: () => storeApi.store(slug), retry: false })
+  const title = useSeoTitle('store', { name: store?.store?.name })
 
   if (isError) {
     return (
@@ -32,7 +34,7 @@ export default function StorePage() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
-      {store && <title>{`${store.store.name} | ${siteName}`}</title>}
+      {store && <title>{title}</title>}
       {store && (
         <meta name="description" content={store.store.description || `Shop tools, machinery and spare parts from ${store.store.name} on ${siteName}.`} />
       )}

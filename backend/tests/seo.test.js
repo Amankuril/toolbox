@@ -112,3 +112,12 @@ describe('crawlable storefront pages', () => {
     expect(sitemap).not.toContain('draft-drill');
   });
 });
+
+describe('SEO settings', () => {
+  it('templates fill page titles and drop missing values', async () => {
+    const { fillTemplate } = await import('#modules/seo/templates.js');
+    expect(fillTemplate('{name} | {site}', { name: 'Pump', site: 'Shop' })).toBe('Pump | Shop');
+    expect(fillTemplate('{brand} {name} | {site}', { name: 'Pump', site: 'Shop' })).toBe('Pump | Shop');
+    expect(fillTemplate('Shop from {name}{city} on {site}.', { name: 'Acme', site: 'Shop' })).toBe('Shop from Acme on Shop.');
+  });
+});

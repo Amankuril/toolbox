@@ -22,7 +22,9 @@ import { MediaUploader } from '@/ui/MediaUploader'
 import { NumberInput, PriceInput, TagInput } from '@/ui/inputs'
 import { PageHeader } from '@/ui/PageHeader'
 import { productShareItem, ShareButton } from '@/modules/shared/share'
-import { useBranding } from '@/core/settings/usePublicSettings'
+import { ProductSeoCard } from '@/modules/shared/seo'
+import { fillTemplate } from '@/core/seo/templates'
+import { useBranding, usePublicSettings } from '@/core/settings/usePublicSettings'
 import { useSeller } from '../seller'
 import { CategoryDialog } from '../components/CategoryDialog'
 import { ClonePickerDialog } from '../components/ClonePickerDialog'
@@ -119,6 +121,7 @@ const schema = z
     compatibleModels: z.array(z.string()).max(100),
     tags: z.array(z.string()).max(20),
     searchKeywords: z.array(z.string().max(80)).max(30),
+    seo: z.object({ title: z.string().max(160), description: z.string().max(320), ogTitle: z.string().max(120), ogDescription: z.string().max(300) }),
   })
   .superRefine((v, ctx) => {
     const issue = (path, message) => ctx.addIssue({ code: 'custom', path, message })
@@ -177,6 +180,7 @@ const EMPTY = {
   compatibleModels: [],
   tags: [],
   searchKeywords: [],
+  seo: { title: '', description: '', ogTitle: '', ogDescription: '' },
 }
 
 function toForm(p) {
@@ -234,6 +238,7 @@ function toForm(p) {
     compatibleModels: p.compatibleModels,
     tags: p.tags,
     searchKeywords: p.searchKeywords ?? [],
+    seo: { title: p.seo?.title ?? '', description: p.seo?.description ?? '', ogTitle: p.seo?.ogTitle ?? '', ogDescription: p.seo?.ogDescription ?? '' },
   }
 }
 
@@ -288,6 +293,7 @@ function toPayload(v) {
     compatibleModels: isPart ? v.compatibleModels : [],
     tags: v.tags,
     searchKeywords: v.searchKeywords,
+    seo: Object.fromEntries(Object.entries(v.seo).map(([k, x]) => [k, x.trim() || undefined])),
   }
 }
 
@@ -326,6 +332,7 @@ export default function ProductFormPage() {
 function ProductForm({ product, cloneFrom }) {
   const seller = useSeller()
   const { siteName } = useBranding()
+  const { data: settings } = usePublicSettings()
   const isNew = !product
   const navigate = useNavigate()
   const qc = useQueryClient()
@@ -344,6 +351,7 @@ function ProductForm({ product, cloneFrom }) {
   const lowStockAlert = useWatch({ control, name: 'inventory.lowStockAlert' })
   const variantCount = useWatch({ control, name: 'variants' })?.length ?? 0
   const categoryId = useWatch({ control, name: 'category' })
+  const watchedName = useWatch({ control, name: 'name' })
   const fromCategory = inheritedTax(categories, categoryId)
   const effectiveGst = pricing?.gstRate === '' ? fromCategory.gstRate : Number(pricing?.gstRate)
 
@@ -836,6 +844,28 @@ function ProductForm({ product, cloneFrom }) {
                 )}
               </Field>
               <Field label="Warranty details">{(p) => <Input {...p} {...register('warranty.details')} placeholder="e.g. Manufacturer" />}</Field>
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader title="Search engine & social share" description="How this product looks on Google and when shared on WhatsApp" />
+            <CardBody>
+              <Controller
+                name="seo"
+                control={control}
+                render={({ field }) => (
+                  <ProductSeoCard
+                    value={field.value}
+                    onChange={field.onChange}
+                    url={product ? `${window.location.origin}/p/${product.slug}` : window.location.origin}
+                    image={product?.images?.[0]?.url}
+                    defaults={{
+                      title: fillTemplate(settings?.seo?.product?.title ?? '{name} | {site}', { name: watchedName || 'Product name', site: siteName }),
+                      description: fillTemplate(settings?.seo?.product?.description ?? '', { name: watchedName || 'this product', site: siteName }),
+                    }}
+                  />
+                )}
+              />
             </CardBody>
           </Card>
 
