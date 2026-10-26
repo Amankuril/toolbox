@@ -277,3 +277,23 @@ describe('platform coupons and sharing', () => {
     expect((await request(app).get(`${API}/user/coupons/unseen`).set(U()).expect(200)).body.data.count).toBe(0);
   });
 });
+
+describe('exit offer banner', () => {
+  it('shows with its live coupon and disappears when the coupon is switched off', async () => {
+    const admin = await createAdmin(app, { email: 'banners@toolbox.test' });
+    const A = bearer(admin.accessToken);
+    const created = (await request(app).post(`${API}/admin/coupons`).set(A).send({ code: 'STAY10', type: 'percent', value: 10 }).expect(201)).body.data;
+    const { upload, testImage } = await import('./helpers.js');
+    const img = (await upload(app, admin.accessToken, 'banners', [await testImage({ width: 1200, height: 630 })])).body.data[0]._id;
+    await request(app)
+      .post(`${API}/admin/banners`)
+      .set(A)
+      .send({ title: 'Wait! 10% off', placement: 'exit_intent', image: { media: img }, coupon: created._id })
+      .expect(201);
+    const shown = (await request(app).get(`${API}/public/banners?placement=exit_intent`).expect(200)).body.data;
+    expect(shown[0].coupon).toMatchObject({ code: 'STAY10', type: 'percent', value: 10 });
+
+    await request(app).patch(`${API}/admin/coupons/${created._id}`).set(A).send({ active: false }).expect(200);
+    expect((await request(app).get(`${API}/public/banners?placement=exit_intent`).expect(200)).body.data).toHaveLength(0);
+  });
+});

@@ -1,8 +1,8 @@
 import mongoose, { Schema } from 'mongoose';
 import { baseOptions, imageSchema } from '#core/db/schemas.js';
 
-/** Where a banner renders on the storefront home page. */
-export const BANNER_PLACEMENTS = ['home_hero', 'home_offer', 'home_strip'];
+/** Where a banner renders: the home page, or exit_intent = a pop-up offer when a visitor is about to leave. */
+export const BANNER_PLACEMENTS = ['home_hero', 'home_offer', 'home_strip', 'exit_intent'];
 export const BANNER_STATUSES = ['active', 'inactive'];
 
 const bannerSchema = new Schema(
@@ -14,6 +14,8 @@ const bannerSchema = new Schema(
     image: { type: imageSchema, required: true },
     mobileImage: imageSchema,
     placement: { type: String, enum: BANNER_PLACEMENTS, required: true },
+    // Exit offers: the coupon the pop-up hands out (applied to the cart from the banner).
+    coupon: { type: Schema.Types.ObjectId, ref: 'Coupon' },
     sortOrder: { type: Number, default: 0 },
     status: { type: String, enum: BANNER_STATUSES, default: 'active' },
     startsAt: Date,

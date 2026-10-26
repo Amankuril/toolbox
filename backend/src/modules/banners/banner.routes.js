@@ -4,8 +4,10 @@ import { cached } from '#core/cache/cached.js';
 import { ApiError } from '#core/errors/ApiError.js';
 import { validate } from '#core/middlewares/validate.js';
 import { created, noContent, ok } from '#core/utils/response.js';
-import { idParams, imageInput, nonEmpty, optionalText } from '#core/validation/common.js';
+import { idParams, imageInput, nonEmpty, objectId, optionalText } from '#core/validation/common.js';
 import { actorOf } from '#modules/auth/auth.middleware.js';
+import { Coupon } from '#modules/coupons/coupon.model.js';
+import { couponService } from '#modules/coupons/coupon.service.js';
 import { mediaService } from '#modules/media/media.service.js';
 import { BANNER_PLACEMENTS, BANNER_STATUSES, Banner } from './banner.model.js';
 
@@ -29,7 +31,24 @@ const bannerFields = {
   status: z.enum(BANNER_STATUSES).optional(),
   startsAt: z.coerce.date().nullable().optional(),
   endsAt: z.coerce.date().nullable().optional(),
+  coupon: objectId.nullable().optional(),
 };
+
+/** Exit offers show their coupon; one that can no longer be used takes its banner down with it. */
+async function withCoupons(rows) {
+  const ids = rows.filter((b) => b.coupon).map((b) => b.coupon);
+  if (!ids.length) return rows;
+  const coupons = new Map((await Coupon.find({ _id: { $in: ids } }).lean()).map((c) => [String(c._id), couponService.serializeCoupon(c)]));
+  return rows
+    .map((b) => {
+      if (!b.coupon) return b;
+      const c = coupons.get(String(b.coupon));
+      if (!c || c.state !== 'live') return null;
+      const { _id, code, description, type, value, maxDiscount, minOrderValue, expiresAt } = c;
+      return { ...b, coupon: { _id, code, description, type, value, maxDiscount, minOrderValue, expiresAt } };
+    })
+    .filter(Boolean);
+}
 
 const activeBanners = cached(
   'banners',
@@ -38,7 +57,8 @@ const activeBanners = cached(
 );
 
 async function resolveImages(input, actor) {
-  const out = { ...input };
+  const { coupon, ...out } = input;
+  if (coupon) out.coupon = coupon;
   if (input.image) out.image = await mediaService.resolveOne(input.image, actor);
   if (input.mobileImage !== undefined)
     out.mobileImage = input.mobileImage ? await mediaService.resolveOne(input.mobileImage, actor) : undefined;
@@ -57,19 +77,24 @@ export const publicBannerRoutes = Router().get(
         (!b.endsAt || new Date(b.endsAt).getTime() > now),
     );
     res.set('Cache-Control', 'public, max-age=60');
-    ok(res, rows);
+    ok(res, await withCoupons(rows));
   },
 );
 
 export const adminBannerRoutes = Router()
-  .get('/', async (_req, res) => ok(res, await Banner.find().sort({ placement: 1, sortOrder: 1, createdAt: -1 }).lean()))
+  .get('/', async (_req, res) =>
+    ok(res, await Banner.find().sort({ placement: 1, sortOrder: 1, createdAt: -1 }).populate('coupon', 'code type value active expiresAt').lean()),
+  )
   .post('/', validate({ body: z.object(bannerFields) }), async (req, res) => {
     const banner = await Banner.create(await resolveImages(req.body, actorOf(req)));
     await activeBanners.invalidate();
     created(res, banner.toObject());
   })
   .patch('/:id', validate({ params: idParams, body: z.object(bannerFields).partial() }), async (req, res) => {
-    const banner = await Banner.findByIdAndUpdate(req.params.id, await resolveImages(req.body, actorOf(req)), {
+    const fields = await resolveImages(req.body, actorOf(req));
+    // A cleared coupon is removed rather than stored as null.
+    const update = req.body.coupon === null ? { $set: fields, $unset: { coupon: 1 } } : fields;
+    const banner = await Banner.findByIdAndUpdate(req.params.id, update, {
       returnDocument: 'after',
       runValidators: true,
     }).lean();

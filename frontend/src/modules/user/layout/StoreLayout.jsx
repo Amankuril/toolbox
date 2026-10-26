@@ -18,6 +18,7 @@ import { useCart } from '../cart/useCart'
 import { useCategoryTree } from '../hooks'
 import { useWishlist } from '../wishlist/useWishlist'
 import { CategoryAccordion, CategoryBar } from './CategoryNav'
+import { ExitOffer } from '../components/ExitOffer'
 import { CompareTray } from './CompareTray'
 import { SearchBox } from './SearchBox'
 
@@ -313,6 +314,7 @@ export default function StoreLayout() {
         <Outlet />
       </main>
       <Footer />
+      <ExitOffer />
       <CompareTray />
       <ScrollRestoration />
     </div>

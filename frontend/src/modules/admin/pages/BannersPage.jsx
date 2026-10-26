@@ -14,12 +14,18 @@ import { ConfirmDialog, Dialog } from '@/ui/Dialog'
 import { Field, Input, Select } from '@/ui/Field'
 import { ImageUploader } from '@/ui/ImageUploader'
 import { PageHeader } from '@/ui/PageHeader'
-import { adminApi, adminKeys } from '../api'
+import { couponOffer } from '@/modules/vendor/coupons'
+import { adminApi, adminKeys, platformCouponApi } from '../api'
 
 const PLACEMENTS = [
   { value: 'home_hero', label: 'Home — hero carousel', hint: 'Full-width banner at the top of the home page; the title and button sit over its left side. 1920×600 recommended.' },
   { value: 'home_offer', label: 'Home — offer tiles', hint: 'Shown as a row of tiles below categories. 800×400 recommended.' },
   { value: 'home_strip', label: 'Home — promo strip', hint: 'Full-width strip between product rails. 1600×240 recommended.' },
+  {
+    value: 'exit_intent',
+    label: 'Exit offer pop-up',
+    hint: 'Shown once a day when a visitor is about to leave, with the coupon below to apply in one tap. 1200×630 recommended.',
+  },
 ]
 
 export default function BannersPage() {
@@ -118,7 +124,8 @@ const schema = z.object({
     .trim()
     .max(500)
     .refine((v) => v === '' || /^\/(?!\/)/.test(v) || /^https?:\/\//i.test(v), 'Use a path like /c/power-tools or a full https:// URL'),
-  placement: z.enum(['home_hero', 'home_offer', 'home_strip']),
+  placement: z.enum(['home_hero', 'home_offer', 'home_strip', 'exit_intent']),
+  coupon: z.string().optional(),
   image: image.min(1, 'Upload an image'),
   mobileImage: image,
   sortOrder: z.coerce.number().int().min(-1000).max(1000),
@@ -135,6 +142,11 @@ function BannerDialog({ banner, onClose }) {
   const open = Boolean(banner)
   const form = useForm({ resolver: zodResolver(schema) })
   const placement = useWatch({ control: form.control, name: 'placement' })
+  const { data: coupons } = useQuery({
+    queryKey: ['admin', 'platform-coupons', 'coupons', { status: 'usable', limit: 100 }],
+    queryFn: () => platformCouponApi.coupons({ status: 'usable', limit: 100, page: 1 }),
+    enabled: open && placement === 'exit_intent',
+  })
 
   useEffect(() => {
     if (!open) return
@@ -151,13 +163,16 @@ function BannerDialog({ banner, onClose }) {
       status: b.status ?? 'active',
       startsAt: toLocalInput(b.startsAt),
       endsAt: toLocalInput(b.endsAt),
+      coupon: b.coupon?._id ?? b.coupon ?? '',
     })
   }, [open, isNew, banner, form])
 
   const save = useMutation({
-    mutationFn: ({ image: img, mobileImage, startsAt, endsAt, ...v }) => {
+    mutationFn: ({ image: img, mobileImage, startsAt, endsAt, coupon, ...v }) => {
       const body = {
         ...v,
+        // Only exit offers carry a coupon.
+        coupon: v.placement === 'exit_intent' && coupon ? coupon : null,
         image: { media: img[0].media },
         mobileImage: mobileImage[0] ? { media: mobileImage[0].media } : null,
         startsAt: startsAt ? new Date(startsAt).toISOString() : null,
@@ -245,6 +260,19 @@ function BannerDialog({ banner, onClose }) {
             )}
           />
         </div>
+        {placement === 'exit_intent' && (
+          <Field label="Coupon" hint="A live platform coupon (Admin → Coupons). The pop-up hides itself if the coupon stops working." className="sm:col-span-2">
+            {(p) => (
+              <Select {...p} {...register('coupon')} placeholder="No coupon: just the banner">
+                {(coupons?.items ?? []).map((c) => (
+                  <option key={c._id} value={c._id}>
+                    {c.code} · {couponOffer(c)}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
+        )}
         <Field label="Title" required error={e.title?.message} hint="Used as alt text and shown on the banner" className="sm:col-span-2">
           {(p) => <Input {...p} {...register('title')} />}
         </Field>

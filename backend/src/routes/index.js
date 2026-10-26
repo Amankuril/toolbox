@@ -167,7 +167,8 @@ export function buildRoutes() {
     .use('/quotes', requireSection('quotes'), adminQuoteRoutes)
     .use('/reviews', requireSection('reviews'), adminReviewRoutes)
     .use('/banners', requireSection('banners'), adminBannerRoutes)
-    .use('/coupons', requireSection('marketing'), adminCouponRoutes)
+    // The banner form lists coupons to attach to an exit offer.
+    .use('/coupons', requireSection('marketing', { readableBy: ['banners'] }), adminCouponRoutes)
     // Uploading is part of whichever section the file is for (banners, categories, branding…);
     // browsing and deleting the library is its own permission.
     .use('/media', requireSection('media', { writeMethods: ['DELETE'] }), adminMediaRouter())
