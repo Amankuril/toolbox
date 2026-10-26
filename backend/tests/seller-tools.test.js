@@ -372,3 +372,14 @@ describe('media an admin added to a seller’s product', () => {
     expect(res.body.data.images.map((i) => String(i.media))).toEqual([adminImg._id, own._id]);
   });
 });
+
+describe('list filters', () => {
+  it('filters products by stock level', async () => {
+    const out = (await request(app).get(`${API}/vendor/products?stock=out`).set(V()).expect(200)).body.data;
+    const inStock = (await request(app).get(`${API}/vendor/products?stock=in`).set(V()).expect(200)).body.data;
+    expect(out.every((p) => p.inventory.available === false || p.inventory.stock <= 0)).toBe(true);
+    expect(inStock.every((p) => p.inventory.available !== false)).toBe(true);
+    await request(app).get(`${API}/vendor/products?stock=low&q=bulk`).set(V()).expect(200);
+    await request(app).get(`${API}/vendor/orders?paymentMethod=cod&from=2020-01-01`).set(V()).expect(200);
+  });
+});

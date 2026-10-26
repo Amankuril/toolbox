@@ -724,10 +724,12 @@ export const orderService = {
     return serializeOrder(order);
   },
 
-  async vendorList(vendorId, { page, limit, status, q }) {
+  async vendorList(vendorId, { page, limit, status, q, paymentMethod, from, to }) {
     const filter = { vendors: vendorId, status: { $ne: 'pending_payment' } };
     if (status) filter.items = { $elemMatch: { vendor: vendorId, status } };
     if (q) filter.orderNumber = new RegExp(escapeRegex(q), 'i');
+    if (paymentMethod) filter['payment.method'] = paymentMethod;
+    if (from || to) filter.createdAt = { ...(from ? { $gte: from } : {}), ...(to ? { $lte: to } : {}) };
     const [rows, total] = await Promise.all([
       Order.find(filter)
         .sort({ createdAt: -1 })
@@ -748,8 +750,10 @@ export const orderService = {
     return serializeVendorOrder(order, vendorId);
   },
 
-  async adminList({ page, limit, status, paymentMethod, paymentStatus, q, vendor, from, to }) {
+  async adminList({ page, limit, status, paymentMethod, paymentStatus, q, vendor, source, from, to }) {
     const filter = {};
+    // Older orders have no source: they came through checkout.
+    if (source) filter.source = source === 'checkout' ? { $in: ['checkout', null] } : source;
     if (status) filter.status = status;
     if (paymentMethod) filter['payment.method'] = paymentMethod;
     if (paymentStatus) filter['payment.status'] = paymentStatus;

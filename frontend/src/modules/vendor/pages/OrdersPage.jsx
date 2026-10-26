@@ -12,6 +12,8 @@ import { DataTable, Pagination, pageSize } from '@/ui/DataTable'
 import { PageHeader } from '@/ui/PageHeader'
 import { SearchField } from '@/ui/SearchField'
 import { useSeller } from '../seller'
+import { DateRangeFilter, dateBounds } from '@/ui/Filters'
+import { Select } from '@/ui/Field'
 
 const TABS = [
   { value: '', label: 'All' },
@@ -40,7 +42,14 @@ export default function VendorOrdersPage() {
   const navigate = useNavigate()
   const { siteName } = useBranding()
   const [filters, setFilters] = useSearchParamsState()
-  const params = { page: Number(filters.page ?? 1), limit: pageSize(filters.limit), status: filters.status || undefined, q: filters.q || undefined }
+  const params = {
+    page: Number(filters.page ?? 1),
+    limit: pageSize(filters.limit),
+    status: filters.status || undefined,
+    q: filters.q || undefined,
+    paymentMethod: filters.paymentMethod || undefined,
+    ...dateBounds(filters),
+  }
   const { data, isLoading } = useQuery({ queryKey: seller.keys.orders(params), queryFn: () => seller.api.orders(params), placeholderData: keepPreviousData })
 
   return (
@@ -64,8 +73,17 @@ export default function VendorOrdersPage() {
         <div className="px-4 pt-2">
           <FilterTabs value={filters.status ?? ''} onChange={(status) => setFilters({ status })} options={TABS} />
         </div>
-        <div className="border-b border-slate-100 p-4">
+        <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 p-4">
           <SearchField value={filters.q ?? ''} onChange={(q) => setFilters({ q })} placeholder="Order number" />
+          <Select value={filters.paymentMethod ?? ''} onChange={(e) => setFilters({ paymentMethod: e.target.value })} className="w-auto">
+            <option value="">All payment methods</option>
+            <option value="razorpay">Paid online</option>
+            <option value="cod">Cash on delivery</option>
+            <option value="partial">Part payment</option>
+            <option value="wallet">Wallet</option>
+            <option value="offline">Paid offline</option>
+          </Select>
+          <DateRangeFilter label="Placed" from={filters.from} to={filters.to} onChange={setFilters} />
         </div>
         <DataTable
           loading={isLoading}

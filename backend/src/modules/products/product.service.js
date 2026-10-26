@@ -196,12 +196,26 @@ const listResult = (rows, total, page, limit) => ({
   meta: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
 });
 
-function commonFilter({ q, type, category, status }) {
+/** Stock filters for panel lists: in stock, out of stock (or switched off), or at/below the low-stock alert. */
+const STOCK_FILTERS = {
+  in: { 'inventory.available': { $ne: false }, $or: [{ 'inventory.trackQuantity': false }, { 'inventory.stock': { $gt: 0 } }] },
+  out: { $or: [{ 'inventory.available': false }, { 'inventory.trackQuantity': { $ne: false }, 'inventory.stock': { $lte: 0 } }] },
+  low: {
+    'inventory.trackQuantity': { $ne: false },
+    'inventory.stock': { $gt: 0 },
+    $expr: { $lte: ['$inventory.stock', { $ifNull: ['$inventory.lowStockThreshold', 5] }] },
+  },
+};
+
+function commonFilter({ q, type, category, status, stock }) {
   const filter = {};
+  const and = [];
   if (q) {
     const rx = new RegExp(escapeRegex(q), 'i');
-    filter.$or = [{ name: rx }, { sku: rx }, { brand: rx }, { modelNumber: rx }];
+    and.push({ $or: [{ name: rx }, { sku: rx }, { brand: rx }, { modelNumber: rx }] });
   }
+  if (stock) and.push(STOCK_FILTERS[stock]);
+  if (and.length) filter.$and = and;
   if (type) filter.type = type;
   if (category) filter.categoryPath = category;
   if (status) filter.status = status;

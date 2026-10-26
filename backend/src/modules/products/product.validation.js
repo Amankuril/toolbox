@@ -252,6 +252,7 @@ const listBase = {
   q: z.string().trim().max(100).optional(),
   type: z.enum(PRODUCT_TYPES).optional(),
   category: objectId.optional(),
+  stock: z.enum(['in', 'out', 'low']).optional(),
 };
 
 export const vendorListProducts = {

@@ -37,6 +37,10 @@ export const adminListUsers = {
     ...paginationQuery,
     status: z.enum(USER_STATUSES).optional(),
     q: z.string().trim().max(100).optional(),
+    accountType: z.enum(ACCOUNT_TYPES).optional(),
+    // Joined between.
+    from: z.coerce.date().optional(),
+    to: z.coerce.date().optional(),
   }),
 };
 

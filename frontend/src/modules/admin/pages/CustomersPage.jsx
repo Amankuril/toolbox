@@ -21,6 +21,8 @@ import { Textarea } from '@/ui/Field'
 import { useAdminAccess } from '../access'
 import { BulkWalletCredit, WalletPanel } from '../WalletPanel'
 import { adminApi, adminKeys, platformCouponApi } from '../api'
+import { DateRangeFilter, dateBounds } from '@/ui/Filters'
+import { Select } from '@/ui/Field'
 
 const couponShareClient = { root: ['admin', 'platform-coupons'], coupons: platformCouponApi.coupons, customers: platformCouponApi.customers, share: platformCouponApi.shareCoupon }
 
@@ -45,7 +47,14 @@ export default function CustomersPage() {
       throw err
     }
   }
-  const params = { page: Number(filters.page ?? 1), limit: pageSize(filters.limit), status: filters.status || undefined, q: filters.q || undefined }
+  const params = {
+    page: Number(filters.page ?? 1),
+    limit: pageSize(filters.limit),
+    status: filters.status || undefined,
+    q: filters.q || undefined,
+    accountType: filters.accountType || undefined,
+    ...dateBounds(filters),
+  }
   const { data, isLoading } = useQuery({ queryKey: adminKeys.users(params), queryFn: () => adminApi.users(params), placeholderData: keepPreviousData })
 
   return (
@@ -89,8 +98,14 @@ export default function CustomersPage() {
             ]}
           />
         </div>
-        <div className="border-b border-slate-100 p-4">
+        <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 p-4">
           <SearchField value={filters.q ?? ''} onChange={(q) => setFilters({ q })} placeholder="Name, phone, email or GSTIN" />
+          <Select value={filters.accountType ?? ''} onChange={(e) => setFilters({ accountType: e.target.value })} className="w-auto">
+            <option value="">All account types</option>
+            <option value="individual">Individual</option>
+            <option value="business">Business</option>
+          </Select>
+          <DateRangeFilter label="Joined" from={filters.from} to={filters.to} onChange={setFilters} />
         </div>
         <DataTable
           loading={isLoading}

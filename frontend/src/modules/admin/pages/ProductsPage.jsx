@@ -1,6 +1,6 @@
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, Copy, ExternalLink, Eye, EyeOff, Layers, MessageSquareWarning, Pencil, Plus, Share2, Sheet, Star, Upload, X } from 'lucide-react'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { errorMessage } from '@/core/api/errors'
@@ -22,6 +22,8 @@ import { productShareItem, useShare } from '@/modules/shared/share'
 import { useBranding } from '@/core/settings/usePublicSettings'
 import { useAdminAccess } from '../access'
 import { adminApi, adminKeys } from '../api'
+import { CategoryFilter, StockFilter } from '@/ui/Filters'
+import { flattenTree } from '@/core/lib/tree'
 
 const TABS = [
   { value: '', label: 'All' },
@@ -50,7 +52,11 @@ export default function ProductsPage() {
     vendor: filters.vendor || undefined,
     q: filters.q || undefined,
     featured: filters.featured || undefined,
+    category: filters.category || undefined,
+    stock: filters.stock || undefined,
   }
+  const { data: tree } = useQuery({ queryKey: adminKeys.categoryTree, queryFn: adminApi.categoryTree, staleTime: 5 * 60_000 })
+  const categoryOptions = useMemo(() => flattenTree(tree ?? []), [tree])
   const { data, isLoading } = useQuery({ queryKey: adminKeys.products(params), queryFn: () => adminApi.products(params), placeholderData: keepPreviousData })
   const vendorName = filters.vendor && data?.items?.[0]?.vendor?.store?.name
 
@@ -109,6 +115,8 @@ export default function ProductsPage() {
               </option>
             ))}
           </Select>
+          <CategoryFilter options={categoryOptions} value={filters.category} onChange={(category) => setFilters({ category })} />
+          <StockFilter value={filters.stock} onChange={(stock) => setFilters({ stock })} />
           <Select value={filters.featured ?? ''} onChange={(e) => setFilters({ featured: e.target.value })} className="w-auto">
             <option value="">Featured: any</option>
             <option value="true">Featured only</option>

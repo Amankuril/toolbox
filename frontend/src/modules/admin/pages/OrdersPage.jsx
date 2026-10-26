@@ -17,6 +17,7 @@ import { WhatsAppButton } from '@/modules/shared/whatsapp'
 import { useAdminAccess } from '../access'
 import { adminApi, adminKeys } from '../api'
 import { CashCollectedButton } from '../CashCollected'
+import { DateRangeFilter, dateBounds } from '@/ui/Filters'
 
 const PAYMENT_SHORT = { cod: 'COD', razorpay: 'Online', partial: 'Part paid', offline: 'Offline', wallet: 'Wallet' }
 
@@ -41,7 +42,11 @@ export default function OrdersPage() {
     paymentMethod: filters.paymentMethod || undefined,
     paymentStatus: filters.paymentStatus || undefined,
     q: filters.q || undefined,
+    vendor: filters.vendor || undefined,
+    source: filters.source || undefined,
+    ...dateBounds(filters),
   }
+  const { data: sellers } = useQuery({ queryKey: adminKeys.vendors({ status: 'approved', limit: 100 }), queryFn: () => adminApi.vendors({ status: 'approved', limit: 100 }), staleTime: 5 * 60_000 })
   const { data, isLoading } = useQuery({ queryKey: adminKeys.orders(params), queryFn: () => adminApi.orders(params), placeholderData: keepPreviousData })
 
   return (
@@ -78,6 +83,21 @@ export default function OrdersPage() {
             <option value="partially_refunded">Partly refunded</option>
             <option value="failed">Failed</option>
           </Select>
+          <Select value={filters.vendor ?? ''} onChange={(e) => setFilters({ vendor: e.target.value })} className="w-auto max-w-56">
+            <option value="">All sellers</option>
+            {(sellers?.items ?? []).map((v) => (
+              <option key={v._id} value={v._id}>
+                {v.store?.name}
+              </option>
+            ))}
+          </Select>
+          <Select value={filters.source ?? ''} onChange={(e) => setFilters({ source: e.target.value })} className="w-auto">
+            <option value="">Any source</option>
+            <option value="checkout">Storefront checkout</option>
+            <option value="manual">Created in a panel</option>
+            <option value="link">Payment link</option>
+          </Select>
+          <DateRangeFilter label="Placed" from={filters.from} to={filters.to} onChange={setFilters} />
         </div>
         <DataTable
           loading={isLoading}

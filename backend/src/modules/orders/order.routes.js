@@ -6,7 +6,7 @@ import { created, ok } from '#core/utils/response.js';
 import { paginationQuery } from '#core/utils/pagination.js';
 import { gstin, idParams, objectId, optionalText } from '#core/validation/common.js';
 import { actorOf } from '#modules/auth/auth.middleware.js';
-import { ITEM_STATUSES, ORDER_STATUSES, PAYMENT_METHODS, PAYMENT_STATUSES } from './order.model.js';
+import { ITEM_STATUSES, ORDER_SOURCES, ORDER_STATUSES, PAYMENT_METHODS, PAYMENT_STATUSES } from './order.model.js';
 import { invoiceService } from '#modules/invoices/invoice.service.js';
 import { orderService } from './order.service.js';
 
@@ -90,7 +90,14 @@ export const userOrderRoutes = Router()
     ok(res, orderService.serializeOrder(order));
   });
 
-const vendorListQuery = z.object({ ...paginationQuery, status: z.enum(ITEM_STATUSES).optional(), q: z.string().trim().max(40).optional() });
+const vendorListQuery = z.object({
+  ...paginationQuery,
+  status: z.enum(ITEM_STATUSES).optional(),
+  q: z.string().trim().max(40).optional(),
+  paymentMethod: z.enum(PAYMENT_METHODS).optional(),
+  from: z.coerce.date().optional(),
+  to: z.coerce.date().optional(),
+});
 const itemUpdateBody = z
   .object({ status: z.enum(ITEM_STATUSES).optional(), tracking, note: optionalText(500) })
   .refine((v) => v.status || v.tracking, 'Nothing to update');
@@ -124,6 +131,7 @@ const adminListQuery = z.object({
   paymentMethod: z.enum(PAYMENT_METHODS).optional(),
   paymentStatus: z.enum(PAYMENT_STATUSES).optional(),
   vendor: objectId.optional(),
+  source: z.enum(ORDER_SOURCES).optional(),
   q: z.string().trim().max(40).optional(),
   from: z.coerce.date().optional(),
   to: z.coerce.date().optional(),

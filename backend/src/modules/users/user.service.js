@@ -93,9 +93,11 @@ export const userService = {
 
   /* ─────────────── Admin ─────────────── */
 
-  async adminList({ page, limit, status, q }) {
+  async adminList({ page, limit, status, q, accountType, from, to }) {
     const filter = {};
     if (status) filter.status = status;
+    if (accountType) filter.accountType = accountType;
+    if (from || to) filter.createdAt = { ...(from ? { $gte: from } : {}), ...(to ? { $lte: to } : {}) };
     if (q) {
       const rx = new RegExp(escapeRegex(q), 'i');
       filter.$or = [{ name: rx }, { phone: rx }, { email: rx }, { 'business.name': rx }, { 'business.gstin': rx }];

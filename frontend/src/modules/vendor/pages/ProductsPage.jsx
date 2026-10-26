@@ -1,6 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Archive, Copy, Download, Eye, EyeOff, IndianRupee, MoreHorizontal, Package, PackagePlus, Pencil, Share2, Sheet, Upload } from 'lucide-react'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { errorMessage } from '@/core/api/errors'
@@ -22,6 +22,9 @@ import { BulkEditSheet } from '@/modules/shared/BulkEditSheet'
 import { productShareItem, useShare } from '@/modules/shared/share'
 import { useBranding } from '@/core/settings/usePublicSettings'
 import { useSeller } from '../seller'
+import { CategoryFilter, StockFilter } from '@/ui/Filters'
+import { buildTree, flattenTree } from '@/core/lib/tree'
+import { useVendorCategories } from '../components/categoryOptions'
 
 const TABS = [
   { value: '', label: 'All' },
@@ -44,7 +47,17 @@ export default function VendorProductsPage() {
   const { siteName } = useBranding()
   const { share, dialog: shareDialog } = useShare()
   const approved = vendor?.status === 'approved'
-  const params = { page: Number(filters.page ?? 1), limit: pageSize(filters.limit), status: filters.status || undefined, type: filters.type || undefined, q: filters.q || undefined }
+  const params = {
+    page: Number(filters.page ?? 1),
+    limit: pageSize(filters.limit),
+    status: filters.status || undefined,
+    type: filters.type || undefined,
+    q: filters.q || undefined,
+    category: filters.category || undefined,
+    stock: filters.stock || undefined,
+  }
+  const { data: categoryRows } = useVendorCategories()
+  const categoryOptions = useMemo(() => flattenTree(buildTree((categoryRows ?? []).filter((c) => c.status === 'active'))), [categoryRows])
   const { data, isLoading } = useQuery({
     queryKey: seller.keys.products(params),
     queryFn: () => seller.api.products(params),
@@ -147,6 +160,8 @@ export default function VendorProductsPage() {
                 </option>
               ))}
             </Select>
+            <CategoryFilter options={categoryOptions} value={filters.category} onChange={(category) => setFilters({ category })} />
+            <StockFilter value={filters.stock} onChange={(stock) => setFilters({ stock })} />
           </div>
           <DataTable
             loading={isLoading}

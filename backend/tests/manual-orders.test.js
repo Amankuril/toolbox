@@ -192,3 +192,17 @@ describe('cash collected', () => {
     await request(app).post(`${API}/admin/orders/${order._id}/cash-collected`).set(bearer(admin.accessToken)).send({}).expect(409);
   });
 });
+
+describe('admin list filters', () => {
+  it('filters orders by source and customers by joining date and type', async () => {
+    const A = bearer(admin.accessToken);
+    const manual = (await request(app).get(`${API}/admin/orders?source=manual`).set(A).expect(200)).body.data;
+    expect(manual.length).toBeGreaterThan(0);
+    const viaCheckout = (await request(app).get(`${API}/admin/orders?source=checkout`).set(A).expect(200)).body.data;
+    expect(viaCheckout.every((o) => !manual.some((m) => m._id === o._id))).toBe(true);
+    const businesses = (await request(app).get(`${API}/admin/users?accountType=business`).set(A).expect(200)).body.data;
+    expect(businesses).toHaveLength(0);
+    const recent = (await request(app).get(`${API}/admin/users?from=2020-01-01`).set(A).expect(200)).body.data;
+    expect(recent.length).toBeGreaterThan(0);
+  });
+});
