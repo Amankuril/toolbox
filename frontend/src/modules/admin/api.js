@@ -1,5 +1,6 @@
 import { queryClient } from '@/app/queryClient'
 import { api, list, one } from '@/core/api/http'
+import { manualOrderClient } from '@/modules/shared/manualOrders'
 import { createImportApi } from '@/modules/shared/productImportApi'
 
 const a = api.admin
@@ -39,6 +40,7 @@ export const adminKeys = {
 
 export const adminApi = {
   productImports: createImportApi(a),
+  manualOrders: manualOrderClient(a),
   me: () => one(a.get('/me')),
   changePassword: (body) => one(a.post('/me/password', body)),
   dashboard: () => one(a.get('/dashboard')),

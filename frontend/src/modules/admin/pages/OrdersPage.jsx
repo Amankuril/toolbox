@@ -2,6 +2,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Eye } from 'lucide-react'
 import { useNavigate } from 'react-router'
 import { useSearchParamsState } from '@/core/hooks/useSearchParamsState'
+import { useBranding } from '@/core/settings/usePublicSettings'
 import { formatDateTime, formatINR, formatPhone } from '@/core/lib/format'
 import { Badge, StatusBadge } from '@/ui/Badge'
 import { Card } from '@/ui/Card'
@@ -11,7 +12,10 @@ import { Select } from '@/ui/Field'
 import { PageHeader } from '@/ui/PageHeader'
 import { SearchField } from '@/ui/SearchField'
 import { RowActions } from '@/ui/RowActions'
+import { CreateOrderButton, PaymentLinksButton } from '@/modules/shared/manualOrders'
 import { adminApi, adminKeys } from '../api'
+
+const PAYMENT_SHORT = { cod: 'COD', razorpay: 'Online', partial: 'Part paid', offline: 'Offline' }
 
 const TABS = [
   { value: '', label: 'All' },
@@ -24,6 +28,7 @@ const TABS = [
 
 export default function OrdersPage() {
   const navigate = useNavigate()
+  const { siteName } = useBranding()
   const [filters, setFilters] = useSearchParamsState()
   const params = {
     page: Number(filters.page ?? 1),
@@ -37,7 +42,16 @@ export default function OrdersPage() {
 
   return (
     <>
-      <PageHeader title="Orders" description="Every order across all vendors." />
+      <PageHeader
+        title="Orders"
+        description="Every order across all vendors."
+        actions={
+          <>
+            <PaymentLinksButton client={adminApi.manualOrders} root={adminKeys.all} siteName={siteName} />
+            <CreateOrderButton client={adminApi.manualOrders} root={adminKeys.all} siteName={siteName} onCreated={(o) => navigate(`/admin/orders/${o._id}`)} />
+          </>
+        }
+      />
       <Card>
         <div className="px-4 pt-2">
           <FilterTabs value={filters.status ?? ''} onChange={(status) => setFilters({ status })} options={TABS} />
@@ -48,6 +62,8 @@ export default function OrdersPage() {
             <option value="">All payment methods</option>
             <option value="razorpay">Online</option>
             <option value="cod">Cash on delivery</option>
+            <option value="partial">Part payment</option>
+            <option value="offline">Paid offline</option>
           </Select>
           <Select value={filters.paymentStatus ?? ''} onChange={(e) => setFilters({ paymentStatus: e.target.value })} className="w-auto">
             <option value="">Any payment status</option>
@@ -81,7 +97,7 @@ export default function OrdersPage() {
               header: 'Payment',
               cell: (o) => (
                 <div className="flex flex-col items-start gap-1">
-                  <Badge>{o.payment.method === 'cod' ? 'COD' : 'Online'}</Badge>
+                  <Badge>{PAYMENT_SHORT[o.payment.method] ?? 'Online'}</Badge>
                   <StatusBadge status={o.payment.status} />
                 </div>
               ),

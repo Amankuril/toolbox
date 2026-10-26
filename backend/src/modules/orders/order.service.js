@@ -18,12 +18,13 @@ import { userService } from '#modules/users/user.service.js';
 import { paymentService } from '#services/payment/payment.service.js';
 import { settingsService } from '#services/settings/settings.service.js';
 import { ITEM_TRANSITIONS, Order, PaymentEvent } from './order.model.js';
+import { markLinkPaid } from './orderLink.model.js';
 import { onlineAmount, PAID_ONLINE, splitPartial } from './partialPayment.js';
 import { serializeOrder, serializeVendorOrder } from './order.serializer.js';
 
 const CURRENCY = 'INR';
 
-function newOrderNumber() {
+export function newOrderNumber() {
   const d = new Date();
   const ymd = `${String(d.getUTCFullYear()).slice(2)}${String(d.getUTCMonth() + 1).padStart(2, '0')}${String(d.getUTCDate()).padStart(2, '0')}`;
   return `TB${ymd}-${crypto.randomBytes(4).toString('hex').toUpperCase().slice(0, 6)}`;
@@ -47,7 +48,7 @@ function stockOps(line) {
 }
 
 /** Atomically decrements stock line by line; rolls back what it took if any line fails. Untracked lines only need availability. */
-async function reserveStock(lines) {
+export async function reserveStock(lines) {
   const taken = [];
   for (const line of lines) {
     const ops = stockOps(line);
@@ -78,7 +79,7 @@ async function reserveStock(lines) {
   }
 }
 
-async function releaseStock(lines) {
+export async function releaseStock(lines) {
   const tracked = lines.filter((l) => l.stockTracked !== false);
   if (!tracked.length) return;
   await Product.bulkWrite(
@@ -90,7 +91,7 @@ async function releaseStock(lines) {
 }
 
 /** What reserve/release need from an order item. */
-const stockLine = (i) => ({ product: i.product, variant: i.variant, quantity: i.quantity, stockTracked: i.stockTracked, name: i.name });
+export const stockLine = (i) => ({ product: i.product, variant: i.variant, quantity: i.quantity, stockTracked: i.stockTracked, name: i.name });
 
 function deriveStatus(order) {
   if (order.status === 'pending_payment') return order.status;
@@ -138,6 +139,7 @@ async function settleLatePayment(orderId, paymentId) {
     await order.save();
     await quoteLifecycle.markOrdered(order);
     await couponService.reclaimForOrder(order);
+    await markLinkPaid(order);
     return order;
   } catch (err) {
     if (!(err instanceof ApiError) || err.code !== 'OUT_OF_STOCK') throw err;

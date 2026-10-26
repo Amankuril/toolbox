@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useEffect } from 'react'
 import { api, list, one } from '@/core/api/http'
 import { sessions, useSession } from '@/core/auth/session'
+import { manualOrderClient } from '@/modules/shared/manualOrders'
 import { createImportApi } from '@/modules/shared/productImportApi'
 
 const v = api.vendor
@@ -35,6 +36,7 @@ export function createSellerKeys(root) {
 export function createSellerApi(v) {
   return {
     productImports: createImportApi(v),
+    manualOrders: manualOrderClient(v),
 
     me: () => one(v.get('/me')),
     updateProfile: (body) => one(v.patch('/me', body)),

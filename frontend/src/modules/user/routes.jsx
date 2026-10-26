@@ -17,6 +17,7 @@ export const userRoutes = {
         { path: 'cart', ...page(() => import('./pages/CartPage')) },
         { path: 'wishlist', ...page(() => import('./pages/WishlistPage')) },
         { path: 'compare', ...page(() => import('./pages/ComparePage')) },
+        { path: 'pay/:token', ...page(() => import('./pages/PayLinkPage')) },
         { path: 'login', ...page(() => import('./pages/LoginPage')) },
         { path: 'onboarding', ...page(() => import('./pages/OnboardingPage')) },
         {

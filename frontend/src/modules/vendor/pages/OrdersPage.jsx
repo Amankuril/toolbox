@@ -1,6 +1,8 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router'
 import { useSearchParamsState } from '@/core/hooks/useSearchParamsState'
+import { useBranding } from '@/core/settings/usePublicSettings'
+import { CreateOrderButton, PaymentLinksButton } from '@/modules/shared/manualOrders'
 import { formatDateTime, formatINR, formatNumber } from '@/core/lib/format'
 import { Badge, StatusBadge } from '@/ui/Badge'
 import { Card } from '@/ui/Card'
@@ -34,13 +36,28 @@ function lineSummary(items) {
 export default function VendorOrdersPage() {
   const seller = useSeller()
   const navigate = useNavigate()
+  const { siteName } = useBranding()
   const [filters, setFilters] = useSearchParamsState()
   const params = { page: Number(filters.page ?? 1), limit: 20, status: filters.status || undefined, q: filters.q || undefined }
   const { data, isLoading } = useQuery({ queryKey: seller.keys.orders(params), queryFn: () => seller.api.orders(params), placeholderData: keepPreviousData })
 
   return (
     <>
-      <PageHeader title="Orders" description="Orders containing your products. Confirm, pack and ship each item." />
+      <PageHeader
+        title="Orders"
+        description="Orders containing your products. Confirm, pack and ship each item."
+        actions={
+          <>
+            <PaymentLinksButton client={seller.api.manualOrders} root={seller.keys.all} siteName={siteName} />
+            <CreateOrderButton
+              client={seller.api.manualOrders}
+              root={seller.keys.all}
+              siteName={siteName}
+              onCreated={(o) => navigate(`${seller.base}/orders/${o._id}`)}
+            />
+          </>
+        }
+      />
       <Card>
         <div className="px-4 pt-2">
           <FilterTabs value={filters.status ?? ''} onChange={(status) => setFilters({ status })} options={TABS} />
@@ -61,7 +78,7 @@ export default function VendorOrdersPage() {
             { key: 'placed', header: 'Placed', cell: (o) => formatDateTime(o.createdAt) },
             { key: 'ship', header: 'Ship to', cell: (o) => `${o.shippingAddress.city}, ${o.shippingAddress.state}` },
             { key: 'items', header: 'Units', className: 'text-right', cell: (o) => <span className="tabular">{formatNumber(o.amounts.itemCount)}</span> },
-            { key: 'payment', header: 'Payment', cell: (o) => <Badge>{o.payment.method === 'cod' ? 'COD' : 'Prepaid'}</Badge> },
+            { key: 'payment', header: 'Payment', cell: (o) => <Badge>{o.payment.method === 'cod' ? 'COD' : o.payment.method === 'partial' ? 'Part paid' : 'Prepaid'}</Badge> },
             { key: 'status', header: 'Items', cell: (o) => lineSummary(o.items) },
             {
               key: 'total',

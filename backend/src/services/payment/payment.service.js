@@ -3,6 +3,7 @@ import { logger } from '#config/logger.js';
 import { ApiError } from '#core/errors/ApiError.js';
 import { cartService } from '#modules/cart/cart.service.js';
 import { Order, PaymentEvent } from '#modules/orders/order.model.js';
+import { markLinkPaid } from '#modules/orders/orderLink.model.js';
 import { canTransitionPayment, Payment } from '#modules/orders/payment.model.js';
 import { Refund } from '#modules/orders/refund.model.js';
 import { onlineAmount, PAID_ONLINE } from '#modules/orders/partialPayment.js';
@@ -240,6 +241,7 @@ export const paymentService = {
       (await settle({ 'payment.providerOrderId': providerOrderId })) ?? (payment ? await settle({ _id: payment.orderId }) : null);
 
     if (order) {
+      await markLinkPaid(order);
       await cartService.removeProducts(
         order.user,
         order.items.map((i) => i.product),

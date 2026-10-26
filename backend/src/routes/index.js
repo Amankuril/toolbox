@@ -19,6 +19,7 @@ import { storeSettingsRoutes } from '#modules/store/store.routes.js';
 import { adminCategoryRoutes, publicCategoryRoutes, vendorCategoryRoutes } from '#modules/categories/category.routes.js';
 import { dashboardService } from '#modules/dashboard/dashboard.service.js';
 import { adminMediaRouter, mediaUploadRouter } from '#modules/media/media.routes.js';
+import { manualOrderRoutes, publicPayRoutes } from '#modules/orders/manual.routes.js';
 import { adminOrderRoutes, userOrderRoutes, vendorOrderRoutes } from '#modules/orders/order.routes.js';
 import { adminProductImportRoutes, vendorProductImportRoutes } from '#modules/products/imports/import.routes.js';
 import { adminProductRoutes, publicProductRoutes, vendorProductRoutes } from '#modules/products/product.routes.js';
@@ -38,6 +39,9 @@ import { adminVendorRoutes, publicStoreRoutes, vendorSelfRoutes } from '#modules
  *   /vendor   signed-in seller
  *   /admin    signed-in admin
  */
+// Sellers and the house store make orders from their own products only.
+const sellerManualOrders = manualOrderRoutes({ scope: (req) => ({ vendorId: req.auth.id }) });
+
 export function buildRoutes() {
   const api = Router();
 
@@ -55,6 +59,7 @@ export function buildRoutes() {
     .use('/stores', publicStoreRoutes)
     .use('/banners', publicBannerRoutes)
     .use('/shipping', publicShippingRoutes)
+    .use('/pay', publicPayRoutes)
     .get(
       '/pincodes/:pincode',
       rateLimit({ keyPrefix: 'pincode', points: 30, duration: 60 }),
@@ -91,6 +96,7 @@ export function buildRoutes() {
     .use('/products', vendorProductRoutes)
     .use('/product-imports', vendorProductImportRoutes)
     .use('/orders', vendorOrderRoutes)
+    .use('/manual-orders', sellerManualOrders)
     .use('/quotes', vendorQuoteRoutes)
     .use('/coupons', vendorCouponRoutes)
     .use('/leads', vendorLeadRoutes)
@@ -105,6 +111,7 @@ export function buildRoutes() {
     .use('/products', vendorProductRoutes)
     .use('/product-imports', vendorProductImportRoutes)
     .use('/orders', vendorOrderRoutes)
+    .use('/manual-orders', sellerManualOrders)
     .use('/quotes', vendorQuoteRoutes)
     .use('/coupons', vendorCouponRoutes)
     .use('/leads', vendorLeadRoutes)
@@ -123,6 +130,7 @@ export function buildRoutes() {
     .use('/products', requireSection('products'), adminProductRoutes)
     .use('/product-imports', requireSection('products'), adminProductImportRoutes)
     .use('/orders', requireSection('orders'), adminOrderRoutes)
+    .use('/manual-orders', requireSection('orders'), manualOrderRoutes({ scope: () => ({}) }))
     .use(['/shipments', '/shipping'], requireSection('orders'))
     .use('/quotes', requireSection('quotes'), adminQuoteRoutes)
     .use('/reviews', requireSection('reviews'), adminReviewRoutes)

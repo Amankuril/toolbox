@@ -159,6 +159,7 @@ export const PAYMENT_METHOD_LABEL = {
   razorpay: 'Paid online (Razorpay)',
   cod: 'Cash on delivery',
   partial: 'Part payment: advance online, balance on delivery',
+  offline: 'Paid offline (cash, UPI or bank transfer)',
 }
 
 /** First two digits of a GSTIN identify the state. Used to pre-fill addresses. */

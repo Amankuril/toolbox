@@ -26,6 +26,7 @@ export const storeKeys = {
   tracking: (id) => ['user', 'order', id, 'tracking'],
   quotes: (p) => ['user', 'quotes', p],
   quote: (id) => ['user', 'quote', id],
+  payLink: (token) => ['public', 'pay', token],
 }
 
 /** Anonymous storefront reads. */
@@ -38,6 +39,11 @@ export const storeApi = {
   suggest: (q) => one(publicApi.get('/public/products/suggest', { params: { q } })),
   banners: () => one(publicApi.get('/public/banners')),
   stats: () => one(publicApi.get('/public/stats')),
+  // Shared order links (no sign-in).
+  payLink: (token) => one(publicApi.get(`/public/pay/${token}`)),
+  startPayLink: (token) => one(publicApi.post(`/public/pay/${token}/start`)),
+  verifyPayLink: (token, body) => one(publicApi.post(`/public/pay/${token}/verify`, body)),
+  payLinkFailed: (token, reason) => one(publicApi.post(`/public/pay/${token}/failed`, { reason })),
   reviews: (productId, params) => publicApi.get(`/public/products/${productId}/reviews`, { params }).then((r) => ({ ...r.data.data, meta: r.data.meta })),
   store: (slug) => one(publicApi.get(`/public/stores/${slug}`)),
 }

@@ -3,8 +3,13 @@ import { actorSchema, addressFields, baseOptions } from '#core/db/schemas.js';
 
 export const ORDER_STATUSES = ['pending_payment', 'placed', 'processing', 'completed', 'cancelled'];
 export const ITEM_STATUSES = ['pending', 'confirmed', 'packed', 'shipped', 'delivered', 'cancelled'];
-/** partial = an advance paid online now, the balance collected in cash on delivery. */
-export const PAYMENT_METHODS = ['razorpay', 'cod', 'partial'];
+/**
+ * partial = an advance paid online now, the balance collected in cash on delivery.
+ * offline = an order entered from a panel and already settled outside the site (cash, UPI, bank transfer).
+ */
+export const PAYMENT_METHODS = ['razorpay', 'cod', 'partial', 'offline'];
+/** checkout = placed by the buyer; manual = entered from a panel; link = paid through a shared order link. */
+export const ORDER_SOURCES = ['checkout', 'manual', 'link'];
 export const PAYMENT_STATUSES = ['pending', 'partially_paid', 'paid', 'failed', 'refunded', 'partially_refunded'];
 
 /** Allowed fulfilment transitions per line item. */
@@ -131,6 +136,11 @@ const orderSchema = new Schema(
       code: String,
       vendor: { type: Schema.Types.ObjectId, ref: 'Vendor' },
     },
+
+    source: { type: String, enum: ORDER_SOURCES, default: 'checkout' },
+    // Panel orders: who entered it, and the shared link it was paid through.
+    createdBy: actorSchema,
+    link: { type: Schema.Types.ObjectId, ref: 'OrderLink' },
 
     status: { type: String, enum: ORDER_STATUSES, required: true },
     // Unpaid online orders hold stock until this time, then the sweeper releases it.

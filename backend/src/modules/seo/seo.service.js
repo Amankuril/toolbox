@@ -19,6 +19,7 @@ const PRIVATE_PATHS = [
   '/login',
   '/onboarding',
   '/search',
+  '/pay',
   '/api/',
 ];
 const LISTING_LINKS = 48;
