@@ -389,17 +389,24 @@ function ProductForm({ product, cloneFrom }) {
     )
   const status = product?.status
   const live = status === 'active' && product?.vendorApproved
-  const canSubmit = isNew || ['draft', 'rejected'].includes(status)
+  // Admins editing a seller's listing just save; publishing and review stay with the product's status.
+  const canSubmit = !seller.adminEdit && (isNew || ['draft', 'rejected'].includes(status))
   const discount = pricing?.mrp > pricing?.price ? Math.round(((pricing.mrp - pricing.price) / pricing.mrp) * 100) : 0
 
   return (
     <form onSubmit={(ev) => ev.preventDefault()} noValidate className="pb-24">
       <PageHeader
-        back={{ to: `${seller.base}/products`, label: 'Products' }}
+        back={seller.adminEdit && product ? { to: `${seller.base}/products/${product._id}`, label: 'Product' } : { to: `${seller.base}/products`, label: 'Products' }}
         title={isNew ? (cloneFrom ? 'Add product (copy)' : 'Add product') : product.name}
         meta={status && <StatusBadge status={status} />}
         description={
-          isNew ? (seller.isStore ? 'Published products go live in your store straight away.' : 'New listings are reviewed before they go live.') : undefined
+          isNew
+            ? seller.isStore
+              ? 'Published products go live in your store straight away.'
+              : 'New listings are reviewed before they go live.'
+            : seller.adminEdit
+              ? `Editing as admin${product.vendor?.store?.name ? ` · sold by ${product.vendor.store.name}` : ''}`
+              : undefined
         }
         actions={
           isNew ? (
@@ -409,11 +416,13 @@ function ProductForm({ product, cloneFrom }) {
           ) : (
             <>
               {live && <ShareButton item={productShareItem(product, siteName)} />}
-              <Button variant="outline" asChild>
-                <Link to={`${seller.base}/products/new?clone=${product._id}`}>
-                  <Copy /> Clone product
-                </Link>
-              </Button>
+              {!seller.adminEdit && (
+                <Button variant="outline" asChild>
+                  <Link to={`${seller.base}/products/new?clone=${product._id}`}>
+                    <Copy /> Clone product
+                  </Link>
+                </Button>
+              )}
             </>
           )
         }

@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Copy, ExternalLink, Eye, EyeOff, Layers, MessageSquareWarning, Plus, Share2, Sheet, Star, Upload, X } from 'lucide-react'
+import { Check, Copy, ExternalLink, Eye, EyeOff, Layers, MessageSquareWarning, Pencil, Plus, Share2, Sheet, Star, Upload, X } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { toast } from 'sonner'
@@ -170,6 +170,7 @@ export default function ProductsPage() {
                   label={`Actions for ${p.name}`}
                   items={[
                     { label: 'View details', icon: Eye, onSelect: () => navigate(`/admin/products/${p._id}`) },
+                    can('products', 'manage') && p.status !== 'archived' && { label: 'Edit product', icon: Pencil, onSelect: () => navigate(`/admin/products/${p._id}/edit`) },
                     can('store', 'manage') && { label: 'Clone to our store', icon: Copy, onSelect: () => navigate(`/admin/store/products/new?clone=${p._id}`) },
                     p.status === 'active' &&
                       p.vendorApproved && { label: 'View on store', icon: ExternalLink, onSelect: () => window.open(`/p/${p.slug}`, '_blank', 'noopener') },

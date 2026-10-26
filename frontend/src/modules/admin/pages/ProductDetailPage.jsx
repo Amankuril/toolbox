@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, EyeOff, ExternalLink, Eye, MessageSquareWarning, Star } from 'lucide-react'
+import { Check, EyeOff, ExternalLink, Eye, MessageSquareWarning, Pencil, Star } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { toast } from 'sonner'
@@ -18,6 +18,7 @@ import { ReasonDialog } from '@/ui/ReasonDialog'
 import { MediaUploader } from '@/ui/MediaUploader'
 import { productShareItem, ShareButton } from '@/modules/shared/share'
 import { useBranding } from '@/core/settings/usePublicSettings'
+import { useAdminAccess } from '../access'
 import { adminApi, adminKeys } from '../api'
 
 export default function ProductDetailPage() {
@@ -25,6 +26,7 @@ export default function ProductDetailPage() {
   const qc = useQueryClient()
   const { data: p, isLoading } = useQuery({ queryKey: adminKeys.product(id), queryFn: () => adminApi.product(id) })
   const { siteName } = useBranding()
+  const canEdit = useAdminAccess().can('products', 'manage')
 
   const done = (message) => () => {
     qc.invalidateQueries({ queryKey: adminKeys.product(id) })
@@ -53,6 +55,13 @@ export default function ProductDetailPage() {
         description={`${PRODUCT_TYPE_LABEL[p.type]} · Updated ${formatDateTime(p.updatedAt)}`}
         actions={
           <>
+            {canEdit && (
+              <Button asChild>
+                <Link to={`/admin/products/${p._id}/edit`}>
+                  <Pencil /> Edit product
+                </Link>
+              </Button>
+            )}
             {p.status === 'active' && p.vendorApproved && (
               <Button variant="outline" asChild>
                 <a href={`/p/${p.slug}`} target="_blank" rel="noreferrer">

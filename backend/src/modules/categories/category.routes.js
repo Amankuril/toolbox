@@ -47,6 +47,10 @@ export const adminCategoryRoutes = Router()
   .get('/tree', async (_req, res) => {
     ok(res, await categoryService.tree());
   })
+  // The category picker when an admin edits any seller's product: the live tree plus the admins' own drafts.
+  .get('/for-products', async (_req, res) => {
+    ok(res, await categoryService.listForVendor(null));
+  })
   .post('/', validate(adminCreateCategory), async (req, res) => {
     created(res, await categoryService.create(req.body, actorOf(req)));
   })

@@ -99,6 +99,10 @@ export const adminProductRoutes = Router()
     const { items, meta } = await productService.adminList(req.query);
     ok(res, items, meta);
   })
+  // Before /:id. "Fits these machines" picker when an admin edits a spare part.
+  .get('/compatibility-search', validate(suggestQuery), async (req, res) => {
+    ok(res, await productService.compatibilityCandidates(req.query.q, null));
+  })
   .get('/:id', validate({ params: idParams }), async (req, res) => {
     ok(res, await productService.adminGet(req.params.id));
   })

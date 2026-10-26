@@ -31,6 +31,7 @@ export const adminRoutes = {
                 { path: 'products', ...page(() => import('./pages/ProductsPage')) },
                 { path: 'products/import', ...page(() => import('./pages/ProductImportPage')) },
                 { path: 'products/:id', ...page(() => import('./pages/ProductDetailPage')) },
+                { path: 'products/:id/edit', ...page(() => import('./catalogSeller')) },
               ],
             },
             {

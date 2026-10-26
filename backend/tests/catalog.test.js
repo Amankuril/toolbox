@@ -390,3 +390,17 @@ describe('settings & theme', () => {
     await request(app).put(`${API}/admin/settings/theme`).set(bearer(vendor.accessToken)).send({}).expect(401);
   });
 });
+
+describe('admins editing any seller’s listing', () => {
+  it('lists every live category for the picker and edits a product', async () => {
+    const auth = bearer(admin.accessToken);
+    const cats = (await request(app).get(`${API}/admin/categories/for-products`).set(auth).expect(200)).body.data;
+    expect(cats.length).toBeGreaterThan(0);
+    const [p] = (await request(app).get(`${API}/admin/products?limit=1`).set(auth).expect(200)).body.data;
+    const saved = (
+      await request(app).patch(`${API}/admin/products/${p._id}`).set(auth).send({ shortDescription: 'Edited by the admin', searchKeywords: ['admin edit'] }).expect(200)
+    ).body.data;
+    expect(saved).toMatchObject({ shortDescription: 'Edited by the admin', searchKeywords: ['admin edit'] });
+    await request(app).get(`${API}/admin/products/compatibility-search?q=ab`).set(auth).expect(200);
+  });
+});
