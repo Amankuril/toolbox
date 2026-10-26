@@ -16,6 +16,7 @@ export const vendorRoutes = {
           ...page(() => import('./VendorLayout')),
           children: [
             { index: true, ...page(() => import('./pages/DashboardPage')) },
+            { path: 'analytics', ...page(() => import('./pages/AnalyticsPage')) },
             { path: 'products', ...page(() => import('./pages/ProductsPage')) },
             { path: 'products/import', ...page(() => import('./pages/ProductImportPage')) },
             { path: 'products/new', ...page(() => import('./pages/ProductFormPage')) },

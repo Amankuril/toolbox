@@ -8,9 +8,11 @@ import { Button } from '@/ui/Button'
 import { EmptyState, Skeleton } from '@/ui/Card'
 import { storeApi, storeKeys } from '../api'
 import { ProductListing } from '../components/ProductListing'
+import { useStoreVisit } from '@/core/analytics/storeVisits'
 
 export default function StorePage() {
   const { slug } = useParams()
+  useStoreVisit({ storeSlug: slug })
   const { siteName } = useBranding()
   const { data: store, isLoading, isError } = useQuery({ queryKey: storeKeys.store(slug), queryFn: () => storeApi.store(slug), retry: false })
 

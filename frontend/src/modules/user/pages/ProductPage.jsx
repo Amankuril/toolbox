@@ -32,6 +32,7 @@ import { RatingInline } from '../components/Stars'
 import { useRecentlyViewed, useTrackView } from '../cart/recentlyViewed'
 import { unitPlural, unitShort } from '@/core/lib/units'
 import { gaItem, track, trackCartChange, trackItems } from '@/core/analytics/ga'
+import { useStoreVisit } from '@/core/analytics/storeVisits'
 
 export default function ProductPage() {
   const { slug } = useParams()
@@ -154,6 +155,7 @@ const SECTIONS = [
 
 function ProductView({ data: { product: p, breadcrumbs, spareParts, related, fromSeller = [] } }) {
   useTrackView(p._id)
+  useStoreVisit({ productId: p._id })
   const recent = useRecentlyViewed(p._id)
   // GA: the product with its leaf category (from the breadcrumbs).
   const gaProduct = { ...p, category: breadcrumbs?.length ? { name: breadcrumbs[breadcrumbs.length - 1].name } : undefined }

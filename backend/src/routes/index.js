@@ -20,6 +20,7 @@ import { adminCategoryRoutes, publicCategoryRoutes, vendorCategoryRoutes } from 
 import { dashboardService } from '#modules/dashboard/dashboard.service.js';
 import { adminMediaRouter, mediaUploadRouter } from '#modules/media/media.routes.js';
 import { manualOrderRoutes, publicPayRoutes } from '#modules/orders/manual.routes.js';
+import { publicTrackRoutes, sellerAnalyticsRoutes } from '#modules/analytics/analytics.routes.js';
 import { adminPageRoutes, publicPageRoutes } from '#modules/pages/page.routes.js';
 import { publicPickupRoutes, sellerPickupRoutes } from '#modules/pickup/pickup.routes.js';
 import { adminOrderRoutes, userOrderRoutes, vendorOrderRoutes } from '#modules/orders/order.routes.js';
@@ -64,6 +65,7 @@ export function buildRoutes() {
     .use('/pay', publicPayRoutes)
     .use('/pages', publicPageRoutes)
     .use('/pickup-points', publicPickupRoutes)
+    .use('/track', publicTrackRoutes)
     .get(
       '/pincodes/:pincode',
       rateLimit({ keyPrefix: 'pincode', points: 30, duration: 60 }),
@@ -106,6 +108,7 @@ export function buildRoutes() {
     .use('/quotes', vendorQuoteRoutes)
     .use('/coupons', vendorCouponRoutes)
     .use('/customers', sellerCustomerRoutes)
+    .use('/analytics', sellerAnalyticsRoutes)
     .use('/leads', vendorLeadRoutes)
     .use(vendorShippingRoutes);
   api.use('/vendor', vendorApi);
@@ -123,6 +126,7 @@ export function buildRoutes() {
     .use('/quotes', vendorQuoteRoutes)
     .use('/coupons', vendorCouponRoutes)
     .use('/customers', sellerCustomerRoutes)
+    .use('/analytics', sellerAnalyticsRoutes)
     .use('/leads', vendorLeadRoutes)
     .use(vendorShippingRoutes)
     .use('/media', mediaUploadRouter());

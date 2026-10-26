@@ -43,6 +43,7 @@ export const adminRoutes = {
                   ...page(() => import('./store/StoreRoot')),
                   children: [
                     { index: true, ...page(() => import('@/modules/vendor/pages/DashboardPage')) },
+                    { path: 'analytics', ...page(() => import('@/modules/vendor/pages/AnalyticsPage')) },
                     { path: 'products', ...page(() => import('@/modules/vendor/pages/ProductsPage')) },
                     { path: 'products/import', ...page(() => import('@/modules/vendor/pages/ProductImportPage')) },
                     { path: 'products/new', ...page(() => import('@/modules/vendor/pages/ProductFormPage')) },

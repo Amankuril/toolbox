@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Boxes,
+  ChartColumn,
   FileStack,
   FileText,
   FolderTree,
@@ -106,6 +107,7 @@ export default function AdminLayout() {
     {
       items: [
         { to: '/admin/store', end: true, label: 'Overview', icon: LayoutDashboard },
+        { to: '/admin/store/analytics', label: 'Store analytics', icon: ChartColumn },
         { to: '/admin/store/orders', label: 'Orders', icon: ShoppingBag },
         { to: '/admin/store/quotes', label: 'Quote requests', icon: FileText, badge: storeQuotes?.meta?.counts?.requested ?? 0 },
       ],
