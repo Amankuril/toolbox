@@ -149,6 +149,13 @@ const orderSchema = new Schema(
       paidAt: Date,
       failureReason: String,
       currentPaymentId: { type: Schema.Types.ObjectId, ref: 'Payment' },
+      // Cash on delivery (or a part payment's balance) confirmed received from the admin panel.
+      cashCollected: {
+        at: Date,
+        by: actorSchema,
+        amount: Number,
+        note: { type: String, trim: true, maxlength: 300 },
+      },
     },
     refunds: { type: [refundSchema], default: [] },
     // Coupon applied at checkout; its discount is in amounts.discount and spread over the seller's lines.

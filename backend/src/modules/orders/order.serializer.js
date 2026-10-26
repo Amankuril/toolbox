@@ -40,6 +40,7 @@ function base(o) {
       status: o.payment.status,
       paidAt: o.payment.paidAt ?? null,
       failureReason: o.payment.failureReason ?? null,
+      cashCollected: o.payment.cashCollected?.at ? { at: o.payment.cashCollected.at, amount: o.payment.cashCollected.amount ?? null } : null,
     },
     expiresAt: o.expiresAt ?? null,
     cancelledAt: o.cancelledAt ?? null,

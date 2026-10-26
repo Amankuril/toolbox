@@ -75,6 +75,7 @@ export const adminApi = {
   reviewProduct: (id, body) => one(a.post(`/products/${id}/review`, body)),
 
   orders: (params) => list(a.get('/orders', { params })),
+  markCashCollected: (id, note) => one(a.post(`/orders/${id}/cash-collected`, { note })),
   order: (id) => one(a.get(`/orders/${id}`)),
   orderInvoices: (id) => one(a.get(`/orders/${id}/invoices`)),
   orderInvoicePdf: (id, vendorId) => a.get(`/orders/${id}/invoices/${vendorId}/pdf`, { responseType: 'blob' }),

@@ -177,3 +177,18 @@ describe('shared order links', () => {
     await request(app).post(`${API}/public/pay/${fresh.url.split('/pay/')[1]}/start`).expect(409);
   });
 });
+
+describe('cash collected', () => {
+  it('admin marks a cash on delivery order paid, once', async () => {
+    const { order } = (
+      await request(app)
+        .post(`${API}/admin/manual-orders`)
+        .set(bearer(admin.accessToken))
+        .send({ mode: 'create', customer: { phone: '9844444444', name: 'Naresh' }, address, items: [{ product: otherProduct._id, quantity: 1 }] })
+        .expect(201)
+    ).body.data;
+    const paid = (await request(app).post(`${API}/admin/orders/${order._id}/cash-collected`).set(bearer(admin.accessToken)).send({}).expect(200)).body.data;
+    expect(paid.payment).toMatchObject({ status: 'paid', cashCollected: { amount: 150_000 } });
+    await request(app).post(`${API}/admin/orders/${order._id}/cash-collected`).set(bearer(admin.accessToken)).send({}).expect(409);
+  });
+});

@@ -14,7 +14,9 @@ import { SearchField } from '@/ui/SearchField'
 import { RowActions } from '@/ui/RowActions'
 import { CreateOrderButton, PaymentLinksButton } from '@/modules/shared/manualOrders'
 import { WhatsAppButton } from '@/modules/shared/whatsapp'
+import { useAdminAccess } from '../access'
 import { adminApi, adminKeys } from '../api'
+import { CashCollectedButton } from '../CashCollected'
 
 const PAYMENT_SHORT = { cod: 'COD', razorpay: 'Online', partial: 'Part paid', offline: 'Offline' }
 
@@ -30,6 +32,7 @@ const TABS = [
 export default function OrdersPage() {
   const navigate = useNavigate()
   const { siteName } = useBranding()
+  const { can } = useAdminAccess()
   const [filters, setFilters] = useSearchParamsState()
   const params = {
     page: Number(filters.page ?? 1),
@@ -107,6 +110,7 @@ export default function OrdersPage() {
                 <div className="flex flex-col items-start gap-1">
                   <Badge>{PAYMENT_SHORT[o.payment.method] ?? 'Online'}</Badge>
                   <StatusBadge status={o.payment.status} />
+                  {can('orders', 'manage') && <CashCollectedButton order={o} size="xs" className="mt-0.5" />}
                 </div>
               ),
             },

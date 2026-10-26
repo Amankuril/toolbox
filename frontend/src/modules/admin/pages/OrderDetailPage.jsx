@@ -21,6 +21,7 @@ import {
 import { ItemStatusActions, OrderItemRow } from '@/modules/shared/orders'
 import { Alert, Skeleton } from '@/ui/Card'
 import { useAdminAccess } from '../access'
+import { CashCollectedButton, cashDue } from '../CashCollected'
 import { adminApi, adminKeys } from '../api'
 import { VendorShipments } from '../shipping'
 
@@ -141,18 +142,24 @@ export default function OrderDetailPage() {
           <PaymentCard
             order={o}
             note={
-              o.refunds?.length > 0 && (
-                <div className="flex flex-col gap-1 border-t border-slate-100 pt-3 text-xs text-slate-600">
-                  <p className="eyebrow">Refunds</p>
-                  {o.refunds.map((r) => (
-                    <p key={r.providerRefundId ?? r.at} className="flex justify-between gap-2">
-                      <span>
-                        {formatDateTime(r.at)} · {r.status}
-                      </span>
-                      <span className="tabular font-semibold text-slate-900">{formatINR(r.amount)}</span>
-                    </p>
-                  ))}
-                </div>
+              cashDue(o) && can('orders', 'manage') ? (
+                <CashCollectedButton order={o} variant="primary" className="w-full" />
+              ) : o.payment.cashCollected ? (
+                <p className="text-xs text-slate-600">Cash collected {formatDateTime(o.payment.cashCollected.at)}</p>
+              ) : (
+                o.refunds?.length > 0 && (
+                  <div className="flex flex-col gap-1 border-t border-slate-100 pt-3 text-xs text-slate-600">
+                    <p className="eyebrow">Refunds</p>
+                    {o.refunds.map((r) => (
+                      <p key={r.providerRefundId ?? r.at} className="flex justify-between gap-2">
+                        <span>
+                          {formatDateTime(r.at)} · {r.status}
+                        </span>
+                        <span className="tabular font-semibold text-slate-900">{formatINR(r.amount)}</span>
+                      </p>
+                    ))}
+                  </div>
+                )
               )
             }
           />

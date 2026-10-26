@@ -135,6 +135,10 @@ export const adminOrderRoutes = Router()
   })
   .get('/:id', validate({ params: idParams }), async (req, res) => ok(res, await orderService.adminGet(req.params.id)))
   .get('/:id/invoices', validate({ params: idParams }), async (req, res) => ok(res, await invoiceService.forOrder(req.params.id)))
+  .post('/:id/cash-collected', validate({ params: idParams, body: z.object({ note: optionalText(300) }) }), async (req, res) => {
+    await orderService.markCashCollected(req.params.id, req.body, actorOf(req));
+    ok(res, await orderService.adminGet(req.params.id));
+  })
   .get('/:id/invoices/:vendorId/pdf', pdfLimit, validate({ params: invoiceParams }), async (req, res) =>
     sendPdf(res, await invoiceService.pdf(req.params.id, req.params.vendorId)),
   )

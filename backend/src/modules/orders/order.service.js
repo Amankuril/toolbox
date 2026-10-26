@@ -581,6 +581,30 @@ export const orderService = {
     return order;
   },
 
+  /** The courier or the seller handed over the cash: the order is paid, whatever its delivery status. */
+  markCashCollected(orderId, { note } = {}, actor) {
+    return withLock(
+      `order:${orderId}`,
+      async () => {
+        const order = await Order.findById(orderId);
+        if (!order) throw ApiError.notFound('Order not found');
+        const { method, status } = order.payment;
+        const owed = method === 'cod' ? status === 'pending' : method === 'partial' && status === 'partially_paid';
+        if (!owed || ['pending_payment', 'cancelled'].includes(order.status)) {
+          throw ApiError.conflict('This order has no cash left to collect', { code: 'NO_CASH_DUE' });
+        }
+        const amount = method === 'partial' ? (order.amounts.balanceDue ?? 0) : order.amounts.total - order.amounts.refunded;
+        order.payment.status = 'paid';
+        order.payment.paidAt ??= new Date();
+        order.payment.cashCollected = { at: new Date(), by: actor, amount, note };
+        if (method === 'partial') order.amounts.balanceDue = 0;
+        await order.save();
+        return order;
+      },
+      { waitMs: 10_000 },
+    );
+  },
+
   /* ─────────────────────────── Queries ─────────────────────────── */
 
   async userList(userId, { page, limit }) {
