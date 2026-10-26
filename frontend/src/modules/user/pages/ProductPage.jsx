@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { BadgeCheck, ChevronRight, FileText, MessageCircle, Play, Receipt, ShieldCheck, ShoppingCart, Truck, Wrench } from 'lucide-react'
+import { BadgeCheck, ChevronRight, FileText, MessageCircle, Play, Receipt, ShieldCheck, ShoppingCart, TrendingUp, Truck, Wrench } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
@@ -73,7 +73,9 @@ export default function ProductPage() {
 /** Photos and videos in the order the seller set (mergeMedia shape). Videos load only when their slide is opened. */
 function Gallery({ media, name }) {
   const slides = media.map((m) =>
-    m.kind === 'image' ? { kind: 'image', key: `i:${m.item.media ?? m.item.url}`, img: m.item } : { kind: 'video', key: `v:${videoKey(m.item)}`, video: m.item },
+    m.kind === 'image'
+      ? { kind: 'image', key: `i:${m.item.media ?? m.item.url}`, img: m.item }
+      : { kind: 'video', key: `v:${videoKey(m.item)}`, video: m.item },
   )
   const [index, setIndex] = useState(0)
   const current = slides[Math.min(index, slides.length - 1)]
@@ -321,6 +323,12 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related, fro
             <p className="mt-1 text-xs text-slate-500">
               Incl. {p.pricing.gstRate}% GST · {formatINR(exGst)} + GST{p.hsnCode && ` · HSN ${p.hsnCode}`}
             </p>
+            {p.recentBuyers && (
+              <p className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-800 sm:text-sm">
+                <TrendingUp className="size-4 text-primary" />
+                {formatNumber(p.recentBuyers.count)} {p.recentBuyers.count === 1 ? 'person has' : 'people have'} bought this recently
+              </p>
+            )}
             <EmiLine price={unitPrice * qty} className="mt-2" />
             {tier && (
               <p className="mt-1.5 text-xs sm:text-sm font-semibold text-accent-ink">

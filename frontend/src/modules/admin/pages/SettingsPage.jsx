@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, BarChart3, CheckCircle2, CloudUpload, CreditCard, HardDrive, Palette, ShieldCheck, Store, Truck } from 'lucide-react'
+import { AlertTriangle, BarChart3, CheckCircle2, CloudUpload, CreditCard, HardDrive, Palette, ShieldCheck, Store, TrendingUp, Truck } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { errorMessage } from '@/core/api/errors'
@@ -55,6 +55,7 @@ export default function SettingsPage() {
             { value: 'payments', label: 'Payments', icon: CreditCard, content: <PaymentSettings payments={data.payments} integrations={data.integrations} /> },
             { value: 'shipping', label: 'Shipping', icon: Truck, content: <ShippingSettings shipping={data.shipping} integrations={data.integrations} /> },
             { value: 'moderation', label: 'Moderation', icon: ShieldCheck, content: <ModerationSettings moderation={data.moderation} /> },
+            { value: 'storefront', label: 'Storefront', icon: TrendingUp, content: <StorefrontSettings storefront={data.storefront} /> },
             { value: 'analytics', label: 'Analytics', icon: BarChart3, content: <AnalyticsSettings analytics={data.analytics} /> },
           ]}
         />
@@ -499,6 +500,52 @@ function PaymentSettings({ payments, integrations }) {
   )
 }
 
+/** Storefront touches: the "people bought this recently" badge. */
+function StorefrontSettings({ storefront }) {
+  const save = useSaveSettings('storefront', 'Storefront settings saved')
+  const [v, setV] = useState({ days: storefront.recentBuyersDays, min: storefront.recentBuyersMin })
+  return (
+    <Card>
+      <CardHeader
+        title="“People bought this recently”"
+        description="A badge under the price, from real orders: buyers of that product in the last few days, cancelled orders left out."
+      />
+      <CardBody className="flex flex-col gap-5">
+        <Switch
+          checked={storefront.recentBuyersEnabled}
+          disabled={save.isPending}
+          onCheckedChange={(recentBuyersEnabled) => save.mutate({ recentBuyersEnabled })}
+          label="Show the badge on product pages"
+        />
+        {storefront.recentBuyersEnabled && (
+          <>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Count buyers from the last" hint="1–365 days">
+                {(p) => (
+                  <Input {...p} type="number" min={1} max={365} value={v.days} onChange={(e) => setV({ ...v, days: Number(e.target.value) })} suffix="days" />
+                )}
+              </Field>
+              <Field label="Show from" hint="Hidden until this many people bought it">
+                {(p) => <Input {...p} type="number" min={1} value={v.min} onChange={(e) => setV({ ...v, min: Number(e.target.value) })} suffix="buyers" />}
+              </Field>
+            </div>
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                loading={save.isPending}
+                disabled={!(v.days >= 1 && v.days <= 365 && v.min >= 1)}
+                onClick={() => save.mutate({ recentBuyersDays: v.days, recentBuyersMin: v.min })}
+              >
+                Save
+              </Button>
+            </div>
+          </>
+        )}
+      </CardBody>
+    </Card>
+  )
+}
+
 /** EMI at checkout through Razorpay, and the rates the storefront's EMI calculator shows. */
 function EmiSettings({ payments, razorpayReady }) {
   const save = useSaveSettings('payments', 'EMI settings saved')
@@ -509,7 +556,10 @@ function EmiSettings({ payments, razorpayReady }) {
   const valid = plans.every((p) => p.months >= 2 && p.months <= 60 && p.rate >= 0 && p.rate <= 60) && new Set(plans.map((p) => p.months)).size === plans.length
   return (
     <Card>
-      <CardHeader title="EMI" description="Let buyers pay in monthly instalments with credit cards, debit cards or cardless EMI. Product pages show “EMI from ₹X/month” and a calculator." />
+      <CardHeader
+        title="EMI"
+        description="Let buyers pay in monthly instalments with credit cards, debit cards or cardless EMI. Product pages show “EMI from ₹X/month” and a calculator."
+      />
       <CardBody className="flex flex-col gap-5">
         <Switch
           checked={payments.emiEnabled}
@@ -529,12 +579,34 @@ function EmiSettings({ payments, razorpayReady }) {
             </Field>
             <div>
               <p className="mb-2 text-sm font-semibold text-slate-900">Calculator rates</p>
-              <p className="mb-3 text-xs text-slate-500">Typical yearly interest per tenure, for the calculator only. The buyer's bank sets the real rate when they pay. Tick “No-cost” where you or the bank cover the interest.</p>
+              <p className="mb-3 text-xs text-slate-500">
+                Typical yearly interest per tenure, for the calculator only. The buyer's bank sets the real rate when they pay. Tick “No-cost” where you or the
+                bank cover the interest.
+              </p>
               <div className="space-y-2">
                 {plans.map((p, k) => (
                   <div key={k} className="flex flex-wrap items-center gap-3">
-                    <Input type="number" min={2} max={60} value={p.months} onChange={(e) => setPlan(k, { months: Number(e.target.value) })} suffix="months" className="w-36" aria-label="Months" />
-                    <Input type="number" min={0} max={60} step="0.5" value={p.rate} onChange={(e) => setPlan(k, { rate: Number(e.target.value) })} suffix="% p.a." className="w-36" aria-label="Yearly interest" />
+                    <Input
+                      type="number"
+                      min={2}
+                      max={60}
+                      value={p.months}
+                      onChange={(e) => setPlan(k, { months: Number(e.target.value) })}
+                      suffix="months"
+                      className="w-36"
+                      aria-label="Months"
+                    />
+                    <Input
+                      type="number"
+                      min={0}
+                      max={60}
+                      step="0.5"
+                      value={p.rate}
+                      onChange={(e) => setPlan(k, { rate: Number(e.target.value) })}
+                      suffix="% p.a."
+                      className="w-36"
+                      aria-label="Yearly interest"
+                    />
                     <label className="flex items-center gap-1.5 text-sm text-slate-700">
                       <input
                         type="checkbox"
@@ -558,7 +630,12 @@ function EmiSettings({ payments, razorpayReady }) {
                 ))}
               </div>
               {plans.length < 12 && (
-                <Button variant="outline" size="sm" className="mt-2" onClick={() => setPlans((list) => [...list, { months: (list.at(-1)?.months ?? 0) + 3, rate: 16 }])}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
+                  onClick={() => setPlans((list) => [...list, { months: (list.at(-1)?.months ?? 0) + 3, rate: 16 }])}
+                >
                   Add tenure
                 </Button>
               )}

@@ -183,6 +183,8 @@ const orderSchema = new Schema(
 orderSchema.index({ user: 1, createdAt: -1 });
 orderSchema.index({ vendors: 1, createdAt: -1 });
 orderSchema.index({ status: 1, createdAt: -1 });
+// "N people bought this recently" on product pages.
+orderSchema.index({ 'items.product': 1, createdAt: -1 });
 orderSchema.index(
   { 'payment.providerOrderId': 1 },
   { unique: true, partialFilterExpression: { 'payment.providerOrderId': { $type: 'string' } } },

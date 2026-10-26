@@ -189,6 +189,18 @@ export const SETTINGS = {
     },
   },
 
+  /** Storefront touches. "N people bought this recently" only ever shows real orders. */
+  storefront: {
+    schema: z.object({
+      recentBuyersEnabled: z.boolean(),
+      /** Window counted, in days. */
+      recentBuyersDays: z.number().int().min(1).max(365),
+      /** Hidden below this many buyers (a "1 person bought this" badge does more harm than good). */
+      recentBuyersMin: z.number().int().min(1).max(10_000),
+    }),
+    defaults: { recentBuyersEnabled: true, recentBuyersDays: 30, recentBuyersMin: 3 },
+  },
+
   moderation: {
     schema: z.object({
       autoApproveVendors: z.boolean(),

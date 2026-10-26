@@ -8,6 +8,7 @@ import { Vendor } from '#modules/vendors/vendor.model.js';
 import { serializePublicVendor } from '#modules/vendors/vendor.serializer.js';
 import { settingsService } from '#services/settings/settings.service.js';
 import { Product } from './product.model.js';
+import { recentBuyers } from './recentBuyers.js';
 import { mediaOrderOf } from './gallery.js';
 import { assertValidVariants, hasVariants, isTracked, syncInventory } from './inventory.js';
 import { assertValidBulkPricing } from './pricing.js';
@@ -630,7 +631,7 @@ export const productService = {
       .lean();
     if (!product) throw ApiError.notFound('Product not found');
 
-    const [breadcrumbs, spareParts, related, fromSeller] = await Promise.all([
+    const [breadcrumbs, spareParts, related, fromSeller, bought] = await Promise.all([
       Category.find({ _id: { $in: product.categoryPath } })
         .select('name slug level')
         .sort({ level: 1 })
@@ -652,11 +653,13 @@ export const productService = {
         .limit(12)
         .select(CARD_FIELDS)
         .lean(),
+      recentBuyers(product._id),
     ]);
 
     return {
       product: {
         ...serializePublicProduct(product),
+        recentBuyers: bought,
         vendor: serializePublicVendor(product.vendor),
         compatibleWith: (product.compatibleWith ?? []).map(serializeProductCard),
       },

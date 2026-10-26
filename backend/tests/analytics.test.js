@@ -2,6 +2,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { API, approvedVendor, bearer, createAdmin, otpSignIn, setModeration, startTestApp, stopTestApp } from './helpers.js';
 import { sourceOf } from '#modules/analytics/analytics.service.js';
+import { settingsService } from '#services/settings/settings.service.js';
 
 let app;
 let vendor;
@@ -60,5 +61,12 @@ describe('store analytics', () => {
     expect(a.daily).toHaveLength(7);
     expect(a.topProducts[0]).toMatchObject({ name: 'Hand Saw', units: 2, views: 3 });
     expect(a.topCities[0]).toMatchObject({ city: 'Meerut', orders: 1 });
+  });
+
+  it('shows "people bought this recently" from real orders, above the minimum', async () => {
+    const view = () => request(app).get(`${API}/public/products/${product.slug}`).expect(200);
+    expect((await view()).body.data.product.recentBuyers).toBeNull();
+    await settingsService.update('storefront', { recentBuyersMin: 1 }, { kind: 'system' });
+    expect((await view()).body.data.product.recentBuyers).toEqual({ count: 1, days: 30 });
   });
 });
