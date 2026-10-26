@@ -226,6 +226,26 @@ export function AmountRows({ amounts, coupon }) {
           </div>
         </div>
       )}
+      {amounts.wallet > 0 && (
+        <div className="mt-1 flex flex-col gap-1.5 rounded-md border border-slate-200 bg-slate-50 p-3">
+          <div className="flex justify-between">
+            <dt className="text-slate-600">Paid from wallet</dt>
+            <dd className="tabular font-semibold text-slate-900">{formatINR(amounts.wallet)}</dd>
+          </div>
+          {amounts.balanceDue != null && (
+            <div className="flex justify-between">
+              <dt className="text-slate-600">Due on delivery (cash)</dt>
+              <dd className="tabular font-semibold text-slate-900">{amounts.balanceDue > 0 ? formatINR(amounts.balanceDue) : 'Nothing'}</dd>
+            </div>
+          )}
+          {amounts.walletRefunded > 0 && (
+            <div className="flex justify-between text-emerald-700">
+              <dt>Returned to wallet</dt>
+              <dd className="tabular">−{formatINR(amounts.walletRefunded)}</dd>
+            </div>
+          )}
+        </div>
+      )}
       {amounts.refunded > 0 && (
         <div className="flex justify-between text-emerald-700">
           <dt>Refunded</dt>

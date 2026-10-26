@@ -1,10 +1,10 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Ban, Building2, Eye, RotateCcw, TicketPercent, User, X } from 'lucide-react'
+import { Ban, Building2, Eye, RotateCcw, TicketPercent, User, Wallet, X } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { errorMessage } from '@/core/api/errors'
 import { useSearchParamsState } from '@/core/hooks/useSearchParamsState'
-import { formatDate, formatDateTime, formatPhone } from '@/core/lib/format'
+import { formatDate, formatDateTime, formatINR, formatPhone } from '@/core/lib/format'
 import { Badge, StatusBadge } from '@/ui/Badge'
 import { Button } from '@/ui/Button'
 import { Card, Skeleton } from '@/ui/Card'
@@ -19,6 +19,7 @@ import { ShareCouponDialog } from '@/modules/shared/ShareCoupon'
 import { WhatsAppButton, WhatsAppIcon, whatsappLink } from '@/modules/shared/whatsapp'
 import { Textarea } from '@/ui/Field'
 import { useAdminAccess } from '../access'
+import { BulkWalletCredit, WalletPanel } from '../WalletPanel'
 import { adminApi, adminKeys, platformCouponApi } from '../api'
 
 const couponShareClient = { root: ['admin', 'platform-coupons'], coupons: platformCouponApi.coupons, customers: platformCouponApi.customers, share: platformCouponApi.shareCoupon }
@@ -56,6 +57,11 @@ export default function CustomersPage() {
           {can('marketing') && (
             <Button size="sm" onClick={() => setBulk('coupon')}>
               <TicketPercent /> Share coupon
+            </Button>
+          )}
+          {can('customers', 'manage') && (
+            <Button size="sm" variant="outline" onClick={() => setBulk('wallet')}>
+              <Wallet /> Add to wallet
             </Button>
           )}
           <Button size="sm" variant="outline" className="text-[#128c4b]" onClick={() => setBulk('whatsapp')}>
@@ -151,6 +157,7 @@ export default function CustomersPage() {
                 </span>
               ),
             },
+            { key: 'wallet', header: 'Wallet', className: 'text-right', cell: (u) => <span className="tabular text-slate-700">{u.walletBalance ? formatINR(u.walletBalance) : '—'}</span> },
             { key: 'type', header: 'Type', cell: (u) => (u.accountType === 'business' ? <Badge tone="info">Business</Badge> : <Badge>Individual</Badge>) },
             { key: 'status', header: 'Status', cell: (u) => <StatusBadge status={u.status} /> },
             { key: 'last', header: 'Last sign-in', cell: (u) => formatDate(u.lastLoginAt) },
@@ -191,6 +198,7 @@ export default function CustomersPage() {
         }}
       />
       <ShareCouponDialog open={bulk === 'coupon'} onOpenChange={(o) => !o && setBulk(null)} client={couponShareClient} users={[...picked.values()]} />
+      <BulkWalletCredit open={bulk === 'wallet'} onOpenChange={(o) => !o && setBulk(null)} users={[...picked.values()]} />
       <BulkWhatsApp open={bulk === 'whatsapp'} onOpenChange={(o) => !o && setBulk(null)} users={[...picked.values()]} siteName={siteName} />
       <ConfirmDialog
         open={bulk === 'block'}
@@ -245,6 +253,7 @@ function BulkWhatsApp({ open, onOpenChange, users, siteName }) {
 
 function CustomerDialog({ id, onClose }) {
   const qc = useQueryClient()
+  const canEditWallet = useAdminAccess().can('customers', 'manage')
   const { data: u, isLoading } = useQuery({ queryKey: adminKeys.user(id), queryFn: () => adminApi.user(id), enabled: Boolean(id) })
   const setStatus = useMutation({
     mutationFn: (status) => adminApi.setUserStatus(id, status),
@@ -299,6 +308,7 @@ function CustomerDialog({ id, onClose }) {
               ['Last sign-in', formatDateTime(u.lastLoginAt)],
             ]}
           />
+          <WalletPanel userId={u._id} canEdit={canEditWallet} />
           <div>
             <h3 className="mb-2 text-sm font-semibold text-slate-900">Saved addresses</h3>
             {u.addresses?.length ? (

@@ -11,6 +11,7 @@ export function serializeUser(user) {
     business: user.accountType === 'business' ? { name: user.business?.name ?? null, gstin: user.business?.gstin ?? null } : null,
     avatar: user.avatar ?? null,
     status: user.status,
+    walletBalance: user.wallet?.balance ?? 0,
     createdAt: user.createdAt,
   };
 }

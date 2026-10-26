@@ -18,7 +18,7 @@ import { useAdminAccess } from '../access'
 import { adminApi, adminKeys } from '../api'
 import { CashCollectedButton } from '../CashCollected'
 
-const PAYMENT_SHORT = { cod: 'COD', razorpay: 'Online', partial: 'Part paid', offline: 'Offline' }
+const PAYMENT_SHORT = { cod: 'COD', razorpay: 'Online', partial: 'Part paid', offline: 'Offline', wallet: 'Wallet' }
 
 const TABS = [
   { value: '', label: 'All' },
@@ -68,6 +68,7 @@ export default function OrdersPage() {
             <option value="cod">Cash on delivery</option>
             <option value="partial">Part payment</option>
             <option value="offline">Paid offline</option>
+            <option value="wallet">Wallet</option>
           </Select>
           <Select value={filters.paymentStatus ?? ''} onChange={(e) => setFilters({ paymentStatus: e.target.value })} className="w-auto">
             <option value="">Any payment status</option>

@@ -15,6 +15,7 @@ import { adminCouponRoutes, userCouponRoutes, vendorCouponRoutes } from '#module
 import { sellerCustomerRoutes, userChatRoutes, vendorLeadRoutes } from '#modules/leads/leads.routes.js';
 import { wishlistInsightRoutes, wishlistRoutes } from '#modules/wishlist/wishlist.routes.js';
 import { seoAuditRoutes } from '#modules/seo/seo.routes.js';
+import { adminWalletRoutes, userWalletRoutes } from '#modules/wallet/wallet.routes.js';
 import { actAsStore } from '#modules/store/store.service.js';
 import { storeSettingsRoutes } from '#modules/store/store.routes.js';
 import { adminCategoryRoutes, publicCategoryRoutes, vendorCategoryRoutes } from '#modules/categories/category.routes.js';
@@ -89,6 +90,7 @@ export function buildRoutes() {
     .use('/cart', cartRoutes)
     .use('/wishlist', wishlistRoutes)
     .use('/coupons', userCouponRoutes)
+    .use('/wallet', userWalletRoutes)
     .use('/orders', userOrderRoutes)
     .use('/quotes', userQuoteRoutes)
     .use('/products', userReviewRoutes)
@@ -159,6 +161,7 @@ export function buildRoutes() {
     .use('/manual-orders', requireSection('orders'), manualOrderRoutes({ scope: () => ({}) }))
     .use('/enquiries', requireSection('orders'), enquiryRoutes({ scope: () => ({}) }))
     .use('/wishlists', requireSection('customers'), wishlistInsightRoutes({ scope: () => ({}) }))
+    .use('/wallets', requireSection('customers'), adminWalletRoutes)
     .use('/seo-audit', requireSection('products'), seoAuditRoutes({ scope: () => ({}), site: true }))
     .use(['/shipments', '/shipping'], requireSection('orders'))
     .use('/quotes', requireSection('quotes'), adminQuoteRoutes)

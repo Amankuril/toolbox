@@ -28,6 +28,8 @@ const userSchema = new Schema(
     avatar: imageSchema,
     status: { type: String, enum: USER_STATUSES, default: 'active' },
     addresses: { type: [savedAddressSchema], default: [] },
+    // Paise. Only ever changed through wallet.service (atomic, with a ledger entry).
+    wallet: { balance: { type: Number, default: 0, min: 0 } },
     lastLoginAt: Date,
   },
   baseOptions,

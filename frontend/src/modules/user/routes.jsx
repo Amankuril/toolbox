@@ -37,6 +37,7 @@ export const userRoutes = {
                 { path: 'quotes/:id', ...page(() => import('./pages/account/QuoteDetailPage')) },
                 { path: 'addresses', ...page(() => import('./pages/account/AddressesPage')) },
                 { path: 'coupons', ...page(() => import('./pages/account/CouponsPage')) },
+                { path: 'wallet', ...page(() => import('./pages/account/WalletPage')) },
                 { path: 'profile', ...page(() => import('./pages/account/ProfilePage')) },
               ],
             },

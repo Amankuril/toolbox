@@ -153,7 +153,7 @@ export function OrderFacts({ order: o, total, label = 'Order total' }) {
       label: 'Payment',
       value: (
         <span className="flex flex-wrap items-center gap-2 text-base font-bold">
-          {{ cod: 'Cash on delivery', partial: 'Part payment', offline: 'Paid offline' }[o.payment.method] ?? 'Prepaid'}
+          {{ cod: 'Cash on delivery', partial: 'Part payment', offline: 'Paid offline', wallet: 'Wallet' }[o.payment.method] ?? 'Prepaid'}
         </span>
       ),
     },

@@ -13,6 +13,7 @@ import {
   PencilLine,
   Plus,
   ReceiptText,
+  Wallet,
   WalletCards,
   Warehouse,
   Wrench,
@@ -134,6 +135,9 @@ export default function CheckoutPage() {
   // Sellers collected from in person: { vendorId: pickupPointId }.
   const [pickupFor, setPickupFor] = useState({})
   const buyerLocation = useBuyerLocation()
+  const [useWallet, setUseWallet] = useState(true)
+  const { data: walletData } = useQuery({ queryKey: storeKeys.wallet({ checkout: true }), queryFn: () => userApi.wallet({ page: 1, limit: 1 }) })
+  const walletBalance = walletData?.meta?.balance ?? 0
 
   const cartReady = !cart.isLoading && cart.items.length > 0
   useEffect(() => {
@@ -156,7 +160,11 @@ export default function CheckoutPage() {
   // Nothing is delivered when every seller is collected from, so no delivery fee.
   const summary = allPickup ? { ...cart.summary, shipping: 0, total: cart.summary.total - cart.summary.shipping } : cart.summary
   const total = summary.total
-  const codAllowed = payments?.codEnabled && (!payments.codMaxOrderValue || total <= payments.codMaxOrderValue)
+  // The wallet pays what it can (not with part payment); the method chosen below pays the rest.
+  const walletUse = useWallet && method !== 'partial' ? Math.min(walletBalance, total) : 0
+  const payable = total - walletUse
+  const walletCovers = walletUse > 0 && payable === 0
+  const codAllowed = payments?.codEnabled && (!payments.codMaxOrderValue || payable <= payments.codMaxOrderValue)
   const split = payments?.partialEnabled ? splitPartial(total, payments.partialAdvancePercent) : null
   const partialBlock = !split
     ? null
@@ -167,7 +175,9 @@ export default function CheckoutPage() {
         : payments.partialMaxBalance && split.balanceDue > payments.partialMaxBalance
           ? `Up to ${formatINR(payments.partialMaxBalance, { whole: true })} can be paid on delivery`
           : null
-  const chosenMethod = (method === 'partial' && pickups.length ? null : method) ?? (payments?.razorpayEnabled ? 'razorpay' : codAllowed ? 'cod' : null)
+  const chosenMethod = walletCovers
+    ? 'wallet'
+    : ((method === 'partial' && pickups.length ? null : method) ?? (payments?.razorpayEnabled ? 'razorpay' : codAllowed ? 'cod' : null))
   const gstError = wantsGst && gst.gstin && !gstinRule.safeParse(gst.gstin).success ? 'Enter a valid 15 character GSTIN' : null
 
   const place = useMutation({
@@ -175,7 +185,9 @@ export default function CheckoutPage() {
       userApi.checkout({
         addressId: chosenAddress,
         // EMI is an online payment; the gateway just opens on its EMI tab.
-        paymentMethod: chosenMethod === 'emi' ? 'razorpay' : chosenMethod,
+        // A wallet that covers it all needs no other method; the API makes it a wallet order.
+        paymentMethod: chosenMethod === 'emi' ? 'razorpay' : chosenMethod === 'wallet' ? 'cod' : chosenMethod,
+        ...(walletUse ? { useWallet: true } : {}),
         notes: notes.trim() || undefined,
         idempotencyKey: idempotencyKeyRef.current,
         ...(pickups.length ? { pickups: pickups.map(([vendor, point]) => ({ vendor, point })) } : {}),
@@ -219,12 +231,20 @@ export default function CheckoutPage() {
   }
 
   const canPlace = chosenAddress && chosenMethod && !cart.hasIssues && !cart.coupon?.issue && !gstError
-  const dueNow = ['razorpay', 'emi'].includes(chosenMethod) ? total : chosenMethod === 'partial' && split ? split.advance : 0
-  const dueLater = total - dueNow
+  const dueNow = ['razorpay', 'emi'].includes(chosenMethod) ? payable : chosenMethod === 'partial' && split ? split.advance : 0
+  const dueLater = chosenMethod === 'wallet' ? 0 : payable - dueNow
   const cta =
-    chosenMethod === 'razorpay' ? `Pay ${formatINR(total)}` : chosenMethod === 'emi' ? `Pay ${formatINR(total)} with EMI` : chosenMethod === 'partial' && split ? `Pay ${formatINR(split.advance)} now` : 'Place order'
-  const methodLabel = { razorpay: 'Pay online', emi: 'EMI', partial: 'Part payment', cod: 'Cash on delivery' }[chosenMethod]
-  const emiFrom = lowestEmi(total, payments)
+    chosenMethod === 'wallet'
+      ? `Pay ${formatINR(total)} from wallet`
+      : chosenMethod === 'razorpay'
+        ? `Pay ${formatINR(payable)}`
+        : chosenMethod === 'emi'
+          ? `Pay ${formatINR(payable)} with EMI`
+          : chosenMethod === 'partial' && split
+            ? `Pay ${formatINR(split.advance)} now`
+            : 'Place order'
+  const methodLabel = { razorpay: 'Pay online', emi: 'EMI', partial: 'Part payment', cod: 'Cash on delivery', wallet: 'Wallet' }[chosenMethod]
+  const emiFrom = lowestEmi(payable, payments)
   const busy = place.isPending || paying
   const placeButton = (props) => (
     <Button size="lg" variant="accent" disabled={!canPlace} loading={busy} onClick={() => place.mutate()} {...props}>
@@ -344,107 +364,129 @@ export default function CheckoutPage() {
             done={Boolean(chosenMethod)}
             summary={chosenMethod && (dueLater && dueNow ? `${methodLabel} · ${formatINR(dueNow)} now` : methodLabel)}
           >
-            <div role="radiogroup" aria-label="Payment method" className="flex flex-col gap-3">
-              {payments.razorpayEnabled && (
-                <Tile selected={chosenMethod === 'razorpay'} onSelect={() => setMethod('razorpay')}>
-                  <span className="flex items-start gap-3">
-                    <MethodIcon icon={CreditCard} selected={chosenMethod === 'razorpay'} />
-                    <span className="min-w-0 flex-1">
-                      <span className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="font-bold text-slate-900">Pay online</span>
-                        <span className="price text-lg text-slate-900">{formatINR(total)}</span>
-                      </span>
-                      <span className="mt-0.5 block text-sm text-slate-600">Instant confirmation. Refunds go straight back to your account.</span>
-                      <span className="mt-2 flex flex-wrap gap-1.5">
-                        {['UPI', 'Cards', 'Net banking', 'Wallets', 'EMI'].map((c) => (
-                          <span key={c} className={chip}>
-                            {c}
-                          </span>
-                        ))}
-                      </span>
-                    </span>
+            {walletBalance > 0 && (
+              <label className="mb-3 flex cursor-pointer items-center gap-3 rounded-lg border-2 border-primary/30 bg-primary/5 p-3">
+                <input type="checkbox" className="size-4 accent-[var(--tb-primary)]" checked={useWallet} onChange={(e) => setUseWallet(e.target.checked)} />
+                <Wallet className="size-5 text-primary" />
+                <span className="min-w-0 flex-1 text-sm">
+                  <span className="block font-bold text-slate-900">Use wallet balance</span>
+                  <span className="block text-slate-600">
+                    {formatINR(walletBalance)} available
+                    {useWallet && walletUse > 0 && ` · ${formatINR(walletUse)} used${payable ? `, ${formatINR(payable)} left to pay` : ''}`}
+                    {method === 'partial' && ' · not with part payment'}
                   </span>
-                </Tile>
-              )}
-              {emiFrom && (
-                <Tile selected={chosenMethod === 'emi'} onSelect={() => setMethod('emi')}>
-                  <span className="flex items-start gap-3">
-                    <MethodIcon icon={CalendarClock} selected={chosenMethod === 'emi'} />
-                    <span className="min-w-0 flex-1">
-                      <span className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="font-bold text-slate-900">Pay with EMI</span>
-                        <span className="text-sm text-slate-700">
-                          from <span className="price text-lg text-slate-900">{formatINR(emiFrom.monthly, { whole: true })}</span>/month
+                </span>
+              </label>
+            )}
+            {walletCovers ? (
+              <p className="rounded-md bg-emerald-50 px-3 py-2.5 text-sm font-medium text-emerald-800">Your wallet covers this order. Nothing else to pay.</p>
+            ) : (
+              <div role="radiogroup" aria-label="Payment method" className="flex flex-col gap-3">
+                {payments.razorpayEnabled && (
+                  <Tile selected={chosenMethod === 'razorpay'} onSelect={() => setMethod('razorpay')}>
+                    <span className="flex items-start gap-3">
+                      <MethodIcon icon={CreditCard} selected={chosenMethod === 'razorpay'} />
+                      <span className="min-w-0 flex-1">
+                        <span className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="font-bold text-slate-900">Pay online</span>
+                          <span className="price text-lg text-slate-900">{formatINR(payable)}</span>
                         </span>
-                      </span>
-                      <span className="mt-0.5 block text-sm text-slate-600">Credit card, debit card or cardless EMI. Choose your bank and tenure in the payment window.</span>
-                      {chosenMethod === 'emi' && (
-                        <span className="mt-3 block">
-                          <EmiTable amount={total} payments={payments} />
-                        </span>
-                      )}
-                    </span>
-                  </span>
-                </Tile>
-              )}
-              {split && (
-                <Tile selected={chosenMethod === 'partial'} onSelect={() => setMethod('partial')} disabled={Boolean(partialBlock)}>
-                  <span className="flex items-start gap-3">
-                    <MethodIcon icon={WalletCards} selected={chosenMethod === 'partial'} />
-                    <span className="min-w-0 flex-1">
-                      <span className="block font-bold text-slate-900">Pay {payments.partialAdvancePercent}% now, rest on delivery</span>
-                      {partialBlock ? (
-                        <span className="mt-0.5 block text-sm text-slate-600">{partialBlock}</span>
-                      ) : (
-                        <>
-                          <span className="mt-0.5 block text-sm text-slate-600">
-                            A small advance online confirms the order; pay the balance in cash to the courier.
-                          </span>
-                          <span className="mt-3 flex h-2 overflow-hidden rounded-full bg-slate-200" aria-hidden>
-                            <span className="h-full bg-primary" style={{ width: `${payments.partialAdvancePercent}%` }} />
-                          </span>
-                          <span className="mt-2 grid grid-cols-2 gap-2 text-sm">
-                            <span>
-                              <span className="flex items-center gap-1.5 text-xs text-slate-600">
-                                <span className="size-2 rounded-full bg-primary" /> Online now
-                              </span>
-                              <span className="price block text-lg text-slate-900">{formatINR(split.advance)}</span>
+                        <span className="mt-0.5 block text-sm text-slate-600">Instant confirmation. Refunds go straight back to your account.</span>
+                        <span className="mt-2 flex flex-wrap gap-1.5">
+                          {['UPI', 'Cards', 'Net banking', 'Wallets', 'EMI'].map((c) => (
+                            <span key={c} className={chip}>
+                              {c}
                             </span>
-                            <span className="text-right">
-                              <span className="flex items-center justify-end gap-1.5 text-xs text-slate-600">
-                                <span className="size-2 rounded-full bg-slate-300" /> Cash on delivery
-                              </span>
-                              <span className="price block text-lg text-slate-900">{formatINR(split.balanceDue)}</span>
-                            </span>
-                          </span>
-                        </>
-                      )}
-                    </span>
-                  </span>
-                </Tile>
-              )}
-              {payments.codEnabled && (
-                <Tile selected={chosenMethod === 'cod'} onSelect={() => setMethod('cod')} disabled={!codAllowed}>
-                  <span className="flex items-start gap-3">
-                    <MethodIcon icon={Banknote} selected={chosenMethod === 'cod'} />
-                    <span className="min-w-0 flex-1">
-                      <span className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="font-bold text-slate-900">
-                          {allPickup ? 'Pay at pickup' : pickups.length ? 'Cash on delivery / at pickup' : 'Cash on delivery'}
+                          ))}
                         </span>
-                        {codAllowed && <span className="price text-lg text-slate-900">{formatINR(total)}</span>}
-                      </span>
-                      <span className="mt-0.5 block text-sm text-slate-600">
-                        {codAllowed
-                          ? 'Pay in cash when your order arrives. Keep the exact amount ready.'
-                          : `Available for orders up to ${formatINR(payments.codMaxOrderValue)}`}
                       </span>
                     </span>
-                  </span>
-                </Tile>
-              )}
-              {!payments.razorpayEnabled && !payments.codEnabled && <Alert tone="warning">Checkout is temporarily unavailable. Please try again later.</Alert>}
-            </div>
+                  </Tile>
+                )}
+                {emiFrom && (
+                  <Tile selected={chosenMethod === 'emi'} onSelect={() => setMethod('emi')}>
+                    <span className="flex items-start gap-3">
+                      <MethodIcon icon={CalendarClock} selected={chosenMethod === 'emi'} />
+                      <span className="min-w-0 flex-1">
+                        <span className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="font-bold text-slate-900">Pay with EMI</span>
+                          <span className="text-sm text-slate-700">
+                            from <span className="price text-lg text-slate-900">{formatINR(emiFrom.monthly, { whole: true })}</span>/month
+                          </span>
+                        </span>
+                        <span className="mt-0.5 block text-sm text-slate-600">
+                          Credit card, debit card or cardless EMI. Choose your bank and tenure in the payment window.
+                        </span>
+                        {chosenMethod === 'emi' && (
+                          <span className="mt-3 block">
+                            <EmiTable amount={total} payments={payments} />
+                          </span>
+                        )}
+                      </span>
+                    </span>
+                  </Tile>
+                )}
+                {split && (
+                  <Tile selected={chosenMethod === 'partial'} onSelect={() => setMethod('partial')} disabled={Boolean(partialBlock)}>
+                    <span className="flex items-start gap-3">
+                      <MethodIcon icon={WalletCards} selected={chosenMethod === 'partial'} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-bold text-slate-900">Pay {payments.partialAdvancePercent}% now, rest on delivery</span>
+                        {partialBlock ? (
+                          <span className="mt-0.5 block text-sm text-slate-600">{partialBlock}</span>
+                        ) : (
+                          <>
+                            <span className="mt-0.5 block text-sm text-slate-600">
+                              A small advance online confirms the order; pay the balance in cash to the courier.
+                            </span>
+                            <span className="mt-3 flex h-2 overflow-hidden rounded-full bg-slate-200" aria-hidden>
+                              <span className="h-full bg-primary" style={{ width: `${payments.partialAdvancePercent}%` }} />
+                            </span>
+                            <span className="mt-2 grid grid-cols-2 gap-2 text-sm">
+                              <span>
+                                <span className="flex items-center gap-1.5 text-xs text-slate-600">
+                                  <span className="size-2 rounded-full bg-primary" /> Online now
+                                </span>
+                                <span className="price block text-lg text-slate-900">{formatINR(split.advance)}</span>
+                              </span>
+                              <span className="text-right">
+                                <span className="flex items-center justify-end gap-1.5 text-xs text-slate-600">
+                                  <span className="size-2 rounded-full bg-slate-300" /> Cash on delivery
+                                </span>
+                                <span className="price block text-lg text-slate-900">{formatINR(split.balanceDue)}</span>
+                              </span>
+                            </span>
+                          </>
+                        )}
+                      </span>
+                    </span>
+                  </Tile>
+                )}
+                {payments.codEnabled && (
+                  <Tile selected={chosenMethod === 'cod'} onSelect={() => setMethod('cod')} disabled={!codAllowed}>
+                    <span className="flex items-start gap-3">
+                      <MethodIcon icon={Banknote} selected={chosenMethod === 'cod'} />
+                      <span className="min-w-0 flex-1">
+                        <span className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="font-bold text-slate-900">
+                            {allPickup ? 'Pay at pickup' : pickups.length ? 'Cash on delivery / at pickup' : 'Cash on delivery'}
+                          </span>
+                          {codAllowed && <span className="price text-lg text-slate-900">{formatINR(payable)}</span>}
+                        </span>
+                        <span className="mt-0.5 block text-sm text-slate-600">
+                          {codAllowed
+                            ? 'Pay in cash when your order arrives. Keep the exact amount ready.'
+                            : `Available for orders up to ${formatINR(payments.codMaxOrderValue)}`}
+                        </span>
+                      </span>
+                    </span>
+                  </Tile>
+                )}
+                {!payments.razorpayEnabled && !payments.codEnabled && (
+                  <Alert tone="warning">Checkout is temporarily unavailable. Please try again later.</Alert>
+                )}
+              </div>
+            )}
           </Section>
 
           <Section
@@ -550,7 +592,7 @@ export default function CheckoutPage() {
             {chosenMethod && (
               <dl className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-md border border-slate-200 bg-slate-200 text-sm">
                 <div className="bg-white px-3 py-2.5">
-                  <dt className="text-xs text-slate-500">Pay now</dt>
+                  <dt className="text-xs text-slate-500">{chosenMethod === 'wallet' || walletUse ? 'Pay now (after wallet)' : 'Pay now'}</dt>
                   <dd className="price text-lg text-slate-900">{formatINR(dueNow)}</dd>
                 </div>
                 <div className="bg-white px-3 py-2.5">

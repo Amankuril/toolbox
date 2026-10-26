@@ -10,7 +10,8 @@ export function splitPartial(total, percent) {
 }
 
 /** What the gateway should charge for this order right now. */
-export const onlineAmount = (order) => (order.payment?.method === 'partial' ? order.amounts.advance : order.amounts.total);
+export const onlineAmount = (order) =>
+  order.payment?.method === 'partial' ? order.amounts.advance : order.amounts.total - (order.amounts.wallet ?? 0);
 
 /** Online payment confirmed (in full, or the advance). */
 export const PAID_ONLINE = ['paid', 'partially_paid', 'partially_refunded', 'refunded'];

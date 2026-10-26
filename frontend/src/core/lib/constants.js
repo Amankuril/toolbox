@@ -160,6 +160,7 @@ export const PAYMENT_METHOD_LABEL = {
   cod: 'Cash on delivery',
   partial: 'Part payment: advance online, balance on delivery',
   offline: 'Paid offline (cash, UPI or bank transfer)',
+  wallet: 'Paid from wallet',
 }
 
 /** First two digits of a GSTIN identify the state. Used to pre-fill addresses. */

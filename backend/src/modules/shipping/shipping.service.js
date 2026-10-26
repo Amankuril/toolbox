@@ -233,7 +233,9 @@ export const shippingService = {
         );
         const mine = sellers.findIndex((v) => String(v) === String(shipment.vendor));
         // Partial orders only collect the balance, split across parcels in proportion and exact to the paisa.
-        shipment.codAmount = order.payment.method === 'partial' ? allocate(order.amounts.balanceDue ?? 0, values)[mine] : values[mine];
+        // So do cash on delivery orders partly paid from the wallet.
+        shipment.codAmount =
+          order.payment.method === 'partial' || order.amounts.wallet ? allocate(order.amounts.balanceDue ?? 0, values)[mine] : values[mine];
       }
 
       let alreadyThere = false;

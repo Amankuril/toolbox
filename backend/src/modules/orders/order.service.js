@@ -16,6 +16,8 @@ import { quoteLifecycle } from '#modules/quotes/quote.lifecycle.js';
 import { Shipment } from '#modules/shipping/shipment.model.js';
 import { shippingQuotes } from '#modules/shipping/shipping.quotes.js';
 import { userService } from '#modules/users/user.service.js';
+import { WalletTxn } from '#modules/wallet/wallet.model.js';
+import { walletService } from '#modules/wallet/wallet.service.js';
 import { paymentService } from '#services/payment/payment.service.js';
 import { settingsService } from '#services/settings/settings.service.js';
 import { ITEM_TRANSITIONS, Order, PaymentEvent } from './order.model.js';
@@ -127,6 +129,15 @@ async function settleLatePayment(orderId, paymentId) {
   const lines = order.items.map(stockLine);
   try {
     await reserveStock(lines);
+    // The wallet part was given back when the order expired: take it again, or refund the payment instead.
+    if (order.amounts.wallet) {
+      try {
+        await walletService.debit(order.user, order.amounts.wallet, { reason: 'order_payment', order, ref: `order:${order._id}:repay` });
+      } catch (err) {
+        await releaseStock(lines);
+        throw err.code === 'WALLET_INSUFFICIENT' ? ApiError.conflict('Wallet balance used elsewhere', { code: 'OUT_OF_STOCK' }) : err;
+      }
+    }
     order.status = 'placed';
     order.cancelledAt = undefined;
     order.cancelReason = undefined;
@@ -185,7 +196,42 @@ async function settlePartialCancellation(order, item) {
   return { amount: refund.amount, refundId: refund.providerRefundId, status: refund.status, balanceDue };
 }
 
+/**
+ * Orders paid partly or wholly from the wallet: whatever was paid beyond what's still owed comes back,
+ * to the wallet first (instant, no gateway fee), then to the card/UPI for the online part. Cash on delivery
+ * then collects only what's left over.
+ * @returns {{ kind: 'wallet', walletBack: number, online: object|null, balanceDue: number|undefined }}
+ */
+async function settleWalletCancellation(order, item) {
+  if (item.refunded) return null;
+  const remaining = order.items.filter((i) => i.status !== 'cancelled' && String(i._id) !== String(item._id));
+  const stillOwed = remaining.length ? remaining.reduce((s, i) => s + i.lineTotal, 0) + order.amounts.shipping : 0;
+  const walletLeft = order.amounts.wallet - (order.amounts.walletRefunded ?? 0);
+  const paidOnline = order.payment.method === 'razorpay' && PAID_ONLINE.includes(order.payment.status) ? onlineAmount(order) - order.amounts.refunded : 0;
+  const excess = Math.max(0, walletLeft + paidOnline - stillOwed);
+  const walletBack = Math.min(excess, walletLeft);
+  const onlineBack = Math.min(excess - walletBack, paidOnline);
+
+  let online = null;
+  if (onlineBack > 0) {
+    const refund = await paymentService.processRefund({
+      order,
+      itemId: item._id,
+      amount: onlineBack,
+      reason: `Cancelled item ${item.name}`,
+      idempotencyKey: `cancel_refund_${order._id}_${item._id}`,
+    });
+    online = { amount: refund.amount, refundId: refund.providerRefundId, status: refund.status };
+  }
+  if (walletBack > 0) {
+    await walletService.credit(order.user, walletBack, { reason: 'order_refund', order, note: `Cancelled ${item.name}`, ref: `order:${order._id}:item:${item._id}` });
+  }
+  const balanceDue = order.payment.method === 'cod' ? Math.max(0, stillOwed - (walletLeft - walletBack)) : undefined;
+  return { kind: 'wallet', walletBack, online, balanceDue };
+}
+
 async function refundForCancellation(order, item) {
+  if (order.amounts.wallet) return settleWalletCancellation(order, item);
   if (order.payment.method === 'partial') return settlePartialCancellation(order, item);
   if (order.payment.method !== 'razorpay' || !['paid', 'partially_refunded'].includes(order.payment.status) || item.refunded) return null;
 
@@ -220,7 +266,8 @@ export const orderService = {
     });
   },
 
-  async placeOrder(user, { addressId, paymentMethod, notes, gstin, businessName, idempotencyKey, pickups: pickupChoices }) {
+  async placeOrder(user, { addressId, paymentMethod: requestedMethod, notes, gstin, businessName, idempotencyKey, pickups: pickupChoices, useWallet }) {
+    let paymentMethod = requestedMethod;
     if (idempotencyKey) {
       const existing = await Order.findOne({ user: user._id, idempotencyKey });
       if (existing) {
@@ -263,6 +310,17 @@ export const orderService = {
     const shipping = cartVendors.every((v) => pickups.has(v)) ? 0 : cart.summary.shipping;
     const total = cart.summary.total - cart.summary.shipping + shipping;
 
+    // Wallet first: it pays what it can, the chosen method the rest. Covering it all makes it a wallet order.
+    let walletUse = 0;
+    if (useWallet) {
+      if (paymentMethod === 'partial') {
+        throw ApiError.unprocessable('Use your wallet with online payment or cash on delivery', { code: 'PARTIAL_WITH_WALLET' });
+      }
+      walletUse = Math.min(await walletService.balance(user._id), total);
+      if (walletUse === total) paymentMethod = 'wallet';
+    }
+    const due = total - walletUse;
+
     let provider = null;
     let split = null;
     if (paymentMethod === 'partial') {
@@ -279,12 +337,13 @@ export const orderService = {
       provider = await paymentService.requireOnlineProvider();
     } else if (paymentMethod === 'cod') {
       if (!payments.codEnabled) throw ApiError.unprocessable('Cash on delivery is not available', { code: 'COD_UNAVAILABLE' });
-      if (payments.codMaxOrderValue && total > payments.codMaxOrderValue) {
+      if (payments.codMaxOrderValue && due > payments.codMaxOrderValue) {
         throw ApiError.unprocessable('This order is above the cash on delivery limit. Please pay online.', { code: 'COD_LIMIT' });
       }
-    } else {
+    } else if (paymentMethod !== 'wallet') {
       provider = await paymentService.requireOnlineProvider();
     }
+    const paidNow = paymentMethod === 'wallet';
 
     const lines = cart.items.map(
       ({ _product: p, _quote: q, _sellable: sv, quantity, lineTotal, discount, unitPrice, baseUnitPrice, unitMrp, gstRate, pricing }) => ({
@@ -327,6 +386,19 @@ export const orderService = {
       }
     }
 
+    // The wallet part is taken before the order exists, and given back if it can't be written or paid for.
+    const refundWallet = (reason) =>
+      walletUse && walletService.credit(user._id, walletUse, { reason: 'order_release', note: reason, ref: `order:${orderId}:release` });
+    if (walletUse) {
+      try {
+        await walletService.debit(user._id, walletUse, { reason: 'order_payment', ref: `order:${orderId}:pay`, order: { _id: orderId } });
+      } catch (err) {
+        await releaseStock(lines);
+        if (coupon) await couponService.releaseForOrder({ _id: orderId, coupon: { id: coupon._coupon._id } });
+        throw err;
+      }
+    }
+
     let order;
     try {
       order = await Order.create({
@@ -359,22 +431,27 @@ export const orderService = {
           discount: cart.summary.discount,
           total,
           ...split,
+          ...(walletUse ? { wallet: walletUse } : {}),
+          // Cash on delivery collects only what the wallet didn't cover.
+          ...(walletUse && paymentMethod === 'cod' ? { balanceDue: due } : {}),
         },
         ...(coupon ? { coupon: { id: coupon._coupon._id, code: coupon.code, vendor: coupon.vendor } } : {}),
-        payment: { method: paymentMethod, status: 'pending', provider: provider?.name },
-        status: paymentMethod === 'cod' ? 'placed' : 'pending_payment',
-        expiresAt: paymentMethod === 'cod' ? undefined : new Date(Date.now() + env.ORDER_PAYMENT_WINDOW_MINUTES * 60_000),
+        payment: { method: paymentMethod, status: paidNow ? 'paid' : 'pending', provider: provider?.name, ...(paidNow ? { paidAt: new Date() } : {}) },
+        status: paymentMethod === 'cod' || paidNow ? 'placed' : 'pending_payment',
+        expiresAt: paymentMethod === 'cod' || paidNow ? undefined : new Date(Date.now() + env.ORDER_PAYMENT_WINDOW_MINUTES * 60_000),
         idempotencyKey,
       });
     } catch (err) {
       await releaseStock(lines);
       if (coupon) await couponService.releaseForOrder({ _id: orderId, coupon: { id: coupon._coupon._id } });
+      await refundWallet('Order could not be placed');
       throw err;
     }
     // A quote is consumed by the order that uses it; it's released again if that order never completes.
     await quoteLifecycle.markOrdered(order);
+    if (walletUse) await WalletTxn.updateOne({ ref: `order:${orderId}:pay` }, { orderNumber: order.orderNumber });
 
-    if (paymentMethod === 'cod') {
+    if (paymentMethod === 'cod' || paidNow) {
       await cartService.removeProducts(
         user._id,
         lines.map((l) => l.product),
@@ -394,6 +471,7 @@ export const orderService = {
       await releaseStock(lines);
       await quoteLifecycle.releaseForOrder(order);
       await couponService.releaseForOrder(order);
+      await refundWallet('Payment could not be started');
       throw err;
     }
   },
@@ -459,6 +537,14 @@ export const orderService = {
         await releaseStock(claimed.items.map(stockLine));
         await quoteLifecycle.releaseForOrder(claimed);
         await couponService.releaseForOrder(claimed);
+        if (claimed.amounts?.wallet) {
+          await walletService.credit(claimed.user, claimed.amounts.wallet, {
+            reason: 'order_release',
+            order: claimed,
+            note: 'Payment not completed in time',
+            ref: `order:${claimed._id}:release`,
+          });
+        }
         expired += 1;
       }
     }
@@ -540,7 +626,18 @@ export const orderService = {
     }
     for (const [key, value] of Object.entries(tracking ?? {})) item.set(`tracking.${key}`, value);
 
-    if (refund && order.payment.method === 'partial') {
+    if (refund?.kind === 'wallet') {
+      item.refunded = true;
+      order.amounts.walletRefunded = (order.amounts.walletRefunded ?? 0) + refund.walletBack;
+      if (refund.online) {
+        order.amounts.refunded += refund.online.amount;
+        order.refunds.push({ itemId: item._id, amount: refund.online.amount, providerRefundId: refund.online.refundId, status: refund.online.status });
+      }
+      if (refund.balanceDue !== undefined) order.amounts.balanceDue = refund.balanceDue;
+      const anyLeft = order.items.some((i) => i.status !== 'cancelled' && String(i._id) !== String(item._id));
+      if (!anyLeft && (refund.walletBack || refund.online)) order.payment.status = 'refunded';
+      else if (refund.walletBack || refund.online) order.payment.status = order.payment.status === 'pending' ? 'pending' : 'partially_refunded';
+    } else if (refund && order.payment.method === 'partial') {
       item.refunded = true;
       order.amounts.balanceDue = refund.balanceDue;
       if (refund.amount > 0) {
@@ -567,6 +664,7 @@ export const orderService = {
     if (order.payment.method === 'cod' && order.status === 'completed' && order.payment.status === 'pending') {
       order.payment.status = 'paid';
       order.payment.paidAt = new Date();
+      if (order.amounts.wallet) order.amounts.balanceDue = 0;
     }
     // Partial: the courier collected the balance with the last delivery.
     if (order.payment.method === 'partial' && order.status === 'completed' && order.payment.status === 'partially_paid') {
@@ -593,11 +691,11 @@ export const orderService = {
         if (!owed || ['pending_payment', 'cancelled'].includes(order.status)) {
           throw ApiError.conflict('This order has no cash left to collect', { code: 'NO_CASH_DUE' });
         }
-        const amount = method === 'partial' ? (order.amounts.balanceDue ?? 0) : order.amounts.total - order.amounts.refunded;
+        const amount = method === 'partial' || order.amounts.wallet ? (order.amounts.balanceDue ?? 0) : order.amounts.total - order.amounts.refunded;
         order.payment.status = 'paid';
         order.payment.paidAt ??= new Date();
         order.payment.cashCollected = { at: new Date(), by: actor, amount, note };
-        if (method === 'partial') order.amounts.balanceDue = 0;
+        if (method === 'partial' || order.amounts.wallet) order.amounts.balanceDue = 0;
         await order.save();
         return order;
       },

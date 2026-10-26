@@ -29,6 +29,7 @@ export const storeKeys = {
   payLink: (token) => ['public', 'pay', token],
   pages: ['public', 'pages'],
   myCoupons: ['user', 'coupons'],
+  wallet: (p) => ['user', 'wallet', p],
   unseenCoupons: ['user', 'coupons', 'unseen'],
   page: (slug) => ['public', 'page', slug],
 }
@@ -72,6 +73,9 @@ export const userApi = {
   applyCoupon: (code) => one(u.put('/cart/coupon', { code })),
   removeCoupon: () => one(u.delete('/cart/coupon')),
   myCoupons: () => one(u.get('/coupons')),
+  wallet: (params) => list(u.get('/wallet', { params })),
+  topupWallet: (amount) => one(u.post('/wallet/topup', { amount })),
+  verifyTopup: (body) => one(u.post('/wallet/topup/verify', body)),
   unseenCoupons: () => one(u.get('/coupons/unseen')),
   whatsappChat: (productId) => one(u.post('/whatsapp-chat', { productId })),
 

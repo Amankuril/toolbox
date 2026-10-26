@@ -42,6 +42,8 @@ const checkoutBody = z.object({
   gstin: gstin.optional(),
   businessName: optionalText(200),
   idempotencyKey: z.string().trim().max(100).optional(),
+  // Pay what the wallet balance covers first.
+  useWallet: z.boolean().optional(),
   // Sellers to collect from in person, and where.
   pickups: z
     .array(z.object({ vendor: objectId, point: z.string().trim().min(1).max(40) }))

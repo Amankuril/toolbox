@@ -6,8 +6,9 @@ export const ITEM_STATUSES = ['pending', 'confirmed', 'packed', 'shipped', 'deli
 /**
  * partial = an advance paid online now, the balance collected in cash on delivery.
  * offline = an order entered from a panel and already settled outside the site (cash, UPI, bank transfer).
+ * wallet = paid in full from the buyer's wallet. (Part-wallet orders keep their other method; see amounts.wallet.)
  */
-export const PAYMENT_METHODS = ['razorpay', 'cod', 'partial', 'offline'];
+export const PAYMENT_METHODS = ['razorpay', 'cod', 'partial', 'offline', 'wallet'];
 /** checkout = placed by the buyer; manual = entered from a panel; link = paid through a shared order link. */
 export const ORDER_SOURCES = ['checkout', 'manual', 'link'];
 export const PAYMENT_STATUSES = ['pending', 'partially_paid', 'paid', 'failed', 'refunded', 'partially_refunded'];
@@ -138,6 +139,9 @@ const orderSchema = new Schema(
       advance: Number,
       balanceDue: Number,
       refunded: { type: Number, default: 0 },
+      // Paid from the buyer's wallet, and how much of that went back to the wallet.
+      wallet: Number,
+      walletRefunded: { type: Number, default: 0 },
     },
 
     payment: {

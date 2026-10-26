@@ -13,7 +13,7 @@ export const cashDue = (o) =>
   !['pending_payment', 'cancelled'].includes(o.status) &&
   ((o.payment.method === 'cod' && o.payment.status === 'pending') || (o.payment.method === 'partial' && o.payment.status === 'partially_paid'))
 
-const amountDue = (o) => (o.payment.method === 'partial' ? (o.amounts.balanceDue ?? 0) : o.amounts.total - (o.amounts.refunded ?? 0))
+const amountDue = (o) => (o.payment.method === 'partial' || o.amounts.wallet ? (o.amounts.balanceDue ?? 0) : o.amounts.total - (o.amounts.refunded ?? 0))
 
 /** "Mark cash collected" for one order, with a confirmation. */
 export function CashCollectedButton({ order, size = 'sm', variant = 'outline', className }) {

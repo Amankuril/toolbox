@@ -16,7 +16,7 @@ const PERIODS = [
   { value: 90, label: '90 days' },
 ]
 const SOURCE_LABEL = { direct: 'Direct / typed', whatsapp: 'WhatsApp', google: 'Google', facebook: 'Facebook', instagram: 'Instagram', other: 'Other sites' }
-const PAYMENT_LABEL = { razorpay: 'Paid online', cod: 'Cash on delivery', partial: 'Part payment', offline: 'Paid offline' }
+const PAYMENT_LABEL = { razorpay: 'Paid online', cod: 'Cash on delivery', partial: 'Part payment', offline: 'Paid offline', wallet: 'Wallet' }
 const STATUS_LABEL = { pending: 'New', confirmed: 'Confirmed', packed: 'Packed', shipped: 'Shipped', delivered: 'Delivered', cancelled: 'Cancelled' }
 
 const dayLabel = (d) => new Date(`${d}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })

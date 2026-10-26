@@ -71,6 +71,9 @@ export const adminApi = {
   users: (params) => list(a.get('/users', { params })),
   user: (id) => one(a.get(`/users/${id}`)),
   setUserStatus: (id, status) => one(a.patch(`/users/${id}/status`, { status })),
+  wallet: (userId) => list(a.get(`/wallets/${userId}`, { params: { limit: 20 } })),
+  adjustWallet: (userId, body) => one(a.post(`/wallets/${userId}`, body)),
+  bulkCreditWallets: (body) => one(a.post('/wallets', body)),
 
   categories: (params) => list(a.get('/categories', { params })),
   categoryTree: () => one(a.get('/categories/tree')),

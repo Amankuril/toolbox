@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { FileText, Heart, LogOut, MapPin, Package, TicketPercent, User } from 'lucide-react'
+import { FileText, Heart, LogOut, MapPin, Package, TicketPercent, User, Wallet } from 'lucide-react'
 import { NavLink, Outlet, useNavigate } from 'react-router'
 import { signOutEverywhere } from '@/core/api/http'
 import { useSession } from '@/core/auth/session'
@@ -11,6 +11,7 @@ const NAV = [
   { to: '/account/orders', label: 'Orders', icon: Package },
   { to: '/wishlist', label: 'Wishlist', icon: Heart },
   { to: '/account/quotes', label: 'Bulk quotes', icon: FileText },
+  { to: '/account/wallet', label: 'Wallet', icon: Wallet },
   { to: '/account/coupons', label: 'My coupons', icon: TicketPercent, badge: 'coupons' },
   { to: '/account/addresses', label: 'Addresses', icon: MapPin },
   { to: '/account/profile', label: 'Profile', icon: User },

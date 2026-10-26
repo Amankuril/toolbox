@@ -12,6 +12,9 @@ import { createRazorpayProvider } from './providers/razorpay.provider.js';
 
 const CURRENCY = 'INR';
 
+// Gateway payments that aren't for an order (wallet top-ups) are settled here when registered.
+let unknownOrderHandler = null;
+
 let razorpay = env.razorpayConfigured
   ? createRazorpayProvider({
       keyId: env.RAZORPAY_KEY_ID,
@@ -49,6 +52,11 @@ export const paymentService = {
   /** Test seam to inject mocked providers. */
   useRazorpay(provider) {
     razorpay = provider;
+  },
+
+  /** `fn(providerOrderId, paymentId)` → true when it handled a payment that isn't for an order. */
+  useUnknownOrderHandler(fn) {
+    unknownOrderHandler = fn;
   },
 
   /* ─────────────────────────── Checkout Payloads ─────────────────────────── */
@@ -412,6 +420,12 @@ export const paymentService = {
       await PaymentEvent.updateOne({ provider: 'razorpay', eventId: id }, { processedAt: new Date() });
       return { processed: true };
     } catch (err) {
+      if (err instanceof ApiError && err.code === 'PAYMENT_ORDER_UNKNOWN' && unknownOrderHandler && (event.event === 'payment.captured' || event.event === 'order.paid')) {
+        if (await unknownOrderHandler(providerOrderId, payment?.id)) {
+          await PaymentEvent.updateOne({ provider: 'razorpay', eventId: id }, { processedAt: new Date() });
+          return { processed: true };
+        }
+      }
       if (err instanceof ApiError && err.code === 'PAYMENT_ORDER_UNKNOWN') {
         // Not one of our orders (e.g. a payment link on the same Razorpay account). Acknowledge it, or the
         // gateway retries for a day and then disables the webhook.
