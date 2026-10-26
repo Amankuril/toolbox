@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { MessageCircle, ShoppingCart } from 'lucide-react'
 import { useNavigate } from 'react-router'
 import { useSearchParamsState } from '@/core/hooks/useSearchParamsState'
@@ -9,8 +9,11 @@ import { DataTable, Pagination, pageSize } from '@/ui/DataTable'
 import { Select } from '@/ui/Field'
 import { PageHeader } from '@/ui/PageHeader'
 import { SearchField } from '@/ui/SearchField'
-import { WhatsAppButton } from '@/modules/shared/whatsapp'
-import { formatActivity } from '../leads'
+import { toast } from 'sonner'
+import { errorMessage } from '@/core/api/errors'
+import { Button } from '@/ui/Button'
+import { WhatsAppButton, WhatsAppIcon } from '@/modules/shared/whatsapp'
+import { formatActivity, openContact } from '../leads'
 import { useSeller } from '../seller'
 
 const TABS = [
@@ -54,6 +57,7 @@ function Contact({ lead, storeName }) {
 export default function LeadsPage() {
   const seller = useSeller()
   const account = seller.useAccount()
+  const qc = useQueryClient()
   const navigate = useNavigate()
   const [filters, setFilters] = useSearchParamsState({ tab: 'abandoned', sort: 'newest' })
   const tab = TABS.some((t) => t.value === filters.tab) ? filters.tab : 'abandoned'
@@ -75,6 +79,32 @@ export default function LeadsPage() {
     placeholderData: (previous, previousQuery) => (previousQuery?.queryKey.includes(tab) ? previous : undefined),
   })
   const open = (lead) => navigate(`${seller.base}/leads/${lead.userId}`)
+  // One tap: WhatsApp opens with the cart reminder (or a follow-up) typed in, and the contact is recorded.
+  const remind = useMutation({
+    mutationFn: (lead) => openContact('whatsapp', () => seller.api.contactLead(lead.userId, { channel: 'whatsapp' })),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [...seller.keys.all, 'leads'] }),
+    onError: (err) => toast.error(errorMessage(err)),
+  })
+  const remindColumn = {
+    key: 'remind',
+    header: '',
+    className: 'w-px whitespace-nowrap text-right',
+    cell: (l) =>
+      l.customer?.phone && (
+        <Button
+          size="sm"
+          variant="outline"
+          className="border-[#25d366]/50 text-[#128c4b] hover:bg-[#25d366]/10"
+          loading={remind.isPending && remind.variables?.userId === l.userId}
+          onClick={(e) => {
+            e.stopPropagation()
+            remind.mutate(l)
+          }}
+        >
+          <WhatsAppIcon /> {isCart ? 'Send reminder' : 'Follow up'}
+        </Button>
+      ),
+  }
 
   const cartColumns = [
     { key: 'contact', header: 'Contact | Customer name', cell: (l) => <Contact lead={l} storeName={account?.store?.name} /> },
@@ -90,6 +120,7 @@ export default function LeadsPage() {
         </div>
       ),
     },
+    remindColumn,
   ]
   const whatsappColumns = [
     { key: 'contact', header: 'Contact | Customer name', cell: (l) => <Contact lead={l} storeName={account?.store?.name} /> },
@@ -100,13 +131,14 @@ export default function LeadsPage() {
     },
     { key: 'last', header: 'Last chat tap', cell: (l) => <span className="text-slate-600">{formatActivity(l.lastAt)}</span> },
     { key: 'clicks', header: 'Taps', className: 'text-right', cell: (l) => <span className="tabular text-slate-700">{l.clicks}</span> },
+    remindColumn,
   ]
 
   return (
     <>
       <PageHeader
         title="Leads"
-        description="Customers with your products in their cart, and customers who tapped “Chat on WhatsApp”. Open one to send a reminder or an offer."
+        description="Customers with your products in their cart, and customers who tapped “Chat on WhatsApp”. Send a WhatsApp reminder in one tap, or open one to send an offer."
       />
       <Card>
         <div className="flex flex-wrap items-end justify-between gap-x-4 px-4 pt-2">
