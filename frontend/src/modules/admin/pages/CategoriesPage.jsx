@@ -24,6 +24,7 @@ import { ReasonDialog } from '@/ui/ReasonDialog'
 import { RowActions } from '@/ui/RowActions'
 import { SearchField } from '@/ui/SearchField'
 import { CategoryTaxFields } from '@/modules/shared/CategoryTaxFields'
+import { LevelTabs } from '@/modules/shared/CategoryTabs'
 import { categoryShareItem, useShare } from '@/modules/shared/share'
 import { useBranding } from '@/core/settings/usePublicSettings'
 import { adminApi, adminKeys } from '../api'
@@ -45,15 +46,19 @@ export default function CategoriesPage() {
   const [deleting, setDeleting] = useState(null)
   const [rejecting, setRejecting] = useState(null)
   const shared = { status: filters.status || undefined, source: filters.source || undefined, q: filters.q || undefined }
-  // Top-level departments and everything under them, each with its own pages.
-  const topParams = { ...shared, level: 'top', page: Number(filters.topPage ?? 1), limit: pageSize(filters.limit, 50) }
-  const params = { ...shared, level: 'sub', page: Number(filters.page ?? 1), limit: pageSize(filters.limit, 50) }
-  const top = useQuery({ queryKey: adminKeys.categories(topParams), queryFn: () => adminApi.categories(topParams), placeholderData: keepPreviousData })
+  // Two tabs: the top-level departments, and everything under them.
+  const level = filters.level === 'sub' ? 'sub' : 'top'
+  const other = level === 'top' ? 'sub' : 'top'
+  const params = { ...shared, level, page: Number(filters.page ?? 1), limit: pageSize(filters.limit, 50) }
   const { data, isLoading } = useQuery({
     queryKey: adminKeys.categories(params),
     queryFn: () => adminApi.categories(params),
     placeholderData: keepPreviousData,
   })
+  // Just the count for the other tab's label.
+  const otherParams = { ...shared, level: other, page: 1, limit: 1 }
+  const { data: otherData } = useQuery({ queryKey: adminKeys.categories(otherParams), queryFn: () => adminApi.categories(otherParams) })
+  const counts = { [level]: data?.meta?.total, [other]: otherData?.meta?.total }
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ['admin', 'categories'] })
@@ -141,32 +146,30 @@ export default function CategoriesPage() {
           </Button>
         }
       />
+      <LevelTabs value={level} counts={counts} onChange={(next) => setFilters({ level: next === 'top' ? undefined : next })} />
       <Card>
         <div className="px-4 pt-2">
-          <FilterTabs value={filters.status ?? ''} onChange={(status) => setFilters({ status, topPage: undefined })} options={TABS} />
+          <FilterTabs value={filters.status ?? ''} onChange={(status) => setFilters({ status })} options={TABS} />
         </div>
         <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 p-4">
-          <SearchField value={filters.q ?? ''} onChange={(q) => setFilters({ q, topPage: undefined })} placeholder="Search categories" />
-          <Select value={filters.source ?? ''} onChange={(e) => setFilters({ source: e.target.value, topPage: undefined })} className="w-auto">
+          <SearchField value={filters.q ?? ''} onChange={(q) => setFilters({ q })} placeholder="Search categories" />
+          <Select value={filters.source ?? ''} onChange={(e) => setFilters({ source: e.target.value })} className="w-auto">
             <option value="">All sources</option>
             <option value="platform">Created by admin</option>
             <option value="vendor">Proposed by vendors</option>
           </Select>
         </div>
-        <SectionTitle title="Top categories" description="The main departments buyers start from: the store menu and home page." count={top.data?.meta?.total} />
         <DataTable
-          loading={top.isLoading}
-          rows={top.data?.items}
-          empty={{ title: 'No top categories', action: <Button onClick={() => setEditing('new')}>Create the first one</Button> }}
+          loading={isLoading}
+          rows={data?.items}
+          empty={
+            level === 'top'
+              ? { title: 'No top categories', action: <Button onClick={() => setEditing('new')}>Create the first one</Button> }
+              : { title: 'No sub-categories', description: 'Add one under a top category.' }
+          }
           columns={columns}
         />
-        <Pagination meta={top.data?.meta} onPageChange={(topPage) => setFilters({ topPage })} onLimitChange={(limit) => setFilters({ limit, topPage: undefined })} />
-      </Card>
-
-      <Card className="mt-6">
-        <SectionTitle title="Other categories" description="Every sub-category, at any depth." count={data?.meta?.total} />
-        <DataTable loading={isLoading} rows={data?.items} empty={{ title: 'No sub-categories', description: 'Add one under a top category.' }} columns={columns} />
-        <Pagination meta={data?.meta} onPageChange={(page) => setFilters({ page })} onLimitChange={(limit) => setFilters({ limit, topPage: undefined })} />
+        <Pagination meta={data?.meta} onPageChange={(page) => setFilters({ page })} onLimitChange={(limit) => setFilters({ limit })} />
       </Card>
 
       <CategoryDialog category={editing} onClose={() => setEditing(null)} onSaved={refresh} />
@@ -190,18 +193,6 @@ export default function CategoriesPage() {
         onConfirm={() => remove.mutateAsync(deleting._id)}
       />
     </>
-  )
-}
-
-function SectionTitle({ title, description, count }) {
-  return (
-    <div className="flex items-end justify-between gap-3 border-b border-slate-100 px-4 pt-4 pb-3">
-      <div>
-        <h2 className="font-display text-base font-bold text-slate-900">{title}</h2>
-        <p className="text-sm text-slate-500">{description}</p>
-      </div>
-      {count != null && <Badge>{count}</Badge>}
-    </div>
   )
 }
 

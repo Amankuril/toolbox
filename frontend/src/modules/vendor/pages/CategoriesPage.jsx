@@ -15,6 +15,7 @@ import { PageHeader } from '@/ui/PageHeader'
 import { Tooltip } from '@/ui/Controls'
 import { useBranding } from '@/core/settings/usePublicSettings'
 import { categoryShareItem, useShare } from '@/modules/shared/share'
+import { LevelTabs } from '@/modules/shared/CategoryTabs'
 import { useSeller } from '../seller'
 import { CategoryDialog } from '../components/CategoryDialog'
 import { useVendorCategories } from '../components/categoryOptions'
@@ -27,6 +28,7 @@ export default function VendorCategoriesPage() {
   const { data = [], isLoading } = useVendorCategories()
   const [dialog, setDialog] = useState(null) // { category?, parent? }
   const [deleting, setDeleting] = useState(null)
+  const [tab, setTab] = useState('top')
 
   const mine = data.filter((c) => c.mine)
   const byId = useMemo(() => new Map(data.map((c) => [c._id, c])), [data])
@@ -54,40 +56,87 @@ export default function VendorCategoriesPage() {
         }
       />
 
-      <Card className="mb-6">
-        <CardHeader title="Top categories" description="The main departments of the store. Everything else sits under one of these." />
-        {isLoading ? (
-          <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 lg:grid-cols-5">
-            {Array.from({ length: 5 }, (_, i) => (
-              <Skeleton key={i} className="h-28" />
-            ))}
-          </div>
-        ) : tree.length ? (
-          <ul className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 lg:grid-cols-5">
-            {tree.map((node) => (
-              <li key={node._id} className="group flex flex-col items-center gap-2 rounded-lg border border-slate-200 p-3 text-center">
-                <Thumb src={node.image?.url} className="size-14 rounded-md" />
-                <span className="line-clamp-2 text-sm font-semibold text-slate-900">{node.name}</span>
-                <span className="text-xs text-slate-500">
-                  {node.children?.length ? `${node.children.length} sub-categor${node.children.length === 1 ? 'y' : 'ies'}` : 'No sub-categories'}
-                </span>
-                <div className="flex gap-1">
-                  <Button variant="ghost" size="sm" onClick={() => setDialog({ parent: node._id })}>
-                    <Plus /> Sub-category
-                  </Button>
-                  <Button variant="ghost" size="icon-sm" aria-label={`Share ${node.name}`} title="Share category" onClick={() => share(categoryShareItem(node, siteName))}>
-                    <Share2 />
-                  </Button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <EmptyState icon={FolderTree} title="No top categories yet" description="Propose the first category for your products." />
-        )}
-      </Card>
-
-      <div className="grid gap-6 xl:grid-cols-2">
+      <LevelTabs
+        value={tab}
+        onChange={setTab}
+        counts={{ top: tree.length, sub: tree.reduce((n, t) => n + countBelow(t), 0), mine: mine.length }}
+        extra={[{ value: 'mine', label: seller.isStore ? 'Added by the store' : 'Your proposals' }]}
+      />
+      {tab === 'top' && (
+        <Card>
+          <CardHeader title="Top categories" description="The main departments of the store. Everything else sits under one of these." />
+          {isLoading ? (
+            <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 lg:grid-cols-5">
+              {Array.from({ length: 5 }, (_, i) => (
+                <Skeleton key={i} className="h-28" />
+              ))}
+            </div>
+          ) : tree.length ? (
+            <ul className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 lg:grid-cols-5">
+              {tree.map((node) => (
+                <li key={node._id} className="group flex flex-col items-center gap-2 rounded-lg border border-slate-200 p-3 text-center">
+                  <Thumb src={node.image?.url} className="size-14 rounded-md" />
+                  <span className="line-clamp-2 text-sm font-semibold text-slate-900">{node.name}</span>
+                  <span className="text-xs text-slate-500">
+                    {node.children?.length ? `${node.children.length} sub-categor${node.children.length === 1 ? 'y' : 'ies'}` : 'No sub-categories'}
+                  </span>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="sm" onClick={() => setDialog({ parent: node._id })}>
+                      <Plus /> Sub-category
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`Share ${node.name}`}
+                      title="Share category"
+                      onClick={() => share(categoryShareItem(node, siteName))}
+                    >
+                      <Share2 />
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <EmptyState icon={FolderTree} title="No top categories yet" description="Propose the first category for your products." />
+          )}
+        </Card>
+      )}
+      {tab === 'sub' && (
+        <Card>
+          <CardHeader title="Other categories" description="Live sub-categories shared by all sellers, under each top category" />
+          {isLoading ? (
+            <div className="p-5">
+              <Skeleton className="h-48" />
+            </div>
+          ) : tree.some((n) => n.children?.length) ? (
+            <div className="space-y-3 p-2">
+              {tree
+                .filter((top) => top.children?.length)
+                .map((top) => (
+                  <section key={top._id}>
+                    <h3 className="px-2 pt-1 text-xs font-bold tracking-wide text-slate-500 uppercase">{top.name}</h3>
+                    <ul>
+                      {top.children.map((node) => (
+                        <TreeNode
+                          key={node._id}
+                          node={node}
+                          depth={0}
+                          level={1}
+                          onAddChild={(parent) => setDialog({ parent: parent._id })}
+                          onShare={(c) => share(categoryShareItem(c, siteName))}
+                        />
+                      ))}
+                    </ul>
+                  </section>
+                ))}
+            </div>
+          ) : (
+            <EmptyState icon={FolderTree} title="No sub-categories yet" description="Add one under a top category." />
+          )}
+        </Card>
+      )}
+      {tab === 'mine' && (
         <Card>
           <CardHeader
             title={seller.isStore ? 'Added by the store' : 'Your proposals'}
@@ -149,40 +198,7 @@ export default function VendorCategoriesPage() {
             ]}
           />
         </Card>
-
-        <Card>
-          <CardHeader title="Other categories" description="Live sub-categories shared by all sellers, under each top category" />
-          {isLoading ? (
-            <div className="p-5">
-              <Skeleton className="h-48" />
-            </div>
-          ) : tree.some((n) => n.children?.length) ? (
-            <div className="space-y-3 p-2">
-              {tree
-                .filter((top) => top.children?.length)
-                .map((top) => (
-                  <section key={top._id}>
-                    <h3 className="px-2 pt-1 text-xs font-bold tracking-wide text-slate-500 uppercase">{top.name}</h3>
-                    <ul>
-                      {top.children.map((node) => (
-                        <TreeNode
-                          key={node._id}
-                          node={node}
-                          depth={0}
-                          level={1}
-                          onAddChild={(parent) => setDialog({ parent: parent._id })}
-                          onShare={(c) => share(categoryShareItem(c, siteName))}
-                        />
-                      ))}
-                    </ul>
-                  </section>
-                ))}
-            </div>
-          ) : (
-            <EmptyState icon={FolderTree} title="No sub-categories yet" description="Add one under a top category." />
-          )}
-        </Card>
-      </div>
+      )}
 
       <CategoryDialog
         key={dialog?.category?._id ?? dialog?.parent ?? 'new'}
@@ -205,6 +221,9 @@ export default function VendorCategoriesPage() {
 }
 
 /** `depth` indents; `level` is the real tree level (0 = top), which limits where sub-categories can be added. */
+/** Every category under a node, at any depth. */
+const countBelow = (node) => (node.children ?? []).reduce((n, c) => n + 1 + countBelow(c), 0)
+
 function TreeNode({ node, onAddChild, onShare, depth = 0, level = depth }) {
   const [open, setOpen] = useState(false)
   const hasChildren = node.children?.length > 0
@@ -223,7 +242,11 @@ function TreeNode({ node, onAddChild, onShare, depth = 0, level = depth }) {
         </button>
         <span className="flex-1 py-2 text-sm text-slate-800">{node.name}</span>
         {onShare && (
-          <button type="button" onClick={() => onShare(node)} className="mr-2 text-xs font-medium text-primary opacity-0 group-hover:opacity-100 focus:opacity-100">
+          <button
+            type="button"
+            onClick={() => onShare(node)}
+            className="mr-2 text-xs font-medium text-primary opacity-0 group-hover:opacity-100 focus:opacity-100"
+          >
             Share
           </button>
         )}
