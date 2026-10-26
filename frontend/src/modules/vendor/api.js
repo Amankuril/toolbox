@@ -86,6 +86,8 @@ export function createSellerApi(v) {
     customers: (params) => list(v.get('/customers', { params })),
     analytics: (params) => one(v.get('/analytics', { params })),
     enquiries: (params) => list(v.get('/enquiries', { params })),
+    wishlists: (params) => list(v.get('/wishlists', { params })),
+    remindWishlists: (body) => one(v.post('/wishlists/remind', body)),
     setEnquiryStatus: (id, status) => one(v.patch(`/enquiries/${id}`, { status })),
 
     leadCounts: () => one(v.get('/leads/counts')),

@@ -6,6 +6,7 @@ import {
   FileStack,
   FileText,
   FolderTree,
+  Heart,
   Image,
   KeyRound,
   LayoutDashboard,
@@ -78,6 +79,7 @@ export default function AdminLayout() {
       items: [
         allow('vendors', { to: '/admin/vendors', label: 'Vendors', icon: Store, badge: pending.vendors }),
         allow('customers', { to: '/admin/customers', label: 'Customers', icon: Users }),
+        allow('customers', { to: '/admin/wishlists', label: 'Wishlists', icon: Heart }),
         isSuper && { to: '/admin/admins', label: 'Admins', icon: ShieldCheck },
       ],
     },
@@ -124,6 +126,7 @@ export default function AdminLayout() {
       items: [
         { to: '/admin/store/leads', label: 'Leads', icon: UserRoundSearch, badge: storeLeadCounts?.abandoned ?? 0 },
         { to: '/admin/store/enquiries', label: 'Enquiries', icon: BellRing },
+        { to: '/admin/store/wishlists', label: 'Wishlists', icon: Heart },
         { to: '/admin/store/coupons', label: 'Coupons', icon: TicketPercent },
       ],
     },

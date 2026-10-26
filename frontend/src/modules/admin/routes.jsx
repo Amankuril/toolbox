@@ -55,6 +55,7 @@ export const adminRoutes = {
                     { path: 'quotes/:id', ...page(() => import('@/modules/vendor/pages/QuoteDetailPage')) },
                     { path: 'leads', ...page(() => import('@/modules/vendor/pages/LeadsPage')) },
                     { path: 'enquiries', ...page(() => import('@/modules/vendor/pages/EnquiriesPage')) },
+                    { path: 'wishlists', ...page(() => import('@/modules/vendor/pages/WishlistsPage')) },
                     { path: 'leads/:userId', ...page(() => import('@/modules/vendor/pages/LeadDetailPage')) },
                     { path: 'coupons', ...page(() => import('@/modules/vendor/pages/CouponsPage')) },
                     { path: 'categories', ...page(() => import('@/modules/vendor/pages/CategoriesPage')) },
@@ -71,7 +72,13 @@ export const adminRoutes = {
                 { path: 'vendors/:id', ...page(() => import('./pages/VendorDetailPage')) },
               ],
             },
-            { element: <RequireSection section="customers" />, children: [{ path: 'customers', ...page(() => import('./pages/CustomersPage')) }] },
+            {
+              element: <RequireSection section="customers" />,
+              children: [
+                { path: 'customers', ...page(() => import('./pages/CustomersPage')) },
+                { path: 'wishlists', ...page(() => import('./pages/WishlistsPage')) },
+              ],
+            },
             { element: <RequireSection section="banners" />, children: [{ path: 'banners', ...page(() => import('./pages/BannersPage')) }] },
             { element: <RequireSection section="marketing" />, children: [{ path: 'coupons', ...page(() => import('./PlatformCouponsPage')) }] },
             { element: <RequireSection section="content" />, children: [{ path: 'pages', ...page(() => import('./pages/ContentPagesPage')) }] },

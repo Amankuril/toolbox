@@ -7,11 +7,15 @@ const wishlistItemSchema = new Schema(
   {
     user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     product: { type: Schema.Types.ObjectId, ref: 'Product', required: true },
+    // Last time the seller or an admin sent a reminder about it.
+    remindedAt: Date,
   },
   { timestamps: { createdAt: true, updatedAt: false }, versionKey: false },
 );
 
 wishlistItemSchema.index({ user: 1, product: 1 }, { unique: true });
 wishlistItemSchema.index({ user: 1, createdAt: -1 });
+// Who saved a given product (seller and admin wishlist views).
+wishlistItemSchema.index({ product: 1, createdAt: -1 });
 
 export const WishlistItem = mongoose.models.WishlistItem ?? mongoose.model('WishlistItem', wishlistItemSchema);

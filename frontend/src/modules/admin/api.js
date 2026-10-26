@@ -87,6 +87,8 @@ export const adminApi = {
 
   orders: (params) => list(a.get('/orders', { params })),
   enquiries: (params) => list(a.get('/enquiries', { params })),
+  wishlists: (params) => list(a.get('/wishlists', { params })),
+  remindWishlists: (body) => one(a.post('/wishlists/remind', body)),
   setEnquiryStatus: (id, status) => one(a.patch(`/enquiries/${id}`, { status })),
   markCashCollected: (id, note) => one(a.post(`/orders/${id}/cash-collected`, { note })),
   order: (id) => one(a.get(`/orders/${id}`)),
