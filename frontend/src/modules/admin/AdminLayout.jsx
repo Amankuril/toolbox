@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   ShoppingBag,
   SlidersHorizontal,
+  Sparkles,
   Star,
   Store,
   TicketPercent,
@@ -70,6 +71,7 @@ export default function AdminLayout() {
       items: [
         allow('products', { to: '/admin/products', label: 'Products', icon: Package, badge: pending.products }),
         allow('categories', { to: '/admin/categories', label: 'Categories', icon: FolderTree, badge: pending.categories }),
+        allow('products', { to: '/admin/seo-improvements', label: 'SEO improvements', icon: Sparkles }),
         allow('banners', { to: '/admin/banners', label: 'Banners', icon: Image }),
         allow('marketing', { to: '/admin/coupons', label: 'Coupons', icon: TicketPercent }),
       ],
@@ -135,6 +137,7 @@ export default function AdminLayout() {
       items: [
         { to: '/admin/store/products', label: 'Products', icon: Package },
         { to: '/admin/store/categories', label: 'Categories', icon: FolderTree },
+        { to: '/admin/store/seo', label: 'SEO improvements', icon: Sparkles },
       ],
     },
     { title: 'Store', items: [{ to: '/admin/store/settings', label: 'Store settings', icon: SlidersHorizontal }] },

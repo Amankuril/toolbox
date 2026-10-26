@@ -14,6 +14,7 @@ import { cartRoutes } from '#modules/cart/cart.routes.js';
 import { adminCouponRoutes, userCouponRoutes, vendorCouponRoutes } from '#modules/coupons/coupon.routes.js';
 import { sellerCustomerRoutes, userChatRoutes, vendorLeadRoutes } from '#modules/leads/leads.routes.js';
 import { wishlistInsightRoutes, wishlistRoutes } from '#modules/wishlist/wishlist.routes.js';
+import { seoAuditRoutes } from '#modules/seo/seo.routes.js';
 import { actAsStore } from '#modules/store/store.service.js';
 import { storeSettingsRoutes } from '#modules/store/store.routes.js';
 import { adminCategoryRoutes, publicCategoryRoutes, vendorCategoryRoutes } from '#modules/categories/category.routes.js';
@@ -43,6 +44,7 @@ import { adminVendorRoutes, publicStoreRoutes, vendorSelfRoutes } from '#modules
  *   /vendor   signed-in seller
  *   /admin    signed-in admin
  */
+const sellerSeoAudit = seoAuditRoutes({ scope: (req) => ({ vendorId: req.auth.id }) });
 const sellerWishlists = wishlistInsightRoutes({ scope: (req) => ({ vendorId: req.auth.id }) });
 const sellerEnquiries = enquiryRoutes({ scope: (req) => ({ vendorId: req.auth.id }) });
 // Sellers and the house store make orders from their own products only.
@@ -115,6 +117,7 @@ export function buildRoutes() {
     .use('/analytics', sellerAnalyticsRoutes)
     .use('/enquiries', sellerEnquiries)
     .use('/wishlists', sellerWishlists)
+    .use('/seo-audit', sellerSeoAudit)
     .use('/leads', vendorLeadRoutes)
     .use(vendorShippingRoutes);
   api.use('/vendor', vendorApi);
@@ -135,6 +138,7 @@ export function buildRoutes() {
     .use('/analytics', sellerAnalyticsRoutes)
     .use('/enquiries', sellerEnquiries)
     .use('/wishlists', sellerWishlists)
+    .use('/seo-audit', sellerSeoAudit)
     .use('/leads', vendorLeadRoutes)
     .use(vendorShippingRoutes)
     .use('/media', mediaUploadRouter());
@@ -155,6 +159,7 @@ export function buildRoutes() {
     .use('/manual-orders', requireSection('orders'), manualOrderRoutes({ scope: () => ({}) }))
     .use('/enquiries', requireSection('orders'), enquiryRoutes({ scope: () => ({}) }))
     .use('/wishlists', requireSection('customers'), wishlistInsightRoutes({ scope: () => ({}) }))
+    .use('/seo-audit', requireSection('products'), seoAuditRoutes({ scope: () => ({}), site: true }))
     .use(['/shipments', '/shipping'], requireSection('orders'))
     .use('/quotes', requireSection('quotes'), adminQuoteRoutes)
     .use('/reviews', requireSection('reviews'), adminReviewRoutes)

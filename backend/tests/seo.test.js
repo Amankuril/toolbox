@@ -7,13 +7,15 @@ import { API, approvedVendor, bearer, createAdmin, setModeration, startTestApp, 
 let app;
 let category;
 let drill;
+let admin;
+let vendor;
 
 const jsonLd = (html) => [...html.matchAll(/<script data-ssr type="application\/ld\+json">(.*?)<\/script>/g)].map((m) => JSON.parse(m[1]));
 
 beforeAll(async () => {
   app = await startTestApp();
-  const admin = await createAdmin(app);
-  const vendor = await approvedVendor(app, admin.accessToken, { phone: '9600000021', storeName: 'Acme Tools' });
+  admin = await createAdmin(app);
+  vendor = await approvedVendor(app, admin.accessToken, { phone: '9600000021', storeName: 'Acme Tools' });
   await setModeration({ autoApproveProducts: true });
   category = (
     await request(app)
@@ -119,5 +121,34 @@ describe('SEO settings', () => {
     expect(fillTemplate('{name} | {site}', { name: 'Pump', site: 'Shop' })).toBe('Pump | Shop');
     expect(fillTemplate('{brand} {name} | {site}', { name: 'Pump', site: 'Shop' })).toBe('Pump | Shop');
     expect(fillTemplate('Shop from {name}{city} on {site}.', { name: 'Acme', site: 'Shop' })).toBe('Shop from Acme on Shop.');
+  });
+});
+
+describe('SEO improvements', () => {
+  it('scores each product with fixes, and a fix raises the score', async () => {
+    const V = bearer(vendor.accessToken);
+    const audit = (await request(app).get(`${API}/vendor/seo-audit`).set(V).expect(200)).body;
+    expect(audit.meta.summary.products).toBeGreaterThan(0);
+    const worst = audit.data[0];
+    expect(worst.issues).toContain('no_keywords');
+    expect(worst.suggestion.searchKeywords.length).toBeGreaterThan(0);
+
+    await request(app)
+      .patch(`${API}/vendor/products/${worst._id}`)
+      .set(V)
+      .send({
+        searchKeywords: worst.suggestion.searchKeywords,
+        shortDescription: worst.suggestion.shortDescription,
+        seo: { title: worst.suggestion.seoTitle, description: 'A long enough meta description for this product, written to show in full on Google results.' },
+      })
+      .expect(200);
+    const after = (await request(app).get(`${API}/vendor/seo-audit?q=${encodeURIComponent(worst.name)}`).set(V).expect(200)).body.data.find(
+      (p) => p._id === worst._id,
+    );
+    expect(after.score).toBeGreaterThan(worst.score);
+    expect(after.issues).not.toContain('no_keywords');
+
+    const site = (await request(app).get(`${API}/admin/seo-audit/site`).set(bearer(admin.accessToken)).expect(200)).body.data;
+    expect(site.checks.map((c) => c.key)).toContain('home_og_image');
   });
 });

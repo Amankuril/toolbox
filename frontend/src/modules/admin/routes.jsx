@@ -33,6 +33,7 @@ export const adminRoutes = {
                 { path: 'products/import', ...page(() => import('./pages/ProductImportPage')) },
                 { path: 'products/:id', ...page(() => import('./pages/ProductDetailPage')) },
                 { path: 'products/:id/edit', ...page(() => import('./catalogSeller')) },
+                { path: 'seo-improvements', ...page(() => import('./pages/SeoAuditPage')) },
               ],
             },
             {
@@ -56,6 +57,7 @@ export const adminRoutes = {
                     { path: 'leads', ...page(() => import('@/modules/vendor/pages/LeadsPage')) },
                     { path: 'enquiries', ...page(() => import('@/modules/vendor/pages/EnquiriesPage')) },
                     { path: 'wishlists', ...page(() => import('@/modules/vendor/pages/WishlistsPage')) },
+                    { path: 'seo', ...page(() => import('@/modules/vendor/pages/SeoAuditPage')) },
                     { path: 'leads/:userId', ...page(() => import('@/modules/vendor/pages/LeadDetailPage')) },
                     { path: 'coupons', ...page(() => import('@/modules/vendor/pages/CouponsPage')) },
                     { path: 'categories', ...page(() => import('@/modules/vendor/pages/CategoriesPage')) },

@@ -29,6 +29,7 @@ export const vendorRoutes = {
             { path: 'leads', ...page(() => import('./pages/LeadsPage')) },
             { path: 'enquiries', ...page(() => import('./pages/EnquiriesPage')) },
             { path: 'wishlists', ...page(() => import('./pages/WishlistsPage')) },
+            { path: 'seo', ...page(() => import('./pages/SeoAuditPage')) },
             { path: 'leads/:userId', ...page(() => import('./pages/LeadDetailPage')) },
             { path: 'coupons', ...page(() => import('./pages/CouponsPage')) },
             { path: 'profile', ...page(() => import('./pages/ProfilePage')) },

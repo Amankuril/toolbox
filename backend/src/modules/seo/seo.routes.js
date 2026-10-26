@@ -3,6 +3,12 @@ import path from 'node:path';
 import { Router } from 'express';
 import { env } from '#config/env.js';
 import { logger } from '#config/logger.js';
+import { z } from 'zod';
+import { validate } from '#core/middlewares/validate.js';
+import { paginationQuery } from '#core/utils/pagination.js';
+import { ok } from '#core/utils/response.js';
+import { objectId } from '#core/validation/common.js';
+import { seoAudit, PRODUCT_CHECKS } from './seo.audit.js';
 import { absoluteUrl, seoService } from './seo.service.js';
 
 const escapeHtml = (s) =>
@@ -146,3 +152,20 @@ export const seoRoutes = Router()
     '/pages/:slug',
     page(({ slug }) => seoService.page(slug.toLowerCase())),
   );
+
+const auditQuery = z.object({
+  ...paginationQuery,
+  issue: z.enum(Object.keys(PRODUCT_CHECKS)).optional(),
+  q: z.string().trim().max(80).optional(),
+  vendor: objectId.optional(),
+});
+
+/** Mounted at /vendor/seo-audit, /admin/store/seo-audit (`scope` = the seller) and /admin/seo-audit (every product, plus site checks). */
+export function seoAuditRoutes({ scope, site = false }) {
+  const router = Router().get('/', validate({ query: auditQuery }), async (req, res) => {
+    const { items, meta } = await seoAudit.products({ ...req.query, ...scope(req) });
+    ok(res, items, meta);
+  });
+  if (site) router.get('/site', async (_req, res) => ok(res, await seoAudit.site()));
+  return router;
+}
