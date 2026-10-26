@@ -70,6 +70,7 @@ export const adminRoutes = {
             },
             { element: <RequireSection section="customers" />, children: [{ path: 'customers', ...page(() => import('./pages/CustomersPage')) }] },
             { element: <RequireSection section="banners" />, children: [{ path: 'banners', ...page(() => import('./pages/BannersPage')) }] },
+            { element: <RequireSection section="marketing" />, children: [{ path: 'coupons', ...page(() => import('./PlatformCouponsPage')) }] },
             { element: <RequireSection section="content" />, children: [{ path: 'pages', ...page(() => import('./pages/ContentPagesPage')) }] },
             { element: <RequireSection section="settings" />, children: [{ path: 'settings', ...page(() => import('./pages/SettingsPage')) }] },
             { path: 'admins', ...page(() => import('./pages/AdminsPage')) },

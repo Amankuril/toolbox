@@ -16,6 +16,7 @@ export const ADMIN_SECTIONS = [
   { key: 'quotes', label: 'Bulk quotes', help: 'Quote requests between buyers and sellers' },
   { key: 'reviews', label: 'Reviews', help: 'Hide or publish product reviews' },
   { key: 'banners', label: 'Banners', help: 'Home page banners' },
+  { key: 'marketing', label: 'Coupons & offers', help: 'Platform coupons, sending coupons to customers, exit offers' },
   { key: 'media', label: 'Media library', help: 'Browse and delete uploaded files' },
   { key: 'content', label: 'Pages & SEO', help: 'Policy and support pages, SEO titles and descriptions' },
   { key: 'settings', label: 'Settings', help: 'Theme, branding, payments, shipping, storage' },

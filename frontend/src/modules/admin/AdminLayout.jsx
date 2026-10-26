@@ -66,6 +66,7 @@ export default function AdminLayout() {
         allow('products', { to: '/admin/products', label: 'Products', icon: Package, badge: pending.products }),
         allow('categories', { to: '/admin/categories', label: 'Categories', icon: FolderTree, badge: pending.categories }),
         allow('banners', { to: '/admin/banners', label: 'Banners', icon: Image }),
+        allow('marketing', { to: '/admin/coupons', label: 'Coupons', icon: TicketPercent }),
       ],
     },
     {

@@ -72,7 +72,8 @@ export function serializeVendorOrder(o, vendorId) {
     ...base(doc),
     items,
     pickups: (doc.pickups ?? []).filter((p) => String(p.vendor) === String(vendorId)),
-    coupon: doc.coupon?.code && String(doc.coupon.vendor) === String(vendorId) ? { code: doc.coupon.code } : null,
+    // Their own coupon, or a platform coupon (which also discounts their lines).
+    coupon: doc.coupon?.code && (!doc.coupon.vendor || String(doc.coupon.vendor) === String(vendorId)) ? { code: doc.coupon.code } : null,
     amounts: {
       // Net of coupon shares: what the seller is paid for.
       subtotal: active.reduce((s, i) => s + i.lineTotal, 0),

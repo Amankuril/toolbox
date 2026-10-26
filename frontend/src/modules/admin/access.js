@@ -14,6 +14,7 @@ export const SECTIONS = [
   { key: 'quotes', label: 'Bulk quotes', help: 'Quote requests between buyers and sellers', to: '/admin/quotes' },
   { key: 'reviews', label: 'Reviews', help: 'Hide or publish product reviews', to: '/admin/reviews' },
   { key: 'banners', label: 'Banners', help: 'Home page banners', to: '/admin/banners' },
+  { key: 'marketing', label: 'Coupons & offers', help: 'Platform coupons, sending coupons to customers, exit offers', to: '/admin/coupons' },
   { key: 'media', label: 'Media library', help: 'Browse and delete uploaded files', to: null },
   { key: 'content', label: 'Pages & SEO', help: 'Policy and support pages, SEO titles and descriptions', to: '/admin/pages' },
   { key: 'settings', label: 'Settings', help: 'Theme, branding, payments, shipping, storage', to: '/admin/settings' },

@@ -1,16 +1,17 @@
-import { useQueryClient } from '@tanstack/react-query'
-import { FileText, Heart, LogOut, MapPin, Package, User } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { FileText, Heart, LogOut, MapPin, Package, TicketPercent, User } from 'lucide-react'
 import { NavLink, Outlet, useNavigate } from 'react-router'
 import { signOutEverywhere } from '@/core/api/http'
 import { useSession } from '@/core/auth/session'
 import { cn } from '@/core/lib/cn'
 import { formatPhone } from '@/core/lib/format'
-import { storeKeys } from '../../api'
+import { storeKeys, userApi } from '../../api'
 
 const NAV = [
   { to: '/account/orders', label: 'Orders', icon: Package },
   { to: '/wishlist', label: 'Wishlist', icon: Heart },
   { to: '/account/quotes', label: 'Bulk quotes', icon: FileText },
+  { to: '/account/coupons', label: 'My coupons', icon: TicketPercent, badge: 'coupons' },
   { to: '/account/addresses', label: 'Addresses', icon: MapPin },
   { to: '/account/profile', label: 'Profile', icon: User },
 ]
@@ -19,6 +20,7 @@ export default function AccountLayout() {
   const account = useSession('user', (s) => s.account)
   const navigate = useNavigate()
   const qc = useQueryClient()
+  const { data: unseen } = useQuery({ queryKey: storeKeys.unseenCoupons, queryFn: userApi.unseenCoupons, staleTime: 60_000 })
   return (
     <div className="mx-auto grid max-w-6xl gap-6 px-4 py-8 sm:px-6 md:grid-cols-[220px_1fr]">
       <meta name="robots" content="noindex" />
@@ -40,6 +42,9 @@ export default function AccountLayout() {
               }
             >
               <n.icon className="size-4" /> {n.label}
+              {n.badge === 'coupons' && unseen?.count > 0 && (
+                <span className="ml-auto rounded-full bg-accent px-1.5 text-xs font-bold text-accent-fg">{unseen.count}</span>
+              )}
             </NavLink>
           ))}
           <button

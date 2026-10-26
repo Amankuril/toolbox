@@ -28,6 +28,8 @@ export const storeKeys = {
   quote: (id) => ['user', 'quote', id],
   payLink: (token) => ['public', 'pay', token],
   pages: ['public', 'pages'],
+  myCoupons: ['user', 'coupons'],
+  unseenCoupons: ['user', 'coupons', 'unseen'],
   page: (slug) => ['public', 'page', slug],
 }
 
@@ -69,6 +71,8 @@ export const userApi = {
   mergeCart: (items) => one(u.post('/cart/merge', { items })),
   applyCoupon: (code) => one(u.put('/cart/coupon', { code })),
   removeCoupon: () => one(u.delete('/cart/coupon')),
+  myCoupons: () => one(u.get('/coupons')),
+  unseenCoupons: () => one(u.get('/coupons/unseen')),
   whatsappChat: (productId) => one(u.post('/whatsapp-chat', { productId })),
 
   wishlist: () => one(u.get('/wishlist')),

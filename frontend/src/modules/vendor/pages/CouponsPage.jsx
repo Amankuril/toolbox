@@ -1,5 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Pencil, Plus, TicketPercent, Trash2 } from 'lucide-react'
+import { Pencil, Plus, Share2, TicketPercent, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { errorMessage, parseApiError } from '@/core/api/errors'
@@ -17,6 +17,7 @@ import { PageHeader } from '@/ui/PageHeader'
 import { RowActions } from '@/ui/RowActions'
 import { SearchField } from '@/ui/SearchField'
 import { COUPON_STATES, couponConditions, couponOffer } from '../coupons'
+import { ShareCouponDialog } from '@/modules/shared/ShareCoupon'
 import { useSeller } from '../seller'
 
 const TABS = [
@@ -50,13 +51,28 @@ export default function CouponsPage() {
       <Plus /> New coupon
     </Button>
   )
+  const [sharing, setSharing] = useState(null) // null = closed, {} = choose a coupon, coupon = that one
+  const shareClient = { root: seller.keys.all, coupons: seller.api.coupons, customers: seller.api.customers, share: seller.api.shareCoupon }
 
   return (
     <>
       <PageHeader
         title="Coupons"
-        description="Discount codes for your products. Buyers apply them in the cart; share them with leads from the Leads page."
-        actions={!nothingYet && newButton}
+        description={
+          seller.platform
+            ? 'Platform coupons work on every seller’s products. Share them with customers, or attach one to the exit offer.'
+            : 'Discount codes for your products. Buyers apply them in the cart; share them with your customers in one go.'
+        }
+        actions={
+          !nothingYet && (
+            <>
+              <Button variant="outline" onClick={() => setSharing({})}>
+                <Share2 /> Share coupon
+              </Button>
+              {newButton}
+            </>
+          )
+        }
       />
       {nothingYet ? (
         <Card>
@@ -124,6 +140,7 @@ export default function CouponsPage() {
                     <RowActions
                       items={[
                         { label: 'Edit', icon: Pencil, onSelect: () => setEditing(c) },
+                        c.state === 'live' && { label: 'Share with customers', icon: Share2, onSelect: () => setSharing(c) },
                         { label: c.usedCount ? 'Switch off' : 'Delete', icon: Trash2, danger: true, onSelect: () => setRemoving(c) },
                       ]}
                     />
@@ -137,6 +154,7 @@ export default function CouponsPage() {
       )}
 
       {editing && <CouponDialog coupon={editing._id ? editing : null} onClose={() => setEditing(null)} />}
+      <ShareCouponDialog open={Boolean(sharing)} onOpenChange={(o) => !o && setSharing(null)} client={shareClient} coupon={sharing?._id ? sharing : undefined} />
       <ConfirmDialog
         open={Boolean(removing)}
         onOpenChange={(open) => !open && setRemoving(null)}

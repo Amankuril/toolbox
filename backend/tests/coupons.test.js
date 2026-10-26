@@ -241,3 +241,39 @@ describe('editing used coupons', () => {
     expect(list.map((c) => c.code)).not.toContain('ALPHA10');
   });
 });
+
+describe('platform coupons and sharing', () => {
+  it('a platform coupon discounts every seller’s lines', async () => {
+    const admin = await createAdmin(app, { email: 'marketing@toolbox.test' });
+    await request(app)
+      .post(`${API}/admin/coupons`)
+      .set(bearer(admin.accessToken))
+      .send({ code: 'SITE10', type: 'percent', value: 10 })
+      .expect(201);
+    await request(app).delete(`${API}/user/cart/coupon`).set(U());
+    await cart(U(), 1, 1);
+    const data = (await request(app).put(`${API}/user/cart/coupon`).set(U()).send({ code: 'site10' }).expect(200)).body.data;
+    // 10% of ₹5,000 + ₹2,000.
+    expect(data.coupon).toMatchObject({ discount: 70_000, issue: null });
+    await request(app).delete(`${API}/user/cart/coupon`).set(U());
+  });
+
+  it('sellers send a coupon to their customers; buyers see it under My coupons', async () => {
+    const mine = (await request(app).get(`${API}/vendor/customers`).set(A()).expect(200)).body.data;
+    expect(mine.map((c) => c.name)).toContain('Coupon Buyer');
+    const created = (await coupon({ code: 'THANKYOU', type: 'flat', value: 10_000 }).expect(201)).body.data;
+    const shared = (
+      await request(app)
+        .post(`${API}/vendor/coupons/${created._id}/share`)
+        .set(A())
+        .send({ userIds: [mine.find((c) => c.name === 'Coupon Buyer')._id] })
+        .expect(200)
+    ).body.data;
+    expect(shared.recipients[0]).toMatchObject({ name: 'Coupon Buyer', phone: '+919500000099' });
+    expect(shared.message).toContain('THANKYOU');
+    expect((await request(app).get(`${API}/user/coupons/unseen`).set(U()).expect(200)).body.data.count).toBe(1);
+    const list = (await request(app).get(`${API}/user/coupons`).set(U()).expect(200)).body.data;
+    expect(list[0]).toMatchObject({ code: 'THANKYOU', seller: { name: 'Alpha Tools' }, isNew: true, state: 'live' });
+    expect((await request(app).get(`${API}/user/coupons/unseen`).set(U()).expect(200)).body.data.count).toBe(0);
+  });
+});

@@ -1,7 +1,9 @@
+import mongoose from 'mongoose';
 import { ApiError } from '#core/errors/ApiError.js';
 import { escapeRegex } from '#core/utils/strings.js';
 import { allocate } from '#modules/orders/partialPayment.js';
-import { Coupon, CouponRedemption, MAX_PERCENT_OFF } from './coupon.model.js';
+import { User } from '#modules/users/user.model.js';
+import { Coupon, CouponGrant, CouponRedemption, MAX_PERCENT_OFF } from './coupon.model.js';
 
 /** Why a coupon can't be used right now, in words a buyer understands. */
 const ISSUE_MESSAGES = {
@@ -129,7 +131,7 @@ export const couponService = {
     return serializeCoupon(coupon);
   },
 
-  /** A seller's own coupon, as a document (for sharing with a lead). */
+  /** A seller's own coupon (or, with vendorId null, a platform coupon), as a document (for sharing). */
   async usableForVendor(vendorId, id) {
     const coupon = await Coupon.findOne({ _id: id, vendor: vendorId }).lean();
     if (!coupon) throw ApiError.notFound('Coupon not found');
@@ -198,7 +200,10 @@ export const couponService = {
     const time = timeIssue(coupon, now);
     if (time) return none(time);
 
-    const eligible = items.map((i) => !i.issue && i.pricing?.source !== 'quote' && String(i.vendor) === String(coupon.vendor));
+    // A platform coupon (no vendor) counts every seller's lines.
+    const eligible = items.map(
+      (i) => !i.issue && i.pricing?.source !== 'quote' && (!coupon.vendor || String(i.vendor) === String(coupon.vendor)),
+    );
     const eligibleTotal = items.reduce((s, i, k) => (eligible[k] ? s + i.lineTotal : s), 0);
     if (!eligibleTotal) return none('no_items');
     if (eligibleTotal < (coupon.minOrderValue ?? 0)) return none('below_min', eligibleTotal);
@@ -250,6 +255,59 @@ export const couponService = {
     );
     if (revived) await Coupon.updateOne({ _id: order.coupon.id }, { $inc: { usedCount: 1 } });
   },
+
+  /**
+   * Sends a coupon to customers: each gets it under "My coupons", and the caller gets one WhatsApp message per
+   * customer to send. `vendorId` null = a platform coupon (admins).
+   * @returns {Promise<{ coupon: object, message: string, recipients: { _id, name, phone }[] }>}
+   */
+  async share(vendorId, couponId, userIds, actor, { from, link, message }) {
+    const coupon = await this.usableForVendor(vendorId, couponId);
+    const users = await User.find({ _id: { $in: userIds }, status: 'active' }).select('name phone').lean();
+    if (!users.length) throw ApiError.unprocessable('Choose at least one active customer', { code: 'NO_RECIPIENTS' });
+    const now = new Date();
+    await CouponGrant.bulkWrite(
+      users.map((u) => ({
+        updateOne: {
+          filter: { coupon: coupon._id, user: u._id },
+          update: { $set: { sentAt: now, sentBy: actor, ...(coupon.vendor ? { vendor: coupon.vendor } : {}) }, $unset: { seenAt: 1 } },
+          upsert: true,
+        },
+      })),
+    );
+    return {
+      coupon: serializeCoupon(coupon),
+      message: message({ store: from, coupon, link }),
+      recipients: users.map((u) => ({ _id: u._id, name: u.name, phone: u.phone ?? null })),
+    };
+  },
+
+  /** "My coupons": what was sent to this buyer, newest first, with whether each can still be used. */
+  async forUser(userId) {
+    const grants = await CouponGrant.find({ user: userId }).sort({ sentAt: -1 }).limit(100).populate('coupon').populate('vendor', 'store.name store.slug').lean();
+    const now = new Date();
+    const live = grants.filter((g) => g.coupon);
+    const used = await CouponRedemption.aggregate([
+      { $match: { user: new mongoose.Types.ObjectId(String(userId)), coupon: { $in: live.map((g) => g.coupon._id) }, status: 'active' } },
+      { $group: { _id: '$coupon', n: { $sum: 1 } } },
+    ]);
+    const usedBy = new Map(used.map((u) => [String(u._id), u.n]));
+    await CouponGrant.updateMany({ user: userId, seenAt: { $exists: false } }, { seenAt: now });
+    return live.map((g) => {
+      const c = serializeCoupon(g.coupon, now);
+      const usedUp = (usedBy.get(String(g.coupon._id)) ?? 0) >= (g.coupon.perUserLimit ?? 1);
+      return {
+        ...c,
+        seller: g.vendor ? { name: g.vendor.store?.name, slug: g.vendor.store?.slug } : null,
+        sentAt: g.sentAt,
+        isNew: !g.seenAt,
+        state: usedUp ? 'used' : c.state,
+      };
+    });
+  },
+
+  /** Unseen coupons, for the account badge. */
+  unseenCount: (userId) => CouponGrant.countDocuments({ user: userId, seenAt: { $exists: false } }),
 
   serializeCoupon,
 };

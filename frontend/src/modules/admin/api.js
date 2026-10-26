@@ -39,6 +39,17 @@ export const adminKeys = {
   admins: ['admin', 'admins'],
 }
 
+/** Platform coupons (good on every seller's products) and sending them to customers. */
+export const platformCouponApi = {
+  coupons: (params) => list(a.get('/coupons', { params })),
+  createCoupon: (body) => one(a.post('/coupons', body)),
+  updateCoupon: (id, body) => one(a.patch(`/coupons/${id}`, body)),
+  deleteCoupon: (id) => one(a.delete(`/coupons/${id}`)),
+  shareCoupon: (id, userIds) => one(a.post(`/coupons/${id}/share`, { userIds })),
+  // Admins send to any active customer.
+  customers: (params) => list(a.get('/users', { params: { ...params, status: 'active' } })),
+}
+
 export const adminApi = {
   productImports: createImportApi(a),
   manualOrders: manualOrderClient(a),

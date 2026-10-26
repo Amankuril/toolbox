@@ -7,6 +7,7 @@ import { ok } from '#core/utils/response.js';
 import { objectId } from '#core/validation/common.js';
 import { requireApprovedVendor } from '#modules/auth/auth.middleware.js';
 import { CONTACT_CHANNELS } from './lead.model.js';
+import { sellerCustomers } from './customers.service.js';
 import { leadsService } from './leads.service.js';
 
 const listQuery = {
@@ -55,4 +56,14 @@ export const userChatRoutes = Router().post(
   chatLimit,
   validate({ body: z.object({ productId: objectId }) }),
   async (req, res) => ok(res, await leadsService.startChat(req.auth.id, req.body.productId)),
+);
+
+/** Mounted at /vendor/customers and /admin/store/customers. */
+export const sellerCustomerRoutes = Router().get(
+  '/',
+  validate({ query: z.object({ ...paginationQuery, q: z.string().trim().max(60).optional() }) }),
+  async (req, res) => {
+    const { items, meta } = await sellerCustomers(req.auth.id, req.query);
+    ok(res, items, meta);
+  },
 );

@@ -11,8 +11,8 @@ import { authenticate, requireApprovedVendor } from '#modules/auth/auth.middlewa
 import authRoutes from '#modules/auth/auth.routes.js';
 import { adminBannerRoutes, publicBannerRoutes } from '#modules/banners/banner.routes.js';
 import { cartRoutes } from '#modules/cart/cart.routes.js';
-import { vendorCouponRoutes } from '#modules/coupons/coupon.routes.js';
-import { userChatRoutes, vendorLeadRoutes } from '#modules/leads/leads.routes.js';
+import { adminCouponRoutes, userCouponRoutes, vendorCouponRoutes } from '#modules/coupons/coupon.routes.js';
+import { sellerCustomerRoutes, userChatRoutes, vendorLeadRoutes } from '#modules/leads/leads.routes.js';
 import { wishlistRoutes } from '#modules/wishlist/wishlist.routes.js';
 import { actAsStore } from '#modules/store/store.service.js';
 import { storeSettingsRoutes } from '#modules/store/store.routes.js';
@@ -80,6 +80,7 @@ export function buildRoutes() {
     .use(userSelfRoutes)
     .use('/cart', cartRoutes)
     .use('/wishlist', wishlistRoutes)
+    .use('/coupons', userCouponRoutes)
     .use('/orders', userOrderRoutes)
     .use('/quotes', userQuoteRoutes)
     .use('/products', userReviewRoutes)
@@ -104,6 +105,7 @@ export function buildRoutes() {
     .use('/pickup', sellerPickupRoutes)
     .use('/quotes', vendorQuoteRoutes)
     .use('/coupons', vendorCouponRoutes)
+    .use('/customers', sellerCustomerRoutes)
     .use('/leads', vendorLeadRoutes)
     .use(vendorShippingRoutes);
   api.use('/vendor', vendorApi);
@@ -120,6 +122,7 @@ export function buildRoutes() {
     .use('/pickup', sellerPickupRoutes)
     .use('/quotes', vendorQuoteRoutes)
     .use('/coupons', vendorCouponRoutes)
+    .use('/customers', sellerCustomerRoutes)
     .use('/leads', vendorLeadRoutes)
     .use(vendorShippingRoutes)
     .use('/media', mediaUploadRouter());
@@ -131,7 +134,8 @@ export function buildRoutes() {
     .get('/dashboard', requireSection('dashboard'), async (_req, res) => ok(res, await dashboardService.admin()))
     .use('/admins', adminManagementRoutes)
     .use('/vendors', requireSection('vendors', { readableBy: ['products'], readablePath: /^\/(?:[0-9a-f]{24})?$/i }), adminVendorRoutes)
-    .use('/users', requireSection('customers'), adminUserRoutes)
+    // Sending a coupon to customers (Coupons & offers) needs to list them, nothing more.
+    .use('/users', requireSection('customers', { readableBy: ['marketing'], readablePath: /^\/?$/ }), adminUserRoutes)
     .use('/categories', requireSection('categories', { readableBy: ['products'] }), adminCategoryRoutes)
     .use('/products', requireSection('products'), adminProductRoutes)
     .use('/product-imports', requireSection('products'), adminProductImportRoutes)
@@ -141,6 +145,7 @@ export function buildRoutes() {
     .use('/quotes', requireSection('quotes'), adminQuoteRoutes)
     .use('/reviews', requireSection('reviews'), adminReviewRoutes)
     .use('/banners', requireSection('banners'), adminBannerRoutes)
+    .use('/coupons', requireSection('marketing'), adminCouponRoutes)
     // Uploading is part of whichever section the file is for (banners, categories, branding…);
     // browsing and deleting the library is its own permission.
     .use('/media', requireSection('media', { writeMethods: ['DELETE'] }), adminMediaRouter())

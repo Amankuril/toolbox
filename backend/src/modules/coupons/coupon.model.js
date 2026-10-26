@@ -5,13 +5,15 @@ export const COUPON_TYPES = ['percent', 'flat'];
 export const MAX_PERCENT_OFF = 90;
 
 /**
- * A seller's coupon code. It discounts only that seller's lines in a cart (never quote-priced lines,
- * which were already negotiated). Codes are unique across the marketplace, so a buyer never has to
- * say which seller a code belongs to. All money in paise.
+ * A coupon code. A seller's coupon discounts only that seller's lines in a cart; a platform coupon
+ * (no vendor, made by admins) discounts every seller's lines. Never quote-priced lines, which were already
+ * negotiated. Codes are unique across the marketplace, so a buyer never has to say whose a code is.
+ * All money in paise.
  */
 const couponSchema = new Schema(
   {
-    vendor: { type: Schema.Types.ObjectId, ref: 'Vendor', required: true },
+    // Unset = a platform coupon.
+    vendor: { type: Schema.Types.ObjectId, ref: 'Vendor' },
     code: { type: String, required: true, trim: true, uppercase: true, maxlength: 20 },
     description: { type: String, trim: true, maxlength: 200 },
     type: { type: String, enum: COUPON_TYPES, required: true },
@@ -53,3 +55,25 @@ redemptionSchema.index({ coupon: 1, order: 1 }, { unique: true });
 redemptionSchema.index({ coupon: 1, user: 1, status: 1 });
 
 export const CouponRedemption = mongoose.models.CouponRedemption ?? mongoose.model('CouponRedemption', redemptionSchema);
+
+/**
+ * A coupon sent to a customer (Share coupon): it shows under "My coupons" in their account, and the panel
+ * gets a WhatsApp link to tell them. One per (coupon, customer); sending again refreshes it.
+ */
+const grantSchema = new Schema(
+  {
+    coupon: { type: Schema.Types.ObjectId, ref: 'Coupon', required: true },
+    user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    // The coupon's seller, or unset for a platform coupon (for "sent by" and per-seller lists).
+    vendor: { type: Schema.Types.ObjectId, ref: 'Vendor' },
+    sentBy: { kind: String, id: Schema.Types.ObjectId },
+    sentAt: { type: Date, default: Date.now },
+    seenAt: Date,
+  },
+  baseOptions,
+);
+
+grantSchema.index({ coupon: 1, user: 1 }, { unique: true });
+grantSchema.index({ user: 1, sentAt: -1 });
+
+export const CouponGrant = mongoose.models.CouponGrant ?? mongoose.model('CouponGrant', grantSchema);

@@ -82,6 +82,8 @@ export function createSellerApi(v) {
     createCoupon: (body) => one(v.post('/coupons', body)),
     updateCoupon: (id, body) => one(v.patch(`/coupons/${id}`, body)),
     deleteCoupon: (id) => one(v.delete(`/coupons/${id}`)),
+    shareCoupon: (id, userIds) => one(v.post(`/coupons/${id}/share`, { userIds })),
+    customers: (params) => list(v.get('/customers', { params })),
 
     leadCounts: () => one(v.get('/leads/counts')),
     cartLeads: (params) => list(v.get('/leads/carts', { params })),
