@@ -7,7 +7,7 @@ import { formatDateTime, formatINR, formatPhone } from '@/core/lib/format'
 import { Badge, StatusBadge } from '@/ui/Badge'
 import { Card } from '@/ui/Card'
 import { FilterTabs } from '@/ui/Controls'
-import { DataTable, Pagination } from '@/ui/DataTable'
+import { DataTable, Pagination, pageSize } from '@/ui/DataTable'
 import { Select } from '@/ui/Field'
 import { PageHeader } from '@/ui/PageHeader'
 import { SearchField } from '@/ui/SearchField'
@@ -33,7 +33,7 @@ export default function OrdersPage() {
   const [filters, setFilters] = useSearchParamsState()
   const params = {
     page: Number(filters.page ?? 1),
-    limit: 20,
+    limit: pageSize(filters.limit),
     status: filters.status || undefined,
     paymentMethod: filters.paymentMethod || undefined,
     paymentStatus: filters.paymentStatus || undefined,
@@ -130,7 +130,7 @@ export default function OrdersPage() {
             },
           ]}
         />
-        <Pagination meta={data?.meta} onPageChange={(page) => setFilters({ page })} />
+        <Pagination meta={data?.meta} onPageChange={(page) => setFilters({ page })} onLimitChange={(limit) => setFilters({ limit })} />
       </Card>
     </>
   )

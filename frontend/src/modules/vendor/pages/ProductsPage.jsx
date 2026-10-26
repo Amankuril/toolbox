@@ -12,7 +12,7 @@ import { Thumb } from '@/ui/Brand'
 import { Button } from '@/ui/Button'
 import { Card, EmptyState } from '@/ui/Card'
 import { FilterTabs, Menu, Switch, Tooltip } from '@/ui/Controls'
-import { DataTable, Pagination } from '@/ui/DataTable'
+import { DataTable, Pagination, pageSize } from '@/ui/DataTable'
 import { ConfirmDialog, Dialog } from '@/ui/Dialog'
 import { Field, Select } from '@/ui/Field'
 import { NumberInput, PriceInput } from '@/ui/inputs'
@@ -44,7 +44,7 @@ export default function VendorProductsPage() {
   const { siteName } = useBranding()
   const { share, dialog: shareDialog } = useShare()
   const approved = vendor?.status === 'approved'
-  const params = { page: Number(filters.page ?? 1), limit: 20, status: filters.status || undefined, type: filters.type || undefined, q: filters.q || undefined }
+  const params = { page: Number(filters.page ?? 1), limit: pageSize(filters.limit), status: filters.status || undefined, type: filters.type || undefined, q: filters.q || undefined }
   const { data, isLoading } = useQuery({
     queryKey: seller.keys.products(params),
     queryFn: () => seller.api.products(params),
@@ -262,7 +262,7 @@ export default function VendorProductsPage() {
               },
             ]}
           />
-          <Pagination meta={data?.meta} onPageChange={(page) => setFilters({ page })} />
+          <Pagination meta={data?.meta} onPageChange={(page) => setFilters({ page })} onLimitChange={(limit) => setFilters({ limit })} />
         </Card>
       )}
 

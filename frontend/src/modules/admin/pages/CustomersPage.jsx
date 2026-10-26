@@ -9,7 +9,7 @@ import { Badge, StatusBadge } from '@/ui/Badge'
 import { Button } from '@/ui/Button'
 import { Card, Skeleton } from '@/ui/Card'
 import { FilterTabs } from '@/ui/Controls'
-import { DataTable, Pagination } from '@/ui/DataTable'
+import { DataTable, Pagination, pageSize } from '@/ui/DataTable'
 import { ConfirmDialog, Dialog } from '@/ui/Dialog'
 import { DescriptionList, PageHeader } from '@/ui/PageHeader'
 import { ActionDialog, RowActions } from '@/ui/RowActions'
@@ -35,7 +35,7 @@ export default function CustomersPage() {
       throw err
     }
   }
-  const params = { page: Number(filters.page ?? 1), limit: 20, status: filters.status || undefined, q: filters.q || undefined }
+  const params = { page: Number(filters.page ?? 1), limit: pageSize(filters.limit), status: filters.status || undefined, q: filters.q || undefined }
   const { data, isLoading } = useQuery({ queryKey: adminKeys.users(params), queryFn: () => adminApi.users(params), placeholderData: keepPreviousData })
 
   return (
@@ -109,7 +109,7 @@ export default function CustomersPage() {
             },
           ]}
         />
-        <Pagination meta={data?.meta} onPageChange={(page) => setFilters({ page })} />
+        <Pagination meta={data?.meta} onPageChange={(page) => setFilters({ page })} onLimitChange={(limit) => setFilters({ limit })} />
       </Card>
       <CustomerDialog id={selected} onClose={() => setSelected(null)} />
       <ActionDialog

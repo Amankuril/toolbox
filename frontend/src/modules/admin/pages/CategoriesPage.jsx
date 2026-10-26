@@ -15,7 +15,7 @@ import { Thumb } from '@/ui/Brand'
 import { Button } from '@/ui/Button'
 import { Card } from '@/ui/Card'
 import { FilterTabs, Switch } from '@/ui/Controls'
-import { DataTable, Pagination } from '@/ui/DataTable'
+import { DataTable, Pagination, pageSize } from '@/ui/DataTable'
 import { ConfirmDialog, Dialog } from '@/ui/Dialog'
 import { Field, Input, Select, Textarea } from '@/ui/Field'
 import { ImageUploader } from '@/ui/ImageUploader'
@@ -42,8 +42,8 @@ export default function CategoriesPage() {
   const [rejecting, setRejecting] = useState(null)
   const shared = { status: filters.status || undefined, source: filters.source || undefined, q: filters.q || undefined }
   // Top-level departments and everything under them, each with its own pages.
-  const topParams = { ...shared, level: 'top', page: Number(filters.topPage ?? 1), limit: 50 }
-  const params = { ...shared, level: 'sub', page: Number(filters.page ?? 1), limit: 50 }
+  const topParams = { ...shared, level: 'top', page: Number(filters.topPage ?? 1), limit: pageSize(filters.limit, 50) }
+  const params = { ...shared, level: 'sub', page: Number(filters.page ?? 1), limit: pageSize(filters.limit, 50) }
   const top = useQuery({ queryKey: adminKeys.categories(topParams), queryFn: () => adminApi.categories(topParams), placeholderData: keepPreviousData })
   const { data, isLoading } = useQuery({
     queryKey: adminKeys.categories(params),
@@ -155,13 +155,13 @@ export default function CategoriesPage() {
           empty={{ title: 'No top categories', action: <Button onClick={() => setEditing('new')}>Create the first one</Button> }}
           columns={columns}
         />
-        <Pagination meta={top.data?.meta} onPageChange={(topPage) => setFilters({ topPage })} />
+        <Pagination meta={top.data?.meta} onPageChange={(topPage) => setFilters({ topPage })} onLimitChange={(limit) => setFilters({ limit, topPage: undefined })} />
       </Card>
 
       <Card className="mt-6">
         <SectionTitle title="Other categories" description="Every sub-category, at any depth." count={data?.meta?.total} />
         <DataTable loading={isLoading} rows={data?.items} empty={{ title: 'No sub-categories', description: 'Add one under a top category.' }} columns={columns} />
-        <Pagination meta={data?.meta} onPageChange={(page) => setFilters({ page })} />
+        <Pagination meta={data?.meta} onPageChange={(page) => setFilters({ page })} onLimitChange={(limit) => setFilters({ limit, topPage: undefined })} />
       </Card>
 
       <CategoryDialog category={editing} onClose={() => setEditing(null)} onSaved={refresh} />

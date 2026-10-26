@@ -12,7 +12,7 @@ import { Thumb } from '@/ui/Brand'
 import { Button } from '@/ui/Button'
 import { Card } from '@/ui/Card'
 import { FilterTabs } from '@/ui/Controls'
-import { DataTable, Pagination } from '@/ui/DataTable'
+import { DataTable, Pagination, pageSize } from '@/ui/DataTable'
 import { Select } from '@/ui/Field'
 import { PageHeader } from '@/ui/PageHeader'
 import { ActionDialog, RowActions } from '@/ui/RowActions'
@@ -44,7 +44,7 @@ export default function ProductsPage() {
   const { can } = useAdminAccess()
   const params = {
     page: Number(filters.page ?? 1),
-    limit: 20,
+    limit: pageSize(filters.limit),
     status: filters.status || undefined,
     type: filters.type || undefined,
     vendor: filters.vendor || undefined,
@@ -191,7 +191,7 @@ export default function ProductsPage() {
             },
           ]}
         />
-        <Pagination meta={data?.meta} onPageChange={(page) => setFilters({ page })} />
+        <Pagination meta={data?.meta} onPageChange={(page) => setFilters({ page })} onLimitChange={(limit) => setFilters({ limit })} />
       </Card>
 
       {shareDialog}

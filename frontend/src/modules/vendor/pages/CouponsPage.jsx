@@ -9,7 +9,7 @@ import { Badge } from '@/ui/Badge'
 import { Button } from '@/ui/Button'
 import { Card, EmptyState } from '@/ui/Card'
 import { FilterTabs, SegmentedControl, Switch } from '@/ui/Controls'
-import { DataTable, Pagination } from '@/ui/DataTable'
+import { DataTable, Pagination, pageSize } from '@/ui/DataTable'
 import { ConfirmDialog, Dialog } from '@/ui/Dialog'
 import { Field, Input } from '@/ui/Field'
 import { NumberInput, PriceInput } from '@/ui/inputs'
@@ -32,7 +32,7 @@ export default function CouponsPage() {
   const [editing, setEditing] = useState(null) // null = closed, {} = new, coupon = edit
   const [removing, setRemoving] = useState(null)
   const qc = useQueryClient()
-  const params = { page: Number(filters.page ?? 1), limit: 20, status: filters.status || undefined, q: filters.q || undefined }
+  const params = { page: Number(filters.page ?? 1), limit: pageSize(filters.limit), status: filters.status || undefined, q: filters.q || undefined }
   const { data, isLoading } = useQuery({ queryKey: seller.keys.coupons(params), queryFn: () => seller.api.coupons(params), placeholderData: keepPreviousData })
   const nothingYet = !isLoading && data?.meta?.total === 0 && !filters.q && !filters.status
 
@@ -132,7 +132,7 @@ export default function CouponsPage() {
               },
             ]}
           />
-          <Pagination meta={data?.meta} onPageChange={(page) => setFilters({ page })} />
+          <Pagination meta={data?.meta} onPageChange={(page) => setFilters({ page })} onLimitChange={(limit) => setFilters({ limit })} />
         </Card>
       )}
 

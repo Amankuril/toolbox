@@ -11,7 +11,7 @@ import { Thumb } from '@/ui/Brand'
 import { Button } from '@/ui/Button'
 import { Card } from '@/ui/Card'
 import { FilterTabs } from '@/ui/Controls'
-import { DataTable, Pagination } from '@/ui/DataTable'
+import { DataTable, Pagination, pageSize } from '@/ui/DataTable'
 import { Select } from '@/ui/Field'
 import { PageHeader } from '@/ui/PageHeader'
 import { ReasonDialog } from '@/ui/ReasonDialog'
@@ -27,7 +27,7 @@ const TABS = [
 export default function ReviewsPage() {
   const qc = useQueryClient()
   const [filters, setFilters] = useSearchParamsState()
-  const params = { page: Number(filters.page ?? 1), limit: 20, status: filters.status || undefined, rating: filters.rating || undefined }
+  const params = { page: Number(filters.page ?? 1), limit: pageSize(filters.limit), status: filters.status || undefined, rating: filters.rating || undefined }
   const { data, isLoading } = useQuery({ queryKey: adminKeys.reviews(params), queryFn: () => adminApi.reviews(params), placeholderData: keepPreviousData })
   const moderate = useMutation({
     mutationFn: ({ id, status, note }) => adminApi.moderateReview(id, { status, note }),
@@ -149,7 +149,7 @@ export default function ReviewsPage() {
             },
           ]}
         />
-        <Pagination meta={data?.meta} onPageChange={(page) => setFilters({ page })} />
+        <Pagination meta={data?.meta} onPageChange={(page) => setFilters({ page })} onLimitChange={(limit) => setFilters({ limit })} />
       </Card>
       <p className="mt-3 flex items-center gap-1.5 text-xs text-slate-500">
         <Star className="size-3.5" /> Product ratings update as soon as a review is hidden or published.

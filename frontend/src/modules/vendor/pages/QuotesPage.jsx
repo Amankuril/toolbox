@@ -7,7 +7,7 @@ import { QuoteStatus } from '@/modules/shared/quotes'
 import { Thumb } from '@/ui/Brand'
 import { Card, EmptyState } from '@/ui/Card'
 import { FilterTabs } from '@/ui/Controls'
-import { DataTable, Pagination } from '@/ui/DataTable'
+import { DataTable, Pagination, pageSize } from '@/ui/DataTable'
 import { PageHeader } from '@/ui/PageHeader'
 import { RowActions } from '@/ui/RowActions'
 import { SearchField } from '@/ui/SearchField'
@@ -27,7 +27,7 @@ export default function VendorQuotesPage() {
   const [filters, setFilters] = useSearchParamsState({ status: 'requested' })
   const params = {
     page: Number(filters.page ?? 1),
-    limit: 20,
+    limit: pageSize(filters.limit),
     status: filters.status === 'all' ? undefined : filters.status || undefined,
     q: filters.q || undefined,
   }
@@ -109,7 +109,7 @@ export default function VendorQuotesPage() {
               },
             ]}
           />
-          <Pagination meta={data?.meta} onPageChange={(page) => setFilters({ page })} />
+          <Pagination meta={data?.meta} onPageChange={(page) => setFilters({ page })} onLimitChange={(limit) => setFilters({ limit })} />
         </Card>
       )}
     </>

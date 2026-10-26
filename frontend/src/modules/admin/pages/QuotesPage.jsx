@@ -6,7 +6,7 @@ import { formatINR, formatNumber, formatRelative } from '@/core/lib/format'
 import { OfferBreakdown, QuoteRequestFacts, QuoteStatus, QuoteTimeline } from '@/modules/shared/quotes'
 import { Card, Skeleton } from '@/ui/Card'
 import { FilterTabs } from '@/ui/Controls'
-import { DataTable, Pagination } from '@/ui/DataTable'
+import { DataTable, Pagination, pageSize } from '@/ui/DataTable'
 import { Dialog } from '@/ui/Dialog'
 import { DescriptionList, PageHeader } from '@/ui/PageHeader'
 import { RowActions } from '@/ui/RowActions'
@@ -27,7 +27,7 @@ const TABS = [
 export default function QuotesPage() {
   const [filters, setFilters] = useSearchParamsState()
   const [viewing, setViewing] = useState(null)
-  const params = { page: Number(filters.page ?? 1), limit: 20, status: filters.status || undefined, q: filters.q || undefined }
+  const params = { page: Number(filters.page ?? 1), limit: pageSize(filters.limit), status: filters.status || undefined, q: filters.q || undefined }
   const { data, isLoading } = useQuery({ queryKey: adminKeys.quotes(params), queryFn: () => adminApi.quotes(params), placeholderData: keepPreviousData })
 
   return (
@@ -74,7 +74,7 @@ export default function QuotesPage() {
             },
           ]}
         />
-        <Pagination meta={data?.meta} onPageChange={(page) => setFilters({ page })} />
+        <Pagination meta={data?.meta} onPageChange={(page) => setFilters({ page })} onLimitChange={(limit) => setFilters({ limit })} />
       </Card>
       <QuoteDialog id={viewing} onClose={() => setViewing(null)} />
     </>

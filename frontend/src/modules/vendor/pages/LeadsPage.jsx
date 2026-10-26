@@ -5,7 +5,7 @@ import { useSearchParamsState } from '@/core/hooks/useSearchParamsState'
 import { formatINR, formatPhone, formatRelative, pluralize } from '@/core/lib/format'
 import { Card, EmptyState } from '@/ui/Card'
 import { FilterTabs } from '@/ui/Controls'
-import { DataTable, Pagination } from '@/ui/DataTable'
+import { DataTable, Pagination, pageSize } from '@/ui/DataTable'
 import { Select } from '@/ui/Field'
 import { PageHeader } from '@/ui/PageHeader'
 import { SearchField } from '@/ui/SearchField'
@@ -60,7 +60,7 @@ export default function LeadsPage() {
   const isCart = tab !== 'whatsapp'
   const params = {
     page: Number(filters.page ?? 1),
-    limit: 20,
+    limit: pageSize(filters.limit),
     q: filters.q || undefined,
     sort: filters.sort || 'newest',
     // Active carts are by definition from the last hour.
@@ -153,7 +153,7 @@ export default function LeadsPage() {
             columns={isCart ? cartColumns : whatsappColumns}
           />
         )}
-        <Pagination meta={data?.meta} onPageChange={(page) => setFilters({ page })} />
+        <Pagination meta={data?.meta} onPageChange={(page) => setFilters({ page })} onLimitChange={(limit) => setFilters({ limit })} />
       </Card>
     </>
   )

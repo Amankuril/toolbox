@@ -1,6 +1,7 @@
 import { ChevronLeft, ChevronRight, Inbox } from 'lucide-react'
 import { cn } from '@/core/lib/cn'
 import { formatNumber } from '@/core/lib/format'
+import { safeStorage } from '@/core/lib/storage'
 import { Button } from './Button'
 import { EmptyState, Skeleton } from './Card'
 
@@ -54,17 +55,51 @@ export function DataTable({ columns, rows, loading, empty, onRowClick, rowKey = 
   )
 }
 
-export function Pagination({ meta, onPageChange, className }) {
-  if (!meta || meta.totalPages <= 1) return null
+export const PAGE_SIZES = [10, 20, 25, 50, 100]
+const PAGE_SIZE_KEY = 'panel:page-size'
+
+/** Rows per page: the list's own choice (URL), else the size this browser picked last on any list, else `fallback`. */
+export function pageSize(value, fallback = 20) {
+  const n = Number(value ?? safeStorage.get(PAGE_SIZE_KEY, fallback))
+  return PAGE_SIZES.includes(n) ? n : fallback
+}
+
+/** Pages, plus a rows-per-page picker when `onLimitChange` is given (the choice carries over to other lists). */
+export function Pagination({ meta, onPageChange, onLimitChange, className }) {
+  if (!meta) return null
   const { page, totalPages, total, limit } = meta
-  const from = (page - 1) * limit + 1
+  const canResize = onLimitChange && total > PAGE_SIZES[0]
+  if (totalPages <= 1 && !canResize) return null
+  const from = total ? (page - 1) * limit + 1 : 0
   const to = Math.min(page * limit, total)
   return (
-    <div className={cn('flex items-center justify-between gap-4 px-4 py-3 text-sm text-slate-600', className)}>
-      <span className="tabular">
-        {formatNumber(from)}–{formatNumber(to)} of {formatNumber(total)}
+    <div className={cn('flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3 text-sm text-slate-600', className)}>
+      <span className="flex items-center gap-3">
+        <span className="tabular">
+          {formatNumber(from)}–{formatNumber(to)} of {formatNumber(total)}
+        </span>
+        {canResize && (
+          <label className="flex items-center gap-1.5 text-xs">
+            Rows per page
+            <select
+              value={limit}
+              onChange={(e) => {
+                const next = Number(e.target.value)
+                safeStorage.set(PAGE_SIZE_KEY, next)
+                onLimitChange(next)
+              }}
+              className="h-8 rounded-md border border-slate-300 bg-white px-1.5 text-sm text-slate-800"
+            >
+              {PAGE_SIZES.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
       </span>
-      <div className="flex items-center gap-1">
+      <div className={cn('flex items-center gap-1', totalPages <= 1 && 'invisible')}>
         <Button variant="outline" size="icon-sm" disabled={page <= 1} onClick={() => onPageChange(page - 1)} aria-label="Previous page">
           <ChevronLeft />
         </Button>

@@ -10,7 +10,7 @@ import { StatusBadge } from '@/ui/Badge'
 import { Thumb } from '@/ui/Brand'
 import { Card } from '@/ui/Card'
 import { FilterTabs } from '@/ui/Controls'
-import { DataTable, Pagination } from '@/ui/DataTable'
+import { DataTable, Pagination, pageSize } from '@/ui/DataTable'
 import { PageHeader } from '@/ui/PageHeader'
 import { ActionDialog, RowActions } from '@/ui/RowActions'
 import { SearchField } from '@/ui/SearchField'
@@ -30,7 +30,7 @@ export default function VendorsPage() {
   const qc = useQueryClient()
   const [filters, setFilters] = useSearchParamsState()
   const [action, setAction] = useState(null)
-  const params = { page: Number(filters.page ?? 1), limit: 20, status: filters.status || undefined, q: filters.q || undefined }
+  const params = { page: Number(filters.page ?? 1), limit: pageSize(filters.limit), status: filters.status || undefined, q: filters.q || undefined }
   const { data, isLoading } = useQuery({ queryKey: adminKeys.vendors(params), queryFn: () => adminApi.vendors(params), placeholderData: keepPreviousData })
 
   const run = (fn, message) => async (row, note) => {
@@ -111,7 +111,7 @@ export default function VendorsPage() {
             },
           ]}
         />
-        <Pagination meta={data?.meta} onPageChange={(page) => setFilters({ page })} />
+        <Pagination meta={data?.meta} onPageChange={(page) => setFilters({ page })} onLimitChange={(limit) => setFilters({ limit })} />
       </Card>
 
       <ActionDialog

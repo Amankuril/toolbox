@@ -8,7 +8,7 @@ import { formatDateTime, formatINR, formatNumber } from '@/core/lib/format'
 import { Badge, StatusBadge } from '@/ui/Badge'
 import { Card } from '@/ui/Card'
 import { FilterTabs } from '@/ui/Controls'
-import { DataTable, Pagination } from '@/ui/DataTable'
+import { DataTable, Pagination, pageSize } from '@/ui/DataTable'
 import { PageHeader } from '@/ui/PageHeader'
 import { SearchField } from '@/ui/SearchField'
 import { useSeller } from '../seller'
@@ -40,7 +40,7 @@ export default function VendorOrdersPage() {
   const navigate = useNavigate()
   const { siteName } = useBranding()
   const [filters, setFilters] = useSearchParamsState()
-  const params = { page: Number(filters.page ?? 1), limit: 20, status: filters.status || undefined, q: filters.q || undefined }
+  const params = { page: Number(filters.page ?? 1), limit: pageSize(filters.limit), status: filters.status || undefined, q: filters.q || undefined }
   const { data, isLoading } = useQuery({ queryKey: seller.keys.orders(params), queryFn: () => seller.api.orders(params), placeholderData: keepPreviousData })
 
   return (
@@ -108,7 +108,7 @@ export default function VendorOrdersPage() {
             },
           ]}
         />
-        <Pagination meta={data?.meta} onPageChange={(page) => setFilters({ page })} />
+        <Pagination meta={data?.meta} onPageChange={(page) => setFilters({ page })} onLimitChange={(limit) => setFilters({ limit })} />
       </Card>
     </>
   )
