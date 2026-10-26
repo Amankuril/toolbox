@@ -13,6 +13,7 @@ import { PageHeader } from '@/ui/PageHeader'
 import { SearchField } from '@/ui/SearchField'
 import { RowActions } from '@/ui/RowActions'
 import { CreateOrderButton, PaymentLinksButton } from '@/modules/shared/manualOrders'
+import { WhatsAppButton } from '@/modules/shared/whatsapp'
 import { adminApi, adminKeys } from '../api'
 
 const PAYMENT_SHORT = { cod: 'COD', razorpay: 'Online', partial: 'Part paid', offline: 'Offline' }
@@ -86,7 +87,14 @@ export default function OrdersPage() {
               cell: (o) => (
                 <div>
                   <p className="text-slate-800">{o.user?.name ?? o.shippingAddress.name}</p>
-                  <p className="text-xs text-slate-500">{formatPhone(o.user?.phone)}</p>
+                  <p className="flex items-center gap-1 text-xs text-slate-500">
+                    {formatPhone(o.user?.phone ?? o.shippingAddress.phone)}
+                    <WhatsAppButton
+                      phone={o.user?.phone ?? o.shippingAddress.phone}
+                      text={`Hi ${(o.user?.name ?? o.shippingAddress.name).split(' ')[0]}, this is ${siteName} about your order ${o.orderNumber}.`}
+                      className="size-6"
+                    />
+                  </p>
                 </div>
               ),
             },

@@ -9,6 +9,7 @@ import { DataTable, Pagination } from '@/ui/DataTable'
 import { Select } from '@/ui/Field'
 import { PageHeader } from '@/ui/PageHeader'
 import { SearchField } from '@/ui/SearchField'
+import { WhatsAppButton } from '@/modules/shared/whatsapp'
 import { formatActivity } from '../leads'
 import { useSeller } from '../seller'
 
@@ -28,13 +29,18 @@ const PERIODS = [
   { value: '30d', label: 'Last 30 days' },
 ]
 
-function Contact({ lead }) {
+function Contact({ lead, storeName }) {
   const { customer, lastContact } = lead
   return (
     <div>
-      <p className="font-semibold text-slate-900">
+      <p className="flex flex-wrap items-center gap-x-1 font-semibold text-slate-900">
         {customer?.phone ? formatPhone(customer.phone) : (customer?.email ?? 'Customer')}
         {customer?.name && <span className="font-medium text-slate-700"> | {customer.name}</span>}
+        <WhatsAppButton
+          phone={customer?.phone}
+          text={`Hi${customer?.name ? ` ${customer.name.split(' ')[0]}` : ''}, greetings from ${storeName ?? 'us'}!`}
+          title={`WhatsApp ${customer?.name ?? 'customer'}`}
+        />
       </p>
       {lastContact && (
         <p className="mt-0.5 text-xs text-slate-500">
@@ -47,6 +53,7 @@ function Contact({ lead }) {
 
 export default function LeadsPage() {
   const seller = useSeller()
+  const account = seller.useAccount()
   const navigate = useNavigate()
   const [filters, setFilters] = useSearchParamsState({ tab: 'abandoned', sort: 'newest' })
   const tab = TABS.some((t) => t.value === filters.tab) ? filters.tab : 'abandoned'
@@ -70,7 +77,7 @@ export default function LeadsPage() {
   const open = (lead) => navigate(`${seller.base}/leads/${lead.userId}`)
 
   const cartColumns = [
-    { key: 'contact', header: 'Contact | Customer name', cell: (l) => <Contact lead={l} /> },
+    { key: 'contact', header: 'Contact | Customer name', cell: (l) => <Contact lead={l} storeName={account?.store?.name} /> },
     { key: 'updated', header: 'Last updated cart on', cell: (l) => <span className="text-slate-600">{formatActivity(l.updatedAt)}</span> },
     {
       key: 'value',
@@ -85,7 +92,7 @@ export default function LeadsPage() {
     },
   ]
   const whatsappColumns = [
-    { key: 'contact', header: 'Contact | Customer name', cell: (l) => <Contact lead={l} /> },
+    { key: 'contact', header: 'Contact | Customer name', cell: (l) => <Contact lead={l} storeName={account?.store?.name} /> },
     {
       key: 'products',
       header: 'Asked about',

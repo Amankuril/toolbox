@@ -14,9 +14,12 @@ import { ConfirmDialog, Dialog } from '@/ui/Dialog'
 import { DescriptionList, PageHeader } from '@/ui/PageHeader'
 import { ActionDialog, RowActions } from '@/ui/RowActions'
 import { SearchField } from '@/ui/SearchField'
+import { useBranding } from '@/core/settings/usePublicSettings'
+import { WhatsAppButton } from '@/modules/shared/whatsapp'
 import { adminApi, adminKeys } from '../api'
 
 export default function CustomersPage() {
+  const { siteName } = useBranding()
   const [filters, setFilters] = useSearchParamsState()
   const [selected, setSelected] = useState(null)
   const [action, setAction] = useState(null)
@@ -73,7 +76,16 @@ export default function CustomersPage() {
                 </div>
               ),
             },
-            { key: 'phone', header: 'Mobile', cell: (u) => formatPhone(u.phone) },
+            {
+              key: 'phone',
+              header: 'Mobile',
+              cell: (u) => (
+                <span className="flex items-center gap-1 whitespace-nowrap">
+                  {formatPhone(u.phone)}
+                  <WhatsAppButton phone={u.phone} text={`Hi ${u.name?.split(' ')[0] ?? ''}, greetings from ${siteName}!`} title={`WhatsApp ${u.name}`} />
+                </span>
+              ),
+            },
             { key: 'type', header: 'Type', cell: (u) => (u.accountType === 'business' ? <Badge tone="info">Business</Badge> : <Badge>Individual</Badge>) },
             { key: 'status', header: 'Status', cell: (u) => <StatusBadge status={u.status} /> },
             { key: 'last', header: 'Last sign-in', cell: (u) => formatDate(u.lastLoginAt) },

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router'
 import { useSearchParamsState } from '@/core/hooks/useSearchParamsState'
 import { useBranding } from '@/core/settings/usePublicSettings'
 import { CreateOrderButton, PaymentLinksButton } from '@/modules/shared/manualOrders'
+import { WhatsAppButton } from '@/modules/shared/whatsapp'
 import { formatDateTime, formatINR, formatNumber } from '@/core/lib/format'
 import { Badge, StatusBadge } from '@/ui/Badge'
 import { Card } from '@/ui/Card'
@@ -35,6 +36,7 @@ function lineSummary(items) {
 
 export default function VendorOrdersPage() {
   const seller = useSeller()
+  const account = seller.useAccount()
   const navigate = useNavigate()
   const { siteName } = useBranding()
   const [filters, setFilters] = useSearchParamsState()
@@ -76,7 +78,25 @@ export default function VendorOrdersPage() {
           columns={[
             { key: 'no', header: 'Order', cell: (o) => <span className="font-medium text-slate-900">{o.orderNumber}</span> },
             { key: 'placed', header: 'Placed', cell: (o) => formatDateTime(o.createdAt) },
-            { key: 'ship', header: 'Ship to', cell: (o) => `${o.shippingAddress.city}, ${o.shippingAddress.state}` },
+            {
+              key: 'ship',
+              header: 'Ship to',
+              cell: (o) => (
+                <div>
+                  <p className="flex items-center gap-1 text-slate-800">
+                    {o.shippingAddress.name}
+                    <WhatsAppButton
+                      phone={o.shippingAddress.phone}
+                      text={`Hi ${o.shippingAddress.name.split(' ')[0]}, this is ${account?.store?.name ?? siteName} about your order ${o.orderNumber}.`}
+                      className="size-6"
+                    />
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {o.shippingAddress.city}, {o.shippingAddress.state}
+                  </p>
+                </div>
+              ),
+            },
             { key: 'items', header: 'Units', className: 'text-right', cell: (o) => <span className="tabular">{formatNumber(o.amounts.itemCount)}</span> },
             { key: 'payment', header: 'Payment', cell: (o) => <Badge>{o.payment.method === 'cod' ? 'COD' : o.payment.method === 'partial' ? 'Part paid' : 'Prepaid'}</Badge> },
             { key: 'status', header: 'Items', cell: (o) => lineSummary(o.items) },
