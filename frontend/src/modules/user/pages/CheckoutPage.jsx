@@ -216,6 +216,7 @@ export default function CheckoutPage() {
   return (
     <div className="mx-auto max-w-7xl px-4 pt-6 pb-28 sm:px-6 lg:pb-10">
       <title>Checkout</title>
+      <meta name="robots" content="noindex" />
       <CheckoutHeader
         back={
           <Link to="/cart" className="mb-3 inline-flex items-center gap-1 text-sm font-semibold text-slate-600 hover:text-slate-900">

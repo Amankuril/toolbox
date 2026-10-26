@@ -7,6 +7,7 @@ import { useStoreAnalytics } from '@/core/analytics/useStoreAnalytics'
 import { useSessionBootstrap } from '@/core/auth/bootstrap'
 import { useSession } from '@/core/auth/session'
 import { formatINR } from '@/core/lib/format'
+import { useServerHeadHandoff } from '@/core/seo/serverHead'
 import { usePublicSettings } from '@/core/settings/usePublicSettings'
 import { Logo } from '@/ui/Brand'
 import { Button } from '@/ui/Button'
@@ -213,6 +214,7 @@ function Footer() {
 export default function StoreLayout() {
   useSessionBootstrap('user')
   useStoreAnalytics()
+  useServerHeadHandoff()
   const { data: settings } = usePublicSettings()
   const siteName = settings?.branding?.siteName ?? 'ToolsHubs'
   const [menuOpen, setMenuOpen] = useState(false)

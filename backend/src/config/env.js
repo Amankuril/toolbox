@@ -151,6 +151,8 @@ const schema = z
 
     LOCAL_UPLOAD_DIR: z.string().optional(),
     LOCAL_UPLOAD_PUBLIC_PATH: z.string().default('/uploads'),
+    // The built storefront (frontend/dist). Its index.html is the template for the pages search engines crawl.
+    FRONTEND_DIST_DIR: z.string().optional(),
     UPLOAD_MAX_FILE_SIZE_MB: z.coerce.number().positive().default(8),
     UPLOAD_MAX_FILES: z.coerce.number().int().positive().default(10),
     // Videos are stored as uploaded (not re-encoded), so they get their own, larger cap.
@@ -226,6 +228,11 @@ if (rawPublicPath && !isFilesystemPath(rawPublicPath)) {
   localUploadPublicPath = '/uploads';
 }
 
+// Must match the folder nginx serves the SPA from (deploy/nginx/toolbox.conf).
+const frontendDistDir = path.resolve(
+  raw.FRONTEND_DIST_DIR?.trim() || (isProduction ? '/var/www/toolbox/frontend' : path.join(backendRoot, '../frontend/dist')),
+);
+
 export const env = Object.freeze({
   ...raw,
   isProduction,
@@ -236,6 +243,8 @@ export const env = Object.freeze({
   CORS_ORIGINS: raw.CORS_ORIGINS.length ? raw.CORS_ORIGINS : ['http://localhost:5173'],
   LOCAL_UPLOAD_DIR: localUploadDir,
   LOCAL_UPLOAD_PUBLIC_PATH: localUploadPublicPath,
+  FRONTEND_DIST_DIR: frontendDistDir,
+  PUBLIC_APP_URL: raw.PUBLIC_APP_URL.replace(/\/+$/, ''),
   cloudinaryConfigured: Boolean(raw.CLOUDINARY_CLOUD_NAME && raw.CLOUDINARY_API_KEY && raw.CLOUDINARY_API_SECRET),
   razorpayConfigured: Boolean(raw.RAZORPAY_KEY_ID && raw.RAZORPAY_KEY_SECRET),
   SHIPMOZO_BASE_URL: raw.SHIPMOZO_BASE_URL.replace(/\/+$/, ''),

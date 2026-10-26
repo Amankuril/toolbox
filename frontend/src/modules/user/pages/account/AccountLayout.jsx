@@ -21,6 +21,7 @@ export default function AccountLayout() {
   const qc = useQueryClient()
   return (
     <div className="mx-auto grid max-w-6xl gap-6 px-4 py-8 sm:px-6 md:grid-cols-[220px_1fr]">
+      <meta name="robots" content="noindex" />
       <aside>
         <div className="mb-4 px-1">
           <p className="font-semibold text-slate-900">{account?.name}</p>

@@ -30,7 +30,16 @@ export default function CategoryPage() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
       {category && <title>{`${category.seo?.title || category.name} | ${siteName}`}</title>}
-      {category?.seo?.description && <meta name="description" content={category.seo.description} />}
+      {category && (
+        <meta
+          name="description"
+          content={
+            category.seo?.description ||
+            category.description ||
+            `Shop ${category.name} online at ${siteName}: compare prices from reviewed sellers, with bulk pricing and quotes.`
+          }
+        />
+      )}
       <ProductListing
         key={slug}
         base={{ category: slug }}

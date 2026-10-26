@@ -45,6 +45,7 @@ npm 12 blocks dependency install scripts by default. `argon2` and `sharp` ship p
 
 - `NODE_ENV=production`
 - `CORS_ORIGINS=https://example.com` (required in production)
+- `PUBLIC_APP_URL=https://example.com`: canonical URLs, the sitemap, robots.txt and social previews are built from it. Leaving the localhost default would point search engines at localhost.
 - Fresh secrets for `JWT_ACCESS_SECRET`, `JWT_ONBOARDING_SECRET`, `OTP_HMAC_SECRET` and `DATA_ENCRYPTION_KEY`. Never reuse development values.
 - **Back up `DATA_ENCRYPTION_KEY`.** Vendor bank account numbers can't be decrypted without it.
 - `SMS_PROVIDER=smsindiahub` with your API key, sender ID, route, DLT `ENTITY_ID`, `OTP_TEMPLATE_ID`, and `SMSINDIAHUB_OTP_TEMPLATE`. The template text must match the DLT-approved template exactly. The server refuses to start in production with the `console` provider.
@@ -77,6 +78,7 @@ The config:
 - serves the SPA, with `index.html` revalidated on every load and hashed assets cached for a year;
 - proxies `/api` to the API, with tighter edge rate limits on OTP and admin login;
 - serves `/uploads` straight from disk, `.webp` only;
+- sends `/`, `/p/…`, `/c/…`, `/store/…`, `/robots.txt` and `/sitemap.xml` to the API, which fills `index.html` in with each page's title, description, canonical URL, structured data and content for search engines (it reads the build from `FRONTEND_DIST_DIR`, default `/var/www/toolbox/frontend`). If the API is down, these pages fall back to the plain SPA;
 - sets HSTS and a CSP that allows Razorpay Checkout and Cloudinary images.
 
 ## 6. Third-party setup

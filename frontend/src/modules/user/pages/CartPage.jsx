@@ -80,6 +80,7 @@ export default function CartPage() {
   return (
     <div className="mx-auto max-w-7xl px-4 pt-6 pb-28 sm:px-6 lg:pb-10">
       <title>{`Your cart | ${siteName}`}</title>
+      <meta name="robots" content="noindex" />
       <CheckoutHeader
         eyebrow="Your cart"
         title="Review your items"
@@ -324,6 +325,7 @@ function EmptyCart({ siteName }) {
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
       <title>{`Your cart | ${siteName}`}</title>
+      <meta name="robots" content="noindex" />
       <div className="flex flex-col items-center rounded-lg border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
         <span className="grid size-16 place-items-center rounded-full bg-slate-100 text-slate-600">
           <ShoppingCart className="size-7" strokeWidth={1.6} />

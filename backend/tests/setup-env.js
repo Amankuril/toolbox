@@ -19,6 +19,8 @@ Object.assign(process.env, {
   SMS_PROVIDER: 'console',
   LOCAL_UPLOAD_DIR: path.join(os.tmpdir(), `toolbox-test-uploads-${runId}`),
   CORS_ORIGINS: 'http://localhost:5173',
+  PUBLIC_APP_URL: 'https://shop.example.com',
+  FRONTEND_DIST_DIR: path.join(import.meta.dirname, 'fixtures/storefront'),
   // Lets the admin toggle be switched on; tests swap in a fake provider so nothing hits the network.
   RAZORPAY_KEY_ID: 'rzp_test_key',
   RAZORPAY_KEY_SECRET: 'rzp_test_secret',

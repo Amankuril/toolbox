@@ -11,6 +11,7 @@ import { errorHandler, notFoundHandler } from '#core/errors/errorHandler.js';
 import { rateLimit } from '#core/middlewares/rateLimit.js';
 import { requestLogger } from '#core/middlewares/requestLogger.js';
 import { webhookRoutes } from '#modules/orders/order.routes.js';
+import { seoRoutes } from '#modules/seo/seo.routes.js';
 import { buildRoutes } from './routes/index.js';
 
 export function createApp() {
@@ -21,6 +22,9 @@ export function createApp() {
   app.set('trust proxy', env.TRUST_PROXY);
 
   app.use(requestLogger);
+  // HTML for crawlers: mounted before helmet, whose API-only CSP would block the page's own scripts.
+  // nginx adds the storefront's security headers to these responses instead.
+  app.use(seoRoutes);
   app.use(
     helmet({
       // JSON API: no HTML rendered here, so a locked-down CSP costs nothing.

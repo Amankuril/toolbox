@@ -67,6 +67,7 @@ export default function UserOnboardingPage() {
   return (
     <div className="mx-auto max-w-lg px-4 py-12">
       <title>Create your account</title>
+      <meta name="robots" content="noindex" />
       <Card className="p-6 sm:p-8">
         <h1 className="text-2xl font-bold text-slate-900">Welcome! Let&apos;s set up your account</h1>
         <p className="mt-1 text-sm text-slate-500">{state.phone ? formatPhone(state.phone) : state.email} is verified.</p>

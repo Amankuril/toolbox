@@ -209,6 +209,7 @@ export default function HomePage() {
   return (
     <>
       <title>{`${siteName} — Tools for a Greener Tomorrow`}</title>
+      <meta name="description" content="Buy tools, machinery and spare parts from reviewed sellers across India, with bulk pricing and quotes for business buyers." />
 
       <div className="mx-auto max-w-7xl px-4 pt-5 sm:px-6">
         {bannersLoading || treeLoading ? (

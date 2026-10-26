@@ -31,6 +31,9 @@ export default function StorePage() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
       {store && <title>{`${store.store.name} | ${siteName}`}</title>}
+      {store && (
+        <meta name="description" content={store.store.description || `Shop tools, machinery and spare parts from ${store.store.name} on ${siteName}.`} />
+      )}
       <div className="mb-10 border-b border-slate-200 pb-8">
         {isLoading ? (
           <Skeleton className="h-16" />

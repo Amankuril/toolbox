@@ -17,6 +17,7 @@ export default function WishlistPage() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
       <title>{`Wishlist | ${siteName}`}</title>
+      <meta name="robots" content="noindex" />
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
           <p className="eyebrow">Saved for later</p>
