@@ -245,7 +245,7 @@ export default function VendorProductsPage() {
                       items={[
                         { label: 'Edit', icon: Pencil, onSelect: () => navigate(`${seller.base}/products/${p._id}`) },
                         p.status === 'active' &&
-                          p.vendorApproved && { label: 'Share link', icon: Share2, onSelect: () => share(productShareItem(p, siteName)) },
+                          p.vendorApproved && { label: 'Share product', icon: Share2, onSelect: () => share(productShareItem(p, siteName)) },
                         approved && { label: 'Clone', icon: Copy, onSelect: () => navigate(`${seller.base}/products/new?clone=${p._id}`) },
                         // Variant products are priced per variant in the editor.
                         approved && !p.variants?.length && { label: 'Update price & stock', icon: IndianRupee, onSelect: () => setQuickEdit(p) },

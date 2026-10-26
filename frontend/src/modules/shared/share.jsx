@@ -2,6 +2,7 @@ import { Check, Copy, Mail, MessageCircle, Send, Share2 } from 'lucide-react'
 import { useCallback, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { cn } from '@/core/lib/cn'
+import { formatINR } from '@/core/lib/format'
 import { Button } from '@/ui/Button'
 import { Dialog } from '@/ui/Dialog'
 
@@ -9,6 +10,29 @@ import { Dialog } from '@/ui/Dialog'
 export const productLink = (slug) => `${window.location.origin}/p/${slug}`
 
 const canNativeShare = () => typeof navigator !== 'undefined' && typeof navigator.share === 'function'
+
+/** The item's photo as a file, for share sheets that can attach it (most phones). Null when that isn't possible. */
+async function photoFile(item) {
+  if (!item.image || typeof navigator.canShare !== 'function') return null
+  try {
+    const res = await fetch(item.image, { credentials: 'omit' })
+    if (!res.ok) return null
+    const blob = await res.blob()
+    const ext = (blob.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg')
+    const file = new File([blob], `${(item.title || 'product').replace(/[^\w-]+/g, '-').slice(0, 40)}.${ext}`, { type: blob.type })
+    return navigator.canShare({ files: [file] }) ? file : null
+  } catch {
+    return null
+  }
+}
+
+/** Opens the system share sheet, with the photo attached when the device allows it. */
+async function nativeShare(item) {
+  const file = await photoFile(item)
+  // Apps that take a file usually drop `url`, so the link goes inside the text.
+  if (file) return navigator.share({ files: [file], title: item.title, text: `${item.text}\n${item.url}` })
+  return navigator.share({ title: item.title, text: item.text, url: item.url })
+}
 // Phones and tablets get the system share sheet straight away; desktops get the dialog (their sheets are thin).
 const prefersNativeShare = () => canNativeShare() && window.matchMedia?.('(pointer: coarse)').matches
 
@@ -83,7 +107,7 @@ export function ShareDialog({ open, onOpenChange, item, onShare }) {
   }
   const more = async () => {
     try {
-      await navigator.share({ title: item.title, text: item.text, url: item.url })
+      await nativeShare(item)
       onShare?.('native')
       onOpenChange(false)
     } catch {
@@ -92,7 +116,13 @@ export function ShareDialog({ open, onOpenChange, item, onShare }) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} size="sm" title="Share" description={item.title}>
+    <Dialog open={open} onOpenChange={onOpenChange} size="sm" title="Share" description={item.image ? undefined : item.title}>
+      {item.image && (
+        <div className="mb-4 flex gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+          <img src={item.image} alt="" className="size-20 shrink-0 rounded-md border border-slate-200 bg-white object-contain" />
+          <p className="line-clamp-6 min-w-0 text-xs leading-relaxed whitespace-pre-line text-slate-700">{item.text.replace(/\*/g, '')}</p>
+        </div>
+      )}
       <div className="flex gap-2">
         <input
           readOnly
@@ -129,11 +159,26 @@ export function ShareDialog({ open, onOpenChange, item, onShare }) {
           </li>
         ))}
       </ul>
-      {canNativeShare() && (
-        <Button variant="ghost" size="sm" className="mt-4 w-full" onClick={more}>
-          <Share2 /> More options
-        </Button>
-      )}
+      <div className="mt-4 flex flex-wrap gap-2">
+        {item.text && item.text !== item.title && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="flex-1"
+            onClick={async () => {
+              if (await copyText(`${item.text}\n${item.url}`)) toast.success('Message copied: paste it anywhere')
+              onShare?.('copy_message')
+            }}
+          >
+            <Copy /> Copy message
+          </Button>
+        )}
+        {canNativeShare() && (
+          <Button variant="ghost" size="sm" className="flex-1" onClick={more}>
+            <Share2 /> {item.image ? 'Share with photo' : 'More options'}
+          </Button>
+        )}
+      </div>
     </Dialog>
   )
 }
@@ -151,7 +196,7 @@ export function useShare({ onShare } = {}) {
       const full = { text: next.title, ...next }
       if (prefersNativeShare()) {
         try {
-          await navigator.share({ title: full.title, text: full.text, url: full.url })
+          await nativeShare(full)
           onShare?.('native')
           return
         } catch (err) {
@@ -169,12 +214,31 @@ export function useShare({ onShare } = {}) {
   return { share, dialog }
 }
 
-/** Ready-made share item for a storefront product. */
-export const productShareItem = (product, siteName) => ({
-  title: product.name,
-  url: productLink(product.slug),
-  text: siteName ? `${product.name} on ${siteName}` : product.name,
-})
+/**
+ * Ready-made share item for a product, from any panel or the storefront (their product shapes differ):
+ * name, price and discount, a short description and key specs, then the link. WhatsApp shows the
+ * product photo from the link's preview; share sheets that take files get the photo attached too.
+ */
+export function productShareItem(product, siteName) {
+  const price = product.price ?? product.pricing?.price
+  const mrp = product.mrp ?? product.pricing?.mrp
+  const off = mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 0
+  const specs = product.highlights ?? product.specifications ?? []
+  const image = product.image?.url ?? product.images?.[0]?.url
+  const lines = [
+    `*${product.name}*`,
+    price != null && `Price: ${formatINR(price)}${off ? ` (MRP ${formatINR(mrp)}, ${off}% off)` : ''}`,
+    product.shortDescription,
+    ...specs.slice(0, 3).map((s) => `• ${s.label}: ${s.value}`),
+    siteName ? `Buy now on ${siteName}:` : 'Buy now:',
+  ].filter(Boolean)
+  return {
+    title: product.name,
+    url: productLink(product.slug),
+    text: lines.join('\n'),
+    image: image ? new URL(image, window.location.origin).href : undefined,
+  }
+}
 
 /** Icon/labelled share button for one product (or any item). */
 export function ShareButton({ item, onShare, variant = 'outline', size = 'md', label = 'Share', iconOnly = false, className }) {

@@ -174,7 +174,7 @@ export default function ProductsPage() {
                     can('store', 'manage') && { label: 'Clone to our store', icon: Copy, onSelect: () => navigate(`/admin/store/products/new?clone=${p._id}`) },
                     p.status === 'active' &&
                       p.vendorApproved && { label: 'View on store', icon: ExternalLink, onSelect: () => window.open(`/p/${p.slug}`, '_blank', 'noopener') },
-                    p.status === 'active' && p.vendorApproved && { label: 'Share link', icon: Share2, onSelect: () => share(productShareItem(p, siteName)) },
+                    p.status === 'active' && p.vendorApproved && { label: 'Share product', icon: Share2, onSelect: () => share(productShareItem(p, siteName)) },
                     ['pending', 'rejected'].includes(p.status) && 'separator',
                     ['pending', 'rejected'].includes(p.status) && { label: 'Approve', icon: Check, onSelect: () => setAction({ type: 'approve', row: p }) },
                     p.status === 'pending' && { label: 'Reject', icon: MessageSquareWarning, onSelect: () => setAction({ type: 'reject', row: p }) },
