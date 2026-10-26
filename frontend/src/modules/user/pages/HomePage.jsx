@@ -85,15 +85,21 @@ function BulkCallout() {
   )
 }
 
-/** No hero banners yet: the same editorial panel, with department photos as the plate. */
+/** No hero banners yet: the same full-width banner, over a department photo. */
 function FallbackHero({ siteName, tagline, tree }) {
-  const tiles = tree.filter((d) => d.image?.url).slice(0, 4)
+  const photo = tree.find((d) => d.image?.url)?.image.url
   return (
-    <section className="grid gap-4 lg:min-h-[400px] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.08fr)]">
-      <div className="flex flex-col justify-between gap-8 rounded-md bg-secondary p-7 text-secondary-fg sm:p-10 lg:p-11">
-        <div className="flex flex-col gap-4">
+    <section className="relative isolate overflow-hidden rounded-md bg-secondary text-secondary-fg">
+      {photo && (
+        <>
+          <Thumb src={photo} alt="" fit="cover" className="absolute inset-0 -z-10 size-full" />
+          <div aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-r from-secondary via-secondary/85 to-secondary/30" />
+        </>
+      )}
+      <div className="flex min-h-[340px] flex-col justify-between gap-8 p-7 sm:min-h-[380px] sm:p-10 lg:h-[400px] lg:p-11">
+        <div className="flex max-w-xl flex-col gap-4">
           <span className="code text-xs tracking-widest text-accent uppercase">{siteName}</span>
-          <h1 className="font-display text-[2.4rem] leading-[0.98] font-extrabold tracking-[-0.03em] [font-stretch:110%] sm:text-[3.1rem] lg:text-[3.4rem]">
+          <h1 className="font-display text-[2.2rem] leading-[0.98] font-extrabold tracking-[-0.03em] [font-stretch:110%] sm:text-[3.1rem] lg:text-[3.4rem]">
             Tools, machinery and spare parts from reviewed sellers.
           </h1>
           {tagline && <p className="max-w-md text-[1.0625rem] leading-relaxed text-secondary-fg/75">{tagline}</p>}
@@ -106,14 +112,6 @@ function FallbackHero({ siteName, tagline, tree }) {
             Bulk &amp; quotes
           </Link>
         </div>
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        {(tiles.length ? tiles : tree.slice(0, 4)).map((d) => (
-          <Link key={d._id} to={`/c/${d.slug}`} className="group relative overflow-hidden rounded-md bg-slate-100">
-            <Thumb src={d.image?.url} alt="" fit="cover" className="aspect-square size-full transition-transform duration-500 group-hover:scale-[1.03]" />
-            <span className="absolute inset-x-3 bottom-3 rounded-sm bg-white px-2.5 py-1.5 text-sm font-bold text-slate-900">{d.name}</span>
-          </Link>
-        ))}
       </div>
     </section>
   )

@@ -17,7 +17,7 @@ import { PageHeader } from '@/ui/PageHeader'
 import { adminApi, adminKeys } from '../api'
 
 const PLACEMENTS = [
-  { value: 'home_hero', label: 'Home — hero carousel', hint: 'Wide banner at the top of the home page. 1600×500 recommended.' },
+  { value: 'home_hero', label: 'Home — hero carousel', hint: 'Full-width banner at the top of the home page; the title and button sit over its left side. 1920×600 recommended.' },
   { value: 'home_offer', label: 'Home — offer tiles', hint: 'Shown as a row of tiles below categories. 800×400 recommended.' },
   { value: 'home_strip', label: 'Home — promo strip', hint: 'Full-width strip between product rails. 1600×240 recommended.' },
 ]
