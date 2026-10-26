@@ -15,6 +15,9 @@ const addressOf = (a) => ({
   pincode: a.pincode,
 });
 
+// The house store's phone is a placeholder until an admin sets one: never show that to buyers.
+const realPhone = (phone) => (/^\+\d{10,15}$/.test(phone ?? '') ? phone : null);
+
 /** Every place a buyer can collect from this seller, main address first. Empty when pickup is off. */
 export function pickupPoints(vendor, { includeInactive = false } = {}) {
   if (!vendor?.pickup?.enabled) return [];
@@ -23,7 +26,7 @@ export function pickupPoints(vendor, { includeInactive = false } = {}) {
     points.push({
       _id: MAIN_POINT,
       name: vendor.store?.name ?? 'Main store',
-      phone: vendor.store?.whatsapp ?? vendor.phone,
+      phone: realPhone(vendor.store?.whatsapp) ?? realPhone(vendor.phone),
       ...addressOf(vendor.address),
       hours: vendor.pickup.hours ?? null,
       main: true,
@@ -34,7 +37,7 @@ export function pickupPoints(vendor, { includeInactive = false } = {}) {
     points.push({
       _id: String(w._id),
       name: w.name,
-      phone: w.phone ?? vendor.phone,
+      phone: realPhone(w.phone) ?? realPhone(vendor.phone),
       ...addressOf(w),
       lat: w.lat ?? null,
       lng: w.lng ?? null,
