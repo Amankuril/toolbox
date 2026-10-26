@@ -7,11 +7,12 @@ import { userApi } from './api'
  * Returns { status: 'paid' | 'verifying' | 'dismissed' | 'failed', error?: string }.
  * Protects against duplicate payments when network fails after gateway capture.
  */
-export async function payForOrder({ order, payment, siteName }) {
+export async function payForOrder({ order, payment, siteName, method }) {
   let result
   try {
     result = await openRazorpayCheckout({
-      payment,
+      // `method` opens the gateway on that tab (e.g. 'emi'); the buyer can still switch.
+      payment: method ? { ...payment, prefill: { ...payment.prefill, method } } : payment,
       name: siteName,
       description: `Order ${order.orderNumber}`,
       color: getComputedStyle(document.documentElement).getPropertyValue('--tb-primary').trim() || undefined,

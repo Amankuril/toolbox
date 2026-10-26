@@ -121,7 +121,7 @@ function Footer() {
   const { data: tree = [] } = useCategoryTree()
   const { data: pages = [] } = useQuery({ queryKey: storeKeys.pages, queryFn: storeApi.pages, staleTime: 10 * 60_000 })
   const payments = settings?.payments
-  const payWith = [payments?.razorpayEnabled && 'UPI, cards & net banking', payments?.codEnabled && 'Cash on delivery'].filter(Boolean)
+  const payWith = [payments?.razorpayEnabled && 'UPI, cards & net banking', payments?.emiEnabled && 'EMI', payments?.codEnabled && 'Cash on delivery'].filter(Boolean)
 
   const col = 'flex flex-col gap-2.5 text-sm text-secondary-fg/70'
   const head = 'code mb-4 text-xs tracking-[0.12em] text-accent uppercase'
@@ -182,6 +182,13 @@ function Footer() {
                 Business account
               </Link>
             </li>
+            {payments?.emiEnabled && (
+              <li>
+                <Link to="/emi-calculator" className="hover:text-secondary-fg">
+                  EMI calculator
+                </Link>
+              </li>
+            )}
           </ul>
         </div>
         <div>

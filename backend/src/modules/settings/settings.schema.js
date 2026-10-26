@@ -71,6 +71,17 @@ export const SETTINGS = {
       partialMinOrderValue: z.number().int().min(0),
       /** Most the courier may collect on delivery (paise). 0 = no limit. */
       partialMaxBalance: z.number().int().min(0),
+      /** EMI through Razorpay (card and cardless EMI must be on in the Razorpay dashboard too). */
+      emiEnabled: z.boolean(),
+      /** Smallest order offered EMI, in paise (banks usually start at ₹3,000). */
+      emiMinOrderValue: z.number().int().min(0),
+      /** For the EMI calculator: typical yearly bank interest per tenure. Banks set the real rate at payment. */
+      emiPlans: z
+        .array(z.object({ months: z.number().int().min(2).max(60), rate: z.number().min(0).max(60) }))
+        .max(12)
+        .refine((plans) => new Set(plans.map((p) => p.months)).size === plans.length, 'Each tenure once'),
+      /** Tenures shown as no-cost EMI (the seller or bank absorbs the interest). */
+      noCostMonths: z.array(z.number().int().min(2).max(60)).max(6),
     }),
     defaults: {
       razorpayEnabled: false,
@@ -80,6 +91,17 @@ export const SETTINGS = {
       partialAdvancePercent: 20,
       partialMinOrderValue: 0,
       partialMaxBalance: 0,
+      emiEnabled: false,
+      emiMinOrderValue: 300_000,
+      emiPlans: [
+        { months: 3, rate: 15 },
+        { months: 6, rate: 15 },
+        { months: 9, rate: 16 },
+        { months: 12, rate: 16 },
+        { months: 18, rate: 16 },
+        { months: 24, rate: 16 },
+      ],
+      noCostMonths: [],
     },
   },
 

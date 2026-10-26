@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   Banknote,
   Building2,
+  CalendarClock,
   Check,
   CreditCard,
   Home,
@@ -34,6 +35,8 @@ import { storeKeys, userApi } from '../api'
 import { useCart } from '../cart/useCart'
 import { dispatchOf, groupBySeller } from '../cart/groups'
 import { PickupChooser, useBuyerLocation, usePickupPoints } from '../components/PickupChooser'
+import { EmiTable } from '../components/EmiCalculator'
+import { lowestEmi } from '@/core/lib/emi'
 import { AddressDialog } from '../components/AddressDialog'
 import { CartSummary } from '../components/CartSummary'
 import { CheckoutHeader, CheckoutSteps, MobileCheckoutBar, TrustRow } from '../components/checkoutKit'
@@ -171,7 +174,8 @@ export default function CheckoutPage() {
     mutationFn: () =>
       userApi.checkout({
         addressId: chosenAddress,
-        paymentMethod: chosenMethod,
+        // EMI is an online payment; the gateway just opens on its EMI tab.
+        paymentMethod: chosenMethod === 'emi' ? 'razorpay' : chosenMethod,
         notes: notes.trim() || undefined,
         idempotencyKey: idempotencyKeyRef.current,
         ...(pickups.length ? { pickups: pickups.map(([vendor, point]) => ({ vendor, point })) } : {}),
@@ -185,7 +189,7 @@ export default function CheckoutPage() {
         return
       }
       setPaying(true)
-      const payResult = await payForOrder({ order, payment, siteName: settings.branding.siteName })
+      const payResult = await payForOrder({ order, payment, siteName: settings.branding.siteName, method: chosenMethod === 'emi' ? 'emi' : undefined })
       setPaying(false)
       qc.invalidateQueries({ queryKey: storeKeys.cart })
       const queryParam = payResult.status === 'paid' ? '?placed=1' : payResult.status === 'verifying' ? '?verifying=1' : ''
@@ -215,11 +219,12 @@ export default function CheckoutPage() {
   }
 
   const canPlace = chosenAddress && chosenMethod && !cart.hasIssues && !cart.coupon?.issue && !gstError
-  const dueNow = chosenMethod === 'razorpay' ? total : chosenMethod === 'partial' && split ? split.advance : 0
+  const dueNow = ['razorpay', 'emi'].includes(chosenMethod) ? total : chosenMethod === 'partial' && split ? split.advance : 0
   const dueLater = total - dueNow
   const cta =
-    chosenMethod === 'razorpay' ? `Pay ${formatINR(total)}` : chosenMethod === 'partial' && split ? `Pay ${formatINR(split.advance)} now` : 'Place order'
-  const methodLabel = { razorpay: 'Pay online', partial: 'Part payment', cod: 'Cash on delivery' }[chosenMethod]
+    chosenMethod === 'razorpay' ? `Pay ${formatINR(total)}` : chosenMethod === 'emi' ? `Pay ${formatINR(total)} with EMI` : chosenMethod === 'partial' && split ? `Pay ${formatINR(split.advance)} now` : 'Place order'
+  const methodLabel = { razorpay: 'Pay online', emi: 'EMI', partial: 'Part payment', cod: 'Cash on delivery' }[chosenMethod]
+  const emiFrom = lowestEmi(total, payments)
   const busy = place.isPending || paying
   const placeButton = (props) => (
     <Button size="lg" variant="accent" disabled={!canPlace} loading={busy} onClick={() => place.mutate()} {...props}>
@@ -357,6 +362,27 @@ export default function CheckoutPage() {
                           </span>
                         ))}
                       </span>
+                    </span>
+                  </span>
+                </Tile>
+              )}
+              {emiFrom && (
+                <Tile selected={chosenMethod === 'emi'} onSelect={() => setMethod('emi')}>
+                  <span className="flex items-start gap-3">
+                    <MethodIcon icon={CalendarClock} selected={chosenMethod === 'emi'} />
+                    <span className="min-w-0 flex-1">
+                      <span className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-bold text-slate-900">Pay with EMI</span>
+                        <span className="text-sm text-slate-700">
+                          from <span className="price text-lg text-slate-900">{formatINR(emiFrom.monthly, { whole: true })}</span>/month
+                        </span>
+                      </span>
+                      <span className="mt-0.5 block text-sm text-slate-600">Credit card, debit card or cardless EMI. Choose your bank and tenure in the payment window.</span>
+                      {chosenMethod === 'emi' && (
+                        <span className="mt-3 block">
+                          <EmiTable amount={total} payments={payments} />
+                        </span>
+                      )}
                     </span>
                   </span>
                 </Tile>

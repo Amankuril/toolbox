@@ -494,7 +494,95 @@ function PaymentSettings({ payments, integrations }) {
         </CardBody>
       </Card>
       <PartialPaymentSettings payments={payments} razorpayReady={rz.configured} />
+      <EmiSettings payments={payments} razorpayReady={rz.configured} />
     </div>
+  )
+}
+
+/** EMI at checkout through Razorpay, and the rates the storefront's EMI calculator shows. */
+function EmiSettings({ payments, razorpayReady }) {
+  const save = useSaveSettings('payments', 'EMI settings saved')
+  const [min, setMin] = useState(payments.emiMinOrderValue || undefined)
+  const [plans, setPlans] = useState(payments.emiPlans)
+  const [noCost, setNoCost] = useState(new Set(payments.noCostMonths))
+  const setPlan = (k, patch) => setPlans((list) => list.map((p, i) => (i === k ? { ...p, ...patch } : p)))
+  const valid = plans.every((p) => p.months >= 2 && p.months <= 60 && p.rate >= 0 && p.rate <= 60) && new Set(plans.map((p) => p.months)).size === plans.length
+  return (
+    <Card>
+      <CardHeader title="EMI" description="Let buyers pay in monthly instalments with credit cards, debit cards or cardless EMI. Product pages show “EMI from ₹X/month” and a calculator." />
+      <CardBody className="flex flex-col gap-5">
+        <Switch
+          checked={payments.emiEnabled}
+          disabled={!razorpayReady || save.isPending}
+          onCheckedChange={(emiEnabled) => save.mutate({ emiEnabled })}
+          label="Offer EMI"
+          description={
+            razorpayReady
+              ? 'Turn on EMI (and Cardless EMI) in your Razorpay dashboard under Payment methods too: Razorpay decides which banks are offered.'
+              : 'Add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET on the server to enable.'
+          }
+        />
+        {payments.emiEnabled && (
+          <>
+            <Field label="Only on orders from" hint="Banks usually start card EMI at ₹3,000">
+              {(p) => <PriceInput {...p} value={min} onChange={setMin} placeholder="Any amount" />}
+            </Field>
+            <div>
+              <p className="mb-2 text-sm font-semibold text-slate-900">Calculator rates</p>
+              <p className="mb-3 text-xs text-slate-500">Typical yearly interest per tenure, for the calculator only. The buyer's bank sets the real rate when they pay. Tick “No-cost” where you or the bank cover the interest.</p>
+              <div className="space-y-2">
+                {plans.map((p, k) => (
+                  <div key={k} className="flex flex-wrap items-center gap-3">
+                    <Input type="number" min={2} max={60} value={p.months} onChange={(e) => setPlan(k, { months: Number(e.target.value) })} suffix="months" className="w-36" aria-label="Months" />
+                    <Input type="number" min={0} max={60} step="0.5" value={p.rate} onChange={(e) => setPlan(k, { rate: Number(e.target.value) })} suffix="% p.a." className="w-36" aria-label="Yearly interest" />
+                    <label className="flex items-center gap-1.5 text-sm text-slate-700">
+                      <input
+                        type="checkbox"
+                        className="size-4 accent-[var(--tb-primary)]"
+                        checked={noCost.has(p.months)}
+                        onChange={(e) =>
+                          setNoCost((set) => {
+                            const next = new Set(set)
+                            if (e.target.checked) next.add(p.months)
+                            else next.delete(p.months)
+                            return next
+                          })
+                        }
+                      />
+                      No-cost
+                    </label>
+                    <Button variant="ghost" size="sm" onClick={() => setPlans((list) => list.filter((_, i) => i !== k))}>
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              {plans.length < 12 && (
+                <Button variant="outline" size="sm" className="mt-2" onClick={() => setPlans((list) => [...list, { months: (list.at(-1)?.months ?? 0) + 3, rate: 16 }])}>
+                  Add tenure
+                </Button>
+              )}
+            </div>
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                loading={save.isPending}
+                disabled={!valid}
+                onClick={() =>
+                  save.mutate({
+                    emiMinOrderValue: min ?? 0,
+                    emiPlans: plans,
+                    noCostMonths: [...noCost].filter((m) => plans.some((p) => p.months === m)).slice(0, 6),
+                  })
+                }
+              >
+                Save EMI
+              </Button>
+            </div>
+          </>
+        )}
+      </CardBody>
+    </Card>
   )
 }
 

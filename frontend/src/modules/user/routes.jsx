@@ -19,6 +19,7 @@ export const userRoutes = {
         { path: 'compare', ...page(() => import('./pages/ComparePage')) },
         { path: 'pay/:token', ...page(() => import('./pages/PayLinkPage')) },
         { path: 'pages/:slug', ...page(() => import('./pages/ContentPage')) },
+        { path: 'emi-calculator', ...page(() => import('./pages/EmiCalculatorPage')) },
         { path: 'login', ...page(() => import('./pages/LoginPage')) },
         { path: 'onboarding', ...page(() => import('./pages/OnboardingPage')) },
         {

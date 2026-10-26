@@ -49,6 +49,9 @@ function assertIntegrationsConfigured(key, value) {
       code: 'INTEGRATION_NOT_CONFIGURED',
     });
   }
+  if (key === 'payments' && value.emiEnabled && !env.razorpayConfigured) {
+    throw ApiError.unprocessable('EMI is paid through Razorpay. Add the RAZORPAY_* variables first.', { code: 'INTEGRATION_NOT_CONFIGURED' });
+  }
   if (key === 'shipping' && value.shipmozoEnabled && !env.shipmozoConfigured) {
     throw ApiError.unprocessable('Shipmozo is not configured on the server. Add the SHIPMOZO_* variables first.', {
       code: 'INTEGRATION_NOT_CONFIGURED',
@@ -104,6 +107,11 @@ export const settingsService = {
         partialAdvancePercent: values.payments.partialAdvancePercent,
         partialMinOrderValue: values.payments.partialMinOrderValue,
         partialMaxBalance: values.payments.partialMaxBalance,
+        // EMI is paid through the gateway.
+        emiEnabled: razorpayEnabled && values.payments.emiEnabled,
+        emiMinOrderValue: values.payments.emiMinOrderValue,
+        emiPlans: values.payments.emiPlans,
+        noCostMonths: values.payments.noCostMonths,
       },
       shipping: { flatFee: values.shipping.flatFee, freeAbove: values.shipping.freeAbove },
       analytics: { gaMeasurementId: values.analytics.gaMeasurementId || null },
