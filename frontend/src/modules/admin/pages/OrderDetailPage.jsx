@@ -15,6 +15,7 @@ import {
   OrderProgress,
   PaymentCard,
   SellerItems,
+  PickupCard,
   ShipToCard,
 } from '@/modules/shared/orderDetail'
 import { ItemStatusActions, OrderItemRow } from '@/modules/shared/orders'
@@ -116,7 +117,14 @@ export default function OrderDetailPage() {
                 <OrderItemRow
                   key={item._id}
                   item={item}
-                  actions={<ItemStatusActions item={item} onUpdate={updateItem(item._id)} disabled={o.status === 'pending_payment'} />}
+                  actions={
+                    <ItemStatusActions
+                      item={item}
+                      onUpdate={updateItem(item._id)}
+                      disabled={o.status === 'pending_payment'}
+                      pickup={o.pickups?.some((p) => String(p.vendor) === String(item.vendor?._id ?? item.vendor))}
+                    />
+                  }
                 />
               ))}
             </SellerItems>
@@ -149,6 +157,7 @@ export default function OrderDetailPage() {
             }
           />
           <CustomerCard user={o.user} billing={o.billing} />
+          <PickupCard pickups={o.pickups} sellers={Object.fromEntries(o.items.map((i) => [String(i.vendor?._id ?? i.vendor), i.vendor?.store?.name]))} />
           <ShipToCard address={o.shippingAddress} />
         </aside>
       </div>

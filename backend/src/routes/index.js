@@ -21,6 +21,7 @@ import { dashboardService } from '#modules/dashboard/dashboard.service.js';
 import { adminMediaRouter, mediaUploadRouter } from '#modules/media/media.routes.js';
 import { manualOrderRoutes, publicPayRoutes } from '#modules/orders/manual.routes.js';
 import { adminPageRoutes, publicPageRoutes } from '#modules/pages/page.routes.js';
+import { publicPickupRoutes, sellerPickupRoutes } from '#modules/pickup/pickup.routes.js';
 import { adminOrderRoutes, userOrderRoutes, vendorOrderRoutes } from '#modules/orders/order.routes.js';
 import { adminProductImportRoutes, vendorProductImportRoutes } from '#modules/products/imports/import.routes.js';
 import { adminProductRoutes, publicProductRoutes, vendorProductRoutes } from '#modules/products/product.routes.js';
@@ -62,6 +63,7 @@ export function buildRoutes() {
     .use('/shipping', publicShippingRoutes)
     .use('/pay', publicPayRoutes)
     .use('/pages', publicPageRoutes)
+    .use('/pickup-points', publicPickupRoutes)
     .get(
       '/pincodes/:pincode',
       rateLimit({ keyPrefix: 'pincode', points: 30, duration: 60 }),
@@ -99,6 +101,7 @@ export function buildRoutes() {
     .use('/product-imports', vendorProductImportRoutes)
     .use('/orders', vendorOrderRoutes)
     .use('/manual-orders', sellerManualOrders)
+    .use('/pickup', sellerPickupRoutes)
     .use('/quotes', vendorQuoteRoutes)
     .use('/coupons', vendorCouponRoutes)
     .use('/leads', vendorLeadRoutes)
@@ -114,6 +117,7 @@ export function buildRoutes() {
     .use('/product-imports', vendorProductImportRoutes)
     .use('/orders', vendorOrderRoutes)
     .use('/manual-orders', sellerManualOrders)
+    .use('/pickup', sellerPickupRoutes)
     .use('/quotes', vendorQuoteRoutes)
     .use('/coupons', vendorCouponRoutes)
     .use('/leads', vendorLeadRoutes)

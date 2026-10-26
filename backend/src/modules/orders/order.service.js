@@ -9,6 +9,7 @@ import { escapeRegex } from '#core/utils/strings.js';
 import { cartService } from '#modules/cart/cart.service.js';
 import { couponService } from '#modules/coupons/coupon.service.js';
 import { invoiceService } from '#modules/invoices/invoice.service.js';
+import { pickupService } from '#modules/pickup/pickup.service.js';
 import { Product } from '#modules/products/product.model.js';
 import { VISIBLE } from '#modules/products/product.service.js';
 import { quoteLifecycle } from '#modules/quotes/quote.lifecycle.js';
@@ -219,7 +220,7 @@ export const orderService = {
     });
   },
 
-  async placeOrder(user, { addressId, paymentMethod, notes, gstin, businessName, idempotencyKey }) {
+  async placeOrder(user, { addressId, paymentMethod, notes, gstin, businessName, idempotencyKey, pickups: pickupChoices }) {
     if (idempotencyKey) {
       const existing = await Order.findOne({ user: user._id, idempotencyKey });
       if (existing) {
@@ -248,9 +249,19 @@ export const orderService = {
     }
 
     const address = await userService.address(user._id, addressId);
-    await shippingQuotes.assertCheckoutServiceable([...new Set(cart.items.map((i) => String(i._product.vendor)))], address.pincode);
+    const cartVendors = [...new Set(cart.items.map((i) => String(i._product.vendor)))];
+    const pickups = await pickupService.resolve(pickupChoices, cartVendors);
+    if (pickups.size && paymentMethod === 'partial') {
+      throw ApiError.unprocessable('Part payment is for delivered orders. Pay online or at pickup instead.', { code: 'PARTIAL_WITH_PICKUP' });
+    }
+    await shippingQuotes.assertCheckoutServiceable(
+      cartVendors.filter((v) => !pickups.has(v)),
+      address.pincode,
+    );
     const payments = await settingsService.get('payments');
-    const { total } = cart.summary;
+    // Nothing to deliver when every seller is collected from.
+    const shipping = cartVendors.every((v) => pickups.has(v)) ? 0 : cart.summary.shipping;
+    const total = cart.summary.total - cart.summary.shipping + shipping;
 
     let provider = null;
     let split = null;
@@ -340,10 +351,11 @@ export const orderService = {
           gstin: gstin ?? user.business?.gstin,
         },
         notes,
+        pickups: [...pickups].map(([vendor, { pointId, ...point }]) => ({ vendor, pointId, ...point })),
         amounts: {
           subtotal: cart.summary.subtotal,
           tax: cart.summary.tax,
-          shipping: cart.summary.shipping,
+          shipping,
           discount: cart.summary.discount,
           total,
           ...split,
@@ -493,7 +505,10 @@ export const orderService = {
 
     const changingStatus = status && status !== item.status;
     if (changingStatus) {
-      if (!ITEM_TRANSITIONS[item.status].includes(status)) {
+      // Collected in person: there's no courier leg, so a confirmed or packed item can go straight to delivered.
+      const pickedUp = order.pickups?.some((p) => String(p.vendor) === String(item.vendor));
+      const allowed = pickedUp && ['confirmed', 'packed'].includes(item.status) ? [...ITEM_TRANSITIONS[item.status], 'delivered'] : ITEM_TRANSITIONS[item.status];
+      if (!allowed.includes(status)) {
         throw ApiError.conflict(`An item that is ${item.status} cannot be marked ${status}`, { code: 'INVALID_TRANSITION' });
       }
       if (actor.kind === 'user' && (status !== 'cancelled' || !['pending', 'confirmed'].includes(item.status))) {

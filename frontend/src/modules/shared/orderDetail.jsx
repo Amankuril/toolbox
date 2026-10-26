@@ -153,11 +153,13 @@ export function OrderFacts({ order: o, total, label = 'Order total' }) {
       label: 'Payment',
       value: (
         <span className="flex flex-wrap items-center gap-2 text-base font-bold">
-          {o.payment.method === 'cod' ? 'Cash on delivery' : o.payment.method === 'partial' ? 'Part payment' : 'Prepaid'}
+          {{ cod: 'Cash on delivery', partial: 'Part payment', offline: 'Paid offline' }[o.payment.method] ?? 'Prepaid'}
         </span>
       ),
     },
-    { icon: MapPin, label: 'Deliver to', value: <span className="text-base font-bold">{a ? `${a.city}, ${a.pincode}` : '—'}</span> },
+    o.pickups?.length && new Set(o.items.map((i) => String(i.vendor))).size === o.pickups.length
+      ? { icon: MapPin, label: 'Self pickup', value: <span className="text-base font-bold">{o.pickups.map((p) => p.city).join(', ')}</span> }
+      : { icon: MapPin, label: 'Deliver to', value: <span className="text-base font-bold">{a ? `${a.city}, ${a.pincode}` : '—'}</span> },
   ]
   return (
     <div className="mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-slate-200 bg-slate-200 lg:grid-cols-4">
@@ -272,6 +274,39 @@ export function CustomerCard({ user, billing }) {
             </Button>
           </div>
         )}
+      </CardBody>
+    </Card>
+  )
+}
+
+/** Where the buyer collects each self-pickup seller's items. */
+export function PickupCard({ pickups, sellers }) {
+  if (!pickups?.length) return null
+  return (
+    <Card>
+      <CardHeader title="Self pickup" description="The buyer collects these items in person; nothing is shipped." />
+      <CardBody className="flex flex-col gap-4">
+        {pickups.map((p) => (
+          <address key={`${p.vendor}:${p.pointId}`} className="text-sm leading-relaxed text-slate-800 not-italic">
+            {sellers?.[String(p.vendor)] && <span className="block text-xs text-slate-500">{sellers[String(p.vendor)]}</span>}
+            <span className="font-bold text-slate-900">{p.name}</span>
+            <br />
+            {[p.line1, p.line2, p.landmark].filter(Boolean).join(', ')}
+            <br />
+            {p.city}, {p.state} <span className="code">{p.pincode}</span>
+            {p.hours && <span className="block text-xs text-slate-500">{p.hours}</span>}
+            {p.phone && (
+              <a href={`tel:${p.phone}`} className="mt-1 flex items-center gap-2 font-semibold hover:text-primary">
+                <Phone className="size-4 text-slate-500" /> {formatPhone(p.phone)}
+              </a>
+            )}
+            {p.mapUrl && (
+              <a href={p.mapUrl} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-primary hover:underline">
+                Open in Maps
+              </a>
+            )}
+          </address>
+        ))}
       </CardBody>
     </Card>
   )

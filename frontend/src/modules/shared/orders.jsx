@@ -16,6 +16,12 @@ const NEXT = {
   packed: ['shipped', 'cancelled'],
   shipped: ['delivered'],
 }
+/** Self pickup: no courier leg, the buyer collects it. */
+const NEXT_PICKUP = {
+  pending: ['confirmed', 'cancelled'],
+  confirmed: ['packed', 'delivered', 'cancelled'],
+  packed: ['delivered', 'cancelled'],
+}
 
 const ACTION = {
   confirmed: { label: 'Confirm', icon: Check },
@@ -24,10 +30,10 @@ const ACTION = {
   delivered: { label: 'Mark delivered', icon: Check },
 }
 
-/** Fulfilment buttons for one order line. `onUpdate(body)` must return a promise. */
-export function ItemStatusActions({ item, onUpdate, disabled }) {
+/** Fulfilment buttons for one order line. `onUpdate(body)` must return a promise. `pickup`: the buyer collects it. */
+export function ItemStatusActions({ item, onUpdate, disabled, pickup = false }) {
   const [busy, setBusy] = useState(null)
-  const next = NEXT[item.status] ?? []
+  const next = (pickup ? NEXT_PICKUP : NEXT)[item.status] ?? []
   if (!next.length || disabled) return null
 
   const run = async (status, extra = {}) => {
@@ -44,7 +50,7 @@ export function ItemStatusActions({ item, onUpdate, disabled }) {
       {next
         .filter((s) => s !== 'cancelled')
         .map((s, i) => {
-          const { label, icon: Icon } = ACTION[s]
+          const { label, icon: Icon } = pickup && s === 'delivered' ? { label: 'Mark collected', icon: Check } : ACTION[s]
           if (s === 'shipped') return <ShipDialog key={s} primary={i === 0} onSubmit={(tracking) => run('shipped', { tracking })} />
           return (
             <Button key={s} size="sm" variant={i === 0 ? 'primary' : 'outline'} loading={busy === s} onClick={() => run(s).catch(() => {})}>

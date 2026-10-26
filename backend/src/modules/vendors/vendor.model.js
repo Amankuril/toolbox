@@ -1,5 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
-import { addressSchema, baseOptions, imageSchema } from '#core/db/schemas.js';
+import { addressFields, addressSchema, baseOptions, imageSchema } from '#core/db/schemas.js';
 import { bumpOnWrite, catalogGeneration } from '#core/cache/cached.js';
 
 /**
@@ -23,6 +23,19 @@ const documentSchema = new Schema(
   },
   { _id: true },
 );
+
+/** An extra place buyers can collect orders from (warehouse, branch, shop). The main address stays the business address. */
+const warehouseSchema = new Schema({
+  name: { type: String, required: true, trim: true, maxlength: 80 },
+  phone: { type: String, trim: true },
+  ...addressFields,
+  // Optional map pin: used to sort points by distance when the buyer shares their location.
+  lat: { type: Number, min: -90, max: 90 },
+  lng: { type: Number, min: -180, max: 180 },
+  mapUrl: { type: String, trim: true, maxlength: 500 },
+  hours: { type: String, trim: true, maxlength: 120 },
+  active: { type: Boolean, default: true },
+});
 
 const vendorSchema = new Schema(
   {
@@ -65,6 +78,15 @@ const vendorSchema = new Schema(
     },
 
     documents: { type: [documentSchema], default: [] },
+
+    // Self pickup at checkout: optional, off until the seller turns it on.
+    pickup: {
+      enabled: { type: Boolean, default: false },
+      // The business address above is a pickup point too, unless switched off.
+      includeMainAddress: { type: Boolean, default: true },
+      hours: { type: String, trim: true, maxlength: 120 },
+    },
+    warehouses: { type: [warehouseSchema], default: [] },
 
     // Pickup location registered with the shipping provider (Shipmozo warehouse id).
     shipping: {

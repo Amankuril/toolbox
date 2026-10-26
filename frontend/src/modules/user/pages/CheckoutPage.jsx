@@ -33,6 +33,7 @@ import { Checkbox, Field, Input, Textarea } from '@/ui/Field'
 import { storeKeys, userApi } from '../api'
 import { useCart } from '../cart/useCart'
 import { dispatchOf, groupBySeller } from '../cart/groups'
+import { PickupChooser, useBuyerLocation, usePickupPoints } from '../components/PickupChooser'
 import { AddressDialog } from '../components/AddressDialog'
 import { CartSummary } from '../components/CartSummary'
 import { CheckoutHeader, CheckoutSteps, MobileCheckoutBar, TrustRow } from '../components/checkoutKit'
@@ -127,6 +128,9 @@ export default function CheckoutPage() {
   const [notesOpen, setNotesOpen] = useState(false)
   const [notes, setNotes] = useState('')
   const [paying, setPaying] = useState(false)
+  // Sellers collected from in person: { vendorId: pickupPointId }.
+  const [pickupFor, setPickupFor] = useState({})
+  const buyerLocation = useBuyerLocation()
 
   const cartReady = !cart.isLoading && cart.items.length > 0
   useEffect(() => {
@@ -138,19 +142,29 @@ export default function CheckoutPage() {
   }, [cartReady])
 
   const payments = settings?.payments
-  const total = cart.summary.total
+  const chosenAddress = addressId ?? addresses?.find((a) => a.isDefault)?._id ?? addresses?.[0]?._id
+  const address = addresses?.find((a) => a._id === chosenAddress)
+  const groups = groupBySeller(cart.items, cart.sellers)
+  const sellerIds = groups.map((g) => g.key).filter((k) => k !== '_')
+  const { data: pickupPoints } = usePickupPoints(sellerIds, buyerLocation.coords ?? (address ? { pincode: address.pincode, city: address.city } : {}))
+  // Only choices that still match a seller and point on offer.
+  const pickups = Object.entries(pickupFor).filter(([vendor, point]) => pickupPoints?.[vendor]?.some((p) => p._id === point))
+  const allPickup = sellerIds.length > 0 && sellerIds.every((v) => pickups.some(([p]) => p === v))
+  // Nothing is delivered when every seller is collected from, so no delivery fee.
+  const summary = allPickup ? { ...cart.summary, shipping: 0, total: cart.summary.total - cart.summary.shipping } : cart.summary
+  const total = summary.total
   const codAllowed = payments?.codEnabled && (!payments.codMaxOrderValue || total <= payments.codMaxOrderValue)
   const split = payments?.partialEnabled ? splitPartial(total, payments.partialAdvancePercent) : null
   const partialBlock = !split
     ? null
-    : total < payments.partialMinOrderValue
-      ? `Available on orders of ${formatINR(payments.partialMinOrderValue, { whole: true })} or more`
-      : payments.partialMaxBalance && split.balanceDue > payments.partialMaxBalance
-        ? `Up to ${formatINR(payments.partialMaxBalance, { whole: true })} can be paid on delivery`
-        : null
-  const chosenMethod = method ?? (payments?.razorpayEnabled ? 'razorpay' : codAllowed ? 'cod' : null)
-  const chosenAddress = addressId ?? addresses?.find((a) => a.isDefault)?._id ?? addresses?.[0]?._id
-  const address = addresses?.find((a) => a._id === chosenAddress)
+    : pickups.length
+      ? 'Not available with self pickup: pay online or at pickup'
+      : total < payments.partialMinOrderValue
+        ? `Available on orders of ${formatINR(payments.partialMinOrderValue, { whole: true })} or more`
+        : payments.partialMaxBalance && split.balanceDue > payments.partialMaxBalance
+          ? `Up to ${formatINR(payments.partialMaxBalance, { whole: true })} can be paid on delivery`
+          : null
+  const chosenMethod = (method === 'partial' && pickups.length ? null : method) ?? (payments?.razorpayEnabled ? 'razorpay' : codAllowed ? 'cod' : null)
   const gstError = wantsGst && gst.gstin && !gstinRule.safeParse(gst.gstin).success ? 'Enter a valid 15 character GSTIN' : null
 
   const place = useMutation({
@@ -160,6 +174,7 @@ export default function CheckoutPage() {
         paymentMethod: chosenMethod,
         notes: notes.trim() || undefined,
         idempotencyKey: idempotencyKeyRef.current,
+        ...(pickups.length ? { pickups: pickups.map(([vendor, point]) => ({ vendor, point })) } : {}),
         ...(wantsGst && gst.gstin ? { gstin: gst.gstin.trim().toUpperCase(), businessName: gst.businessName.trim() || undefined } : {}),
       }),
     onSuccess: async ({ order, payment }) => {
@@ -200,7 +215,6 @@ export default function CheckoutPage() {
   }
 
   const canPlace = chosenAddress && chosenMethod && !cart.hasIssues && !cart.coupon?.issue && !gstError
-  const groups = groupBySeller(cart.items, cart.sellers)
   const dueNow = chosenMethod === 'razorpay' ? total : chosenMethod === 'partial' && split ? split.advance : 0
   const dueLater = total - dueNow
   const cta =
@@ -301,8 +315,26 @@ export default function CheckoutPage() {
             )}
           </Section>
 
+          {sellerIds.some((v) => pickupPoints?.[v]?.length) && (
+            <Section
+              n={2}
+              title="Delivery or self pickup"
+              done
+              summary={pickups.length ? `Self pickup from ${pickups.length} seller${pickups.length === 1 ? '' : 's'}` : 'Delivered to your address'}
+            >
+              <PickupChooser
+                groups={groups}
+                points={pickupPoints}
+                value={pickupFor}
+                onChange={setPickupFor}
+                onLocate={buyerLocation.locate}
+                locating={buyerLocation.locating}
+              />
+            </Section>
+          )}
+
           <Section
-            n={2}
+            n={sellerIds.some((v) => pickupPoints?.[v]?.length) ? 3 : 2}
             title="Payment method"
             done={Boolean(chosenMethod)}
             summary={chosenMethod && (dueLater && dueNow ? `${methodLabel} · ${formatINR(dueNow)} now` : methodLabel)}
@@ -371,7 +403,9 @@ export default function CheckoutPage() {
                     <MethodIcon icon={Banknote} selected={chosenMethod === 'cod'} />
                     <span className="min-w-0 flex-1">
                       <span className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="font-bold text-slate-900">Cash on delivery</span>
+                        <span className="font-bold text-slate-900">
+                          {allPickup ? 'Pay at pickup' : pickups.length ? 'Cash on delivery / at pickup' : 'Cash on delivery'}
+                        </span>
                         {codAllowed && <span className="price text-lg text-slate-900">{formatINR(total)}</span>}
                       </span>
                       <span className="mt-0.5 block text-sm text-slate-600">
@@ -387,7 +421,12 @@ export default function CheckoutPage() {
             </div>
           </Section>
 
-          <Section n={3} title="Billing" done summary={wantsGst && gst.gstin && !gstError ? `GST invoice for ${gst.gstin.toUpperCase()}` : 'Personal invoice'}>
+          <Section
+            n={sellerIds.some((v) => pickupPoints?.[v]?.length) ? 4 : 3}
+            title="Billing"
+            done
+            summary={wantsGst && gst.gstin && !gstError ? `GST invoice for ${gst.gstin.toUpperCase()}` : 'Personal invoice'}
+          >
             <Checkbox
               label="I'm buying for my business (add GSTIN)"
               description="Claim input tax credit. Your GSTIN and business name go on the seller's invoice."
@@ -433,7 +472,7 @@ export default function CheckoutPage() {
 
         <aside className="flex flex-col gap-4 lg:sticky lg:top-36 lg:self-start">
           <CartSummary
-            summary={cart.summary}
+            summary={summary}
             coupon={cart.coupon}
             title={
               <span className="flex items-center justify-between gap-3">
@@ -452,7 +491,11 @@ export default function CheckoutPage() {
                       {g.seller && (
                         <p className="mb-2 flex items-center justify-between gap-2 text-xs">
                           <span className="truncate font-bold text-slate-800">{g.seller.name}</span>
-                          {dispatch != null && <span className="shrink-0 text-slate-500">Dispatch {dispatch === 0 ? '24 h' : `${dispatch} d`}</span>}
+                          {pickupFor[g.key] && pickups.some(([v]) => v === g.key) ? (
+                            <span className="shrink-0 font-semibold text-primary">Self pickup</span>
+                          ) : (
+                            dispatch != null && <span className="shrink-0 text-slate-500">Dispatch {dispatch === 0 ? '24 h' : `${dispatch} d`}</span>
+                          )}
                         </p>
                       )}
                       <ul className="flex flex-col gap-3">

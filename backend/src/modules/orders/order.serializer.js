@@ -34,6 +34,7 @@ function base(o) {
     shippingAddress: o.shippingAddress,
     billing: o.billing?.gstin || o.billing?.businessName ? o.billing : null,
     notes: o.notes ?? null,
+    pickups: o.pickups ?? [],
     payment: {
       method: o.payment.method,
       status: o.payment.status,
@@ -69,6 +70,7 @@ export function serializeVendorOrder(o, vendorId) {
   return {
     ...base(doc),
     items,
+    pickups: (doc.pickups ?? []).filter((p) => String(p.vendor) === String(vendorId)),
     coupon: doc.coupon?.code && String(doc.coupon.vendor) === String(vendorId) ? { code: doc.coupon.code } : null,
     amounts: {
       // Net of coupon shares: what the seller is paid for.

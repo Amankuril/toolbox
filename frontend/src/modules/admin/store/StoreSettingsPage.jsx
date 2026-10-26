@@ -12,6 +12,7 @@ import { ImageUploader } from '@/ui/ImageUploader'
 import { PageHeader } from '@/ui/PageHeader'
 import { useAdminAccess } from '../access'
 import { storeSeller } from './seller'
+import { PickupSettings } from '@/modules/vendor/components/PickupSettings'
 
 const { api, keys } = storeSeller
 
@@ -63,6 +64,7 @@ function toBody(f) {
   }
   return body
 }
+
 
 export default function StoreSettingsPage() {
   const { data: store, isLoading } = useQuery({ queryKey: keys.me, queryFn: api.me })
@@ -226,6 +228,9 @@ function StoreSettingsForm({ store }) {
           </Button>
         </div>
       )}
+      <div className="mt-8">
+        <PickupSettings canEdit={canEdit} />
+      </div>
     </>
   )
 }

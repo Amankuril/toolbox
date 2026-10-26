@@ -42,6 +42,11 @@ const checkoutBody = z.object({
   gstin: gstin.optional(),
   businessName: optionalText(200),
   idempotencyKey: z.string().trim().max(100).optional(),
+  // Sellers to collect from in person, and where.
+  pickups: z
+    .array(z.object({ vendor: objectId, point: z.string().trim().min(1).max(40) }))
+    .max(25)
+    .optional(),
 });
 
 const verifyBody = z.object({

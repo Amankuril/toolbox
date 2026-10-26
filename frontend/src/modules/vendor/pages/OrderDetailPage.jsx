@@ -5,7 +5,17 @@ import { errorMessage } from '@/core/api/errors'
 import { formatINR } from '@/core/lib/format'
 import { downloadPdf } from '@/modules/shared/download'
 import { InvoicesCard } from '@/modules/shared/invoices'
-import { ActivityTimeline, NoteCard, OrderFacts, OrderHeader, OrderProgress, PaymentCard, SellerItems, ShipToCard } from '@/modules/shared/orderDetail'
+import {
+  ActivityTimeline,
+  NoteCard,
+  OrderFacts,
+  OrderHeader,
+  OrderProgress,
+  PaymentCard,
+  SellerItems,
+  PickupCard,
+  ShipToCard,
+} from '@/modules/shared/orderDetail'
 import { ItemStatusActions, OrderItemRow } from '@/modules/shared/orders'
 import { LabelButton, ScanList, ShipmentFacts, ShipmentStatusBadge } from '@/modules/shared/shipments'
 import { Card, CardBody, CardHeader, Skeleton } from '@/ui/Card'
@@ -48,7 +58,11 @@ export default function VendorOrderDetailPage() {
         <div className="flex min-w-0 flex-col gap-6">
           <SellerItems title="Your items" subtitle="Move each item forward as you fulfil it. The customer sees every update." items={o.items}>
             {o.items.map((item) => (
-              <OrderItemRow key={item._id} item={item} actions={<ItemStatusActions item={item} onUpdate={updateItem(item._id)} />} />
+              <OrderItemRow
+                key={item._id}
+                item={item}
+                actions={<ItemStatusActions item={item} onUpdate={updateItem(item._id)} pickup={o.pickups?.length > 0} />}
+              />
             ))}
           </SellerItems>
           <ActivityTimeline order={o} />
@@ -82,6 +96,7 @@ export default function VendorOrderDetailPage() {
             showSeller={false}
             onDownload={() => downloadPdf(() => seller.api.invoicePdf(id), `Invoice-${o.orderNumber}.pdf`)}
           />
+          <PickupCard pickups={o.pickups} />
           <ShipToCard address={o.shippingAddress} billing={o.billing} showGstin />
           <PaymentCard
             order={o}

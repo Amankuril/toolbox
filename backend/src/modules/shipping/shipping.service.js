@@ -162,6 +162,8 @@ export const shippingService = {
     const existing = await Shipment.find({ order: order._id, type: 'forward' }, 'vendor active attempt').lean();
     const planned = [];
     for (const vendorId of order.vendors) {
+      // The buyer collects these in person.
+      if (order.pickups?.some((p) => String(p.vendor) === String(vendorId))) continue;
       const lines = activeLines(order, vendorId);
       const mine = existing.filter((s) => String(s.vendor) === String(vendorId));
       if (!lines.length || mine.some((s) => s.active)) continue;

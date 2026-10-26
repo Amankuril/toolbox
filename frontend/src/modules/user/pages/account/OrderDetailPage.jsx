@@ -19,6 +19,7 @@ import { PageHeader } from '@/ui/PageHeader'
 import { storeKeys, userApi } from '../../api'
 import { payForOrder } from '../../payments'
 import { trackPurchase } from '@/core/analytics/ga'
+import { PickupCard } from '@/modules/shared/orderDetail'
 
 export default function MyOrderDetailPage() {
   const { id } = useParams()
@@ -191,6 +192,7 @@ export default function MyOrderDetailPage() {
               <AmountRows amounts={o.amounts} coupon={o.coupon} />
             </CardBody>
           </Card>
+          {o.pickups?.length > 0 && <PickupCard pickups={o.pickups} />}
           <InvoicesCard invoices={invoices} onDownload={(inv) => downloadPdf(() => userApi.invoicePdf(id, inv.vendor), `Invoice-${o.orderNumber}.pdf`)} />
           <Card>
             <CardHeader title="Delivery address" />

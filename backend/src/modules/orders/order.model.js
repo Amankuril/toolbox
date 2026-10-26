@@ -86,6 +86,25 @@ const refundSchema = new Schema(
   { _id: false },
 );
 
+/** A seller whose items the buyer collects themselves, and where (a snapshot: later edits to the location don't change it). */
+const pickupSchema = new Schema(
+  {
+    vendor: { type: Schema.Types.ObjectId, ref: 'Vendor', required: true },
+    pointId: { type: String, required: true },
+    name: String,
+    phone: String,
+    line1: String,
+    line2: String,
+    landmark: String,
+    city: String,
+    state: String,
+    pincode: String,
+    hours: String,
+    mapUrl: String,
+  },
+  { _id: false },
+);
+
 const orderSchema = new Schema(
   {
     orderNumber: { type: String, required: true, unique: true },
@@ -105,6 +124,8 @@ const orderSchema = new Schema(
       gstin: String,
     },
     notes: { type: String, trim: true, maxlength: 500 },
+    // Sellers the buyer collects from instead of having them delivered; their lines are never booked with a courier.
+    pickups: { type: [pickupSchema], default: [] },
 
     // All paise.
     amounts: {

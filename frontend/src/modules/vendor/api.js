@@ -37,6 +37,8 @@ export function createSellerApi(v) {
   return {
     productImports: createImportApi(v),
     manualOrders: manualOrderClient(v),
+    pickup: () => one(v.get('/pickup')),
+    savePickup: (body) => one(v.put('/pickup', body)),
 
     me: () => one(v.get('/me')),
     updateProfile: (body) => one(v.patch('/me', body)),

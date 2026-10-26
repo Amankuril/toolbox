@@ -15,8 +15,10 @@ import { ImageUploader } from '@/ui/ImageUploader'
 import { PhoneInput } from '@/ui/inputs'
 import { DescriptionList, PageHeader } from '@/ui/PageHeader'
 import { useVendor, vendorApi, vendorKeys } from '../api'
+import { PickupSettings } from '../components/PickupSettings'
 
 const businessLabel = Object.fromEntries(BUSINESS_TYPES.map((b) => [b.value, b.label]))
+
 
 export default function VendorProfilePage() {
   const vendor = useVendor()
@@ -138,6 +140,7 @@ export default function VendorProfilePage() {
               </p>
             </CardBody>
           </Card>
+          {vendor.status === 'approved' && <PickupSettings />}
         </div>
       </div>
     </>
