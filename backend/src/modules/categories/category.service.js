@@ -299,13 +299,14 @@ export const categoryService = {
     return serializeCategory(category.toObject());
   },
 
-  async listForAdmin({ page, limit, q, status, source, parent }) {
+  async listForAdmin({ page, limit, q, status, source, parent, level }) {
     const filter = {};
     if (q) filter.name = new RegExp(escapeRegex(q), 'i');
     if (status) filter.status = status;
     if (source === 'platform') filter.owner = null;
     if (source === 'vendor') filter.owner = { $ne: null };
     if (parent) filter.parent = parent === 'root' ? null : parent;
+    if (level) filter.level = level === 'top' ? 0 : { $gt: 0 };
 
     const [rows, total] = await Promise.all([
       Category.find(filter)

@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ChevronRight, FolderPlus, FolderTree, Pencil, Trash2 } from 'lucide-react'
+import { ChevronRight, FolderPlus, FolderTree, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { errorMessage } from '@/core/api/errors'
@@ -49,6 +49,34 @@ export default function VendorCategoriesPage() {
           </Button>
         }
       />
+
+      <Card className="mb-6">
+        <CardHeader title="Top categories" description="The main departments of the store. Everything else sits under one of these." />
+        {isLoading ? (
+          <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 lg:grid-cols-5">
+            {Array.from({ length: 5 }, (_, i) => (
+              <Skeleton key={i} className="h-28" />
+            ))}
+          </div>
+        ) : tree.length ? (
+          <ul className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 lg:grid-cols-5">
+            {tree.map((node) => (
+              <li key={node._id} className="group flex flex-col items-center gap-2 rounded-lg border border-slate-200 p-3 text-center">
+                <Thumb src={node.image?.url} className="size-14 rounded-md" />
+                <span className="line-clamp-2 text-sm font-semibold text-slate-900">{node.name}</span>
+                <span className="text-xs text-slate-500">
+                  {node.children?.length ? `${node.children.length} sub-categor${node.children.length === 1 ? 'y' : 'ies'}` : 'No sub-categories'}
+                </span>
+                <Button variant="ghost" size="sm" onClick={() => setDialog({ parent: node._id })}>
+                  <Plus /> Sub-category
+                </Button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <EmptyState icon={FolderTree} title="No top categories yet" description="Propose the first category for your products." />
+        )}
+      </Card>
 
       <div className="grid gap-6 xl:grid-cols-2">
         <Card>
@@ -114,19 +142,28 @@ export default function VendorCategoriesPage() {
         </Card>
 
         <Card>
-          <CardHeader title="Catalogue" description="Live categories shared by all sellers" />
+          <CardHeader title="Other categories" description="Live sub-categories shared by all sellers, under each top category" />
           {isLoading ? (
             <div className="p-5">
               <Skeleton className="h-48" />
             </div>
-          ) : tree.length ? (
-            <ul className="p-2">
-              {tree.map((node) => (
-                <TreeNode key={node._id} node={node} onAddChild={(parent) => setDialog({ parent: parent._id })} />
-              ))}
-            </ul>
+          ) : tree.some((n) => n.children?.length) ? (
+            <div className="space-y-3 p-2">
+              {tree
+                .filter((top) => top.children?.length)
+                .map((top) => (
+                  <section key={top._id}>
+                    <h3 className="px-2 pt-1 text-xs font-bold tracking-wide text-slate-500 uppercase">{top.name}</h3>
+                    <ul>
+                      {top.children.map((node) => (
+                        <TreeNode key={node._id} node={node} depth={0} level={1} onAddChild={(parent) => setDialog({ parent: parent._id })} />
+                      ))}
+                    </ul>
+                  </section>
+                ))}
+            </div>
           ) : (
-            <EmptyState icon={FolderTree} title="The catalogue is empty" description="Propose the first category for your products." />
+            <EmptyState icon={FolderTree} title="No sub-categories yet" description="Add one under a top category." />
           )}
         </Card>
       </div>
@@ -150,7 +187,8 @@ export default function VendorCategoriesPage() {
   )
 }
 
-function TreeNode({ node, onAddChild, depth = 0 }) {
+/** `depth` indents; `level` is the real tree level (0 = top), which limits where sub-categories can be added. */
+function TreeNode({ node, onAddChild, depth = 0, level = depth }) {
   const [open, setOpen] = useState(false)
   const hasChildren = node.children?.length > 0
   return (
@@ -167,7 +205,7 @@ function TreeNode({ node, onAddChild, depth = 0 }) {
           <ChevronRight className={cn('size-4 transition-transform', open && 'rotate-90')} />
         </button>
         <span className="flex-1 py-2 text-sm text-slate-800">{node.name}</span>
-        {depth < 2 && (
+        {level < 2 && (
           <button
             type="button"
             onClick={() => onAddChild(node)}
@@ -180,7 +218,7 @@ function TreeNode({ node, onAddChild, depth = 0 }) {
       {open && hasChildren && (
         <ul>
           {node.children.map((c) => (
-            <TreeNode key={c._id} node={c} depth={depth + 1} onAddChild={onAddChild} />
+            <TreeNode key={c._id} node={c} depth={depth + 1} level={level + 1} onAddChild={onAddChild} />
           ))}
         </ul>
       )}

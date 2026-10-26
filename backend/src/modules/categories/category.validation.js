@@ -41,6 +41,8 @@ export const adminListCategories = {
     status: z.enum(CATEGORY_STATUSES).optional(),
     source: z.enum(['platform', 'vendor']).optional(),
     parent: z.union([objectId, z.literal('root')]).optional(),
+    // top = the top-level departments; sub = everything under them.
+    level: z.enum(['top', 'sub']).optional(),
   }),
 };
 

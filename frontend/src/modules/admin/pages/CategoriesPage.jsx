@@ -40,13 +40,11 @@ export default function CategoriesPage() {
   const [editing, setEditing] = useState(null) // null | 'new' | category
   const [deleting, setDeleting] = useState(null)
   const [rejecting, setRejecting] = useState(null)
-  const params = {
-    page: Number(filters.page ?? 1),
-    limit: 50,
-    status: filters.status || undefined,
-    source: filters.source || undefined,
-    q: filters.q || undefined,
-  }
+  const shared = { status: filters.status || undefined, source: filters.source || undefined, q: filters.q || undefined }
+  // Top-level departments and everything under them, each with its own pages.
+  const topParams = { ...shared, level: 'top', page: Number(filters.topPage ?? 1), limit: 50 }
+  const params = { ...shared, level: 'sub', page: Number(filters.page ?? 1), limit: 50 }
+  const top = useQuery({ queryKey: adminKeys.categories(topParams), queryFn: () => adminApi.categories(topParams), placeholderData: keepPreviousData })
   const { data, isLoading } = useQuery({
     queryKey: adminKeys.categories(params),
     queryFn: () => adminApi.categories(params),
@@ -67,6 +65,66 @@ export default function CategoriesPage() {
   const remove = useMutation({ mutationFn: (id) => adminApi.deleteCategory(id), onSuccess: () => (refresh(), toast.success('Category deleted')), onError })
   const toggleFeatured = useMutation({ mutationFn: (c) => adminApi.updateCategory(c._id, { isFeatured: !c.isFeatured }), onSuccess: refresh, onError })
 
+  const columns = [
+    {
+      key: 'name',
+      header: 'Category',
+      cell: (c) => (
+        <div className="flex items-center gap-3">
+          <Thumb src={c.image?.url} className="size-10 shrink-0 rounded-md border border-slate-200" />
+          <div className="min-w-0">
+            <p className="flex items-center gap-1.5 font-medium text-slate-900">
+              {c.name} {c.isFeatured && <Star className="size-3.5 fill-amber-400 text-amber-400" aria-label="Featured" />}
+            </p>
+            <p className="truncate text-xs text-slate-500">
+              {c.parent ? `in ${c.parent.name}` : 'Top level'} · /{c.slug}
+            </p>
+          </div>
+        </div>
+      ),
+    },
+    { key: 'level', header: 'Level', cell: (c) => (c.level === 0 ? 'Top' : `Level ${c.level + 1}`) },
+    {
+      key: 'tax',
+      header: 'HSN · GST',
+      cell: (c) =>
+        c.tax?.hsnCode || c.tax?.gstRate != null ? (
+          <span className="tabular text-sm">
+            {c.tax.hsnCode ?? '—'} · {c.tax.gstRate != null ? `${c.tax.gstRate}%` : '—'}
+          </span>
+        ) : (
+          <span className="text-xs text-slate-400">{c.parent ? 'From parent' : 'Not set'}</span>
+        ),
+    },
+    { key: 'source', header: 'Source', cell: (c) => (c.owner ? <Badge tone="info">{c.owner.store?.name ?? 'Vendor'}</Badge> : <Badge>Admin</Badge>) },
+    { key: 'products', header: 'Products', className: 'text-right', cell: (c) => <span className="tabular">{c.productCount}</span> },
+    { key: 'status', header: 'Status', cell: (c) => <StatusBadge status={c.status} /> },
+    {
+      key: 'actions',
+      header: '',
+      className: 'w-px',
+      cell: (c) => (
+        <RowActions
+          label={`Actions for ${c.name}`}
+          items={[
+            c.status === 'active' && { label: 'View on store', icon: ExternalLink, onSelect: () => window.open(`/c/${c.slug}`, '_blank', 'noopener') },
+            { label: 'Edit', icon: Pencil, onSelect: () => setEditing(c) },
+            c.status === 'pending' && 'separator',
+            c.status === 'pending' && { label: 'Approve', icon: Check, onSelect: () => review.mutate({ id: c._id, action: 'approve' }) },
+            c.status === 'pending' && { label: 'Reject', icon: X, onSelect: () => setRejecting(c) },
+            'separator',
+            c.status === 'active' && {
+              label: c.isFeatured ? 'Remove from home' : 'Feature on home',
+              icon: Star,
+              onSelect: () => toggleFeatured.mutate(c),
+            },
+            { label: 'Delete', icon: Trash2, danger: true, onSelect: () => setDeleting(c) },
+          ]}
+        />
+      ),
+    },
+  ]
+
   return (
     <>
       <PageHeader
@@ -80,80 +138,29 @@ export default function CategoriesPage() {
       />
       <Card>
         <div className="px-4 pt-2">
-          <FilterTabs value={filters.status ?? ''} onChange={(status) => setFilters({ status })} options={TABS} />
+          <FilterTabs value={filters.status ?? ''} onChange={(status) => setFilters({ status, topPage: undefined })} options={TABS} />
         </div>
         <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 p-4">
-          <SearchField value={filters.q ?? ''} onChange={(q) => setFilters({ q })} placeholder="Search categories" />
-          <Select value={filters.source ?? ''} onChange={(e) => setFilters({ source: e.target.value })} className="w-auto">
+          <SearchField value={filters.q ?? ''} onChange={(q) => setFilters({ q, topPage: undefined })} placeholder="Search categories" />
+          <Select value={filters.source ?? ''} onChange={(e) => setFilters({ source: e.target.value, topPage: undefined })} className="w-auto">
             <option value="">All sources</option>
             <option value="platform">Created by admin</option>
             <option value="vendor">Proposed by vendors</option>
           </Select>
         </div>
+        <SectionTitle title="Top categories" description="The main departments buyers start from: the store menu and home page." count={top.data?.meta?.total} />
         <DataTable
-          loading={isLoading}
-          rows={data?.items}
-          empty={{ title: 'No categories', action: <Button onClick={() => setEditing('new')}>Create the first one</Button> }}
-          columns={[
-            {
-              key: 'name',
-              header: 'Category',
-              cell: (c) => (
-                <div className="flex items-center gap-3">
-                  <Thumb src={c.image?.url} className="size-10 shrink-0 rounded-md border border-slate-200" />
-                  <div className="min-w-0">
-                    <p className="flex items-center gap-1.5 font-medium text-slate-900">
-                      {c.name} {c.isFeatured && <Star className="size-3.5 fill-amber-400 text-amber-400" aria-label="Featured" />}
-                    </p>
-                    <p className="truncate text-xs text-slate-500">
-                      {c.parent ? `in ${c.parent.name}` : 'Top level'} · /{c.slug}
-                    </p>
-                  </div>
-                </div>
-              ),
-            },
-            { key: 'level', header: 'Level', cell: (c) => (c.level === 0 ? 'Top' : `Level ${c.level + 1}`) },
-            {
-              key: 'tax',
-              header: 'HSN · GST',
-              cell: (c) =>
-                c.tax?.hsnCode || c.tax?.gstRate != null ? (
-                  <span className="tabular text-sm">
-                    {c.tax.hsnCode ?? '—'} · {c.tax.gstRate != null ? `${c.tax.gstRate}%` : '—'}
-                  </span>
-                ) : (
-                  <span className="text-xs text-slate-400">{c.parent ? 'From parent' : 'Not set'}</span>
-                ),
-            },
-            { key: 'source', header: 'Source', cell: (c) => (c.owner ? <Badge tone="info">{c.owner.store?.name ?? 'Vendor'}</Badge> : <Badge>Admin</Badge>) },
-            { key: 'products', header: 'Products', className: 'text-right', cell: (c) => <span className="tabular">{c.productCount}</span> },
-            { key: 'status', header: 'Status', cell: (c) => <StatusBadge status={c.status} /> },
-            {
-              key: 'actions',
-              header: '',
-              className: 'w-px',
-              cell: (c) => (
-                <RowActions
-                  label={`Actions for ${c.name}`}
-                  items={[
-                    c.status === 'active' && { label: 'View on store', icon: ExternalLink, onSelect: () => window.open(`/c/${c.slug}`, '_blank', 'noopener') },
-                    { label: 'Edit', icon: Pencil, onSelect: () => setEditing(c) },
-                    c.status === 'pending' && 'separator',
-                    c.status === 'pending' && { label: 'Approve', icon: Check, onSelect: () => review.mutate({ id: c._id, action: 'approve' }) },
-                    c.status === 'pending' && { label: 'Reject', icon: X, onSelect: () => setRejecting(c) },
-                    'separator',
-                    c.status === 'active' && {
-                      label: c.isFeatured ? 'Remove from home' : 'Feature on home',
-                      icon: Star,
-                      onSelect: () => toggleFeatured.mutate(c),
-                    },
-                    { label: 'Delete', icon: Trash2, danger: true, onSelect: () => setDeleting(c) },
-                  ]}
-                />
-              ),
-            },
-          ]}
+          loading={top.isLoading}
+          rows={top.data?.items}
+          empty={{ title: 'No top categories', action: <Button onClick={() => setEditing('new')}>Create the first one</Button> }}
+          columns={columns}
         />
+        <Pagination meta={top.data?.meta} onPageChange={(topPage) => setFilters({ topPage })} />
+      </Card>
+
+      <Card className="mt-6">
+        <SectionTitle title="Other categories" description="Every sub-category, at any depth." count={data?.meta?.total} />
+        <DataTable loading={isLoading} rows={data?.items} empty={{ title: 'No sub-categories', description: 'Add one under a top category.' }} columns={columns} />
         <Pagination meta={data?.meta} onPageChange={(page) => setFilters({ page })} />
       </Card>
 
@@ -177,6 +184,18 @@ export default function CategoriesPage() {
         onConfirm={() => remove.mutateAsync(deleting._id)}
       />
     </>
+  )
+}
+
+function SectionTitle({ title, description, count }) {
+  return (
+    <div className="flex items-end justify-between gap-3 border-b border-slate-100 px-4 pt-4 pb-3">
+      <div>
+        <h2 className="font-display text-base font-bold text-slate-900">{title}</h2>
+        <p className="text-sm text-slate-500">{description}</p>
+      </div>
+      {count != null && <Badge>{count}</Badge>}
+    </div>
   )
 }
 
