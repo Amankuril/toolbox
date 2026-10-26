@@ -242,6 +242,18 @@ describe('bulk edit', () => {
     expect(data.updated[0].sku).toMatch(/^BUL-TWO-/);
   });
 
+  it('edits the short description, search tags and search keywords', async () => {
+    const { data } = (
+      await request(app)
+        .patch(`${API}/vendor/products/bulk`)
+        .set(V())
+        .send({ items: [{ _id: second._id, shortDescription: 'Compact and light', tags: ['Drill', 'drill'], searchKeywords: ['Cordless Drill 18V'] }] })
+        .expect(200)
+    ).body;
+    expect(data.failed).toEqual([]);
+    expect(data.updated[0]).toMatchObject({ shortDescription: 'Compact and light', tags: ['drill'], searchKeywords: ['cordless drill 18v'] });
+  });
+
   it('a duplicate SKU fails just that row', async () => {
     const { data } = (
       await request(app)

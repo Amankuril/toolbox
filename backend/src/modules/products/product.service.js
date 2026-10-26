@@ -37,6 +37,7 @@ const SIMPLE_FIELDS = [
   'shipping',
   'compatibleModels',
   'tags',
+  'searchKeywords',
 ];
 
 /** Editing any of these on a live product sends it back for review (when moderation is on). */
@@ -231,7 +232,8 @@ async function cloneMedia(vendor, sourceId) {
 function bulkRowInput(product, row) {
   const input = {};
   // An emptied cell clears the value (null also keeps an empty SKU out of the unique SKU index).
-  for (const key of ['name', 'sku', 'brand']) if (row[key] !== undefined) input[key] = row[key] === '' ? null : row[key];
+  for (const key of ['name', 'sku', 'brand', 'shortDescription']) if (row[key] !== undefined) input[key] = row[key] === '' ? null : row[key];
+  for (const key of ['tags', 'searchKeywords']) if (row[key] !== undefined) input[key] = row[key];
   if (row.hsnCode !== undefined) input.hsnCode = row.hsnCode;
 
   const touchesPrice = row.mrp !== undefined || row.price !== undefined;

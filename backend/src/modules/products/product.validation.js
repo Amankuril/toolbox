@@ -147,7 +147,9 @@ const fields = {
   }),
   compatibleWith: z.array(objectId).max(100),
   compatibleModels: stringList(100, 80),
-  tags: stringList(20, 40).transform((t) => t.map((s) => s.toLowerCase())),
+  // Lowercased before de-duplicating, so "Drill" and "drill" are one tag.
+  tags: stringList(20, 40).transform((t) => [...new Set(t.map((s) => s.toLowerCase()))]),
+  searchKeywords: stringList(30, 80).transform((t) => [...new Set(t.map((s) => s.toLowerCase()))]),
 };
 
 const required = ['type', 'name', 'category', 'pricing', 'inventory'];
@@ -210,6 +212,9 @@ const bulkRow = z
     name: nonEmpty(200).optional(),
     sku: z.string().trim().max(64).optional(),
     brand: z.string().trim().max(80).optional(),
+    shortDescription: z.string().trim().max(500).optional(),
+    tags: fields.tags.optional(),
+    searchKeywords: fields.searchKeywords.optional(),
     mrp: money.min(1, 'Enter the MRP').optional(),
     price: money.min(1, 'Enter the selling price').optional(),
     gstRate: gstRate.nullable().optional(),

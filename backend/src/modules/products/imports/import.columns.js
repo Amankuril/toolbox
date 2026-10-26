@@ -173,6 +173,13 @@ export const COLUMNS = [
   { key: 'warranty_details', scope: 'product', example: '' },
   { key: 'tags', scope: 'product', help: 'Separate with | or commas.', example: 'gloves, safety', parse: parse.list(/\s*[|,\n]\s*/) },
   {
+    key: 'search_keywords',
+    scope: 'product',
+    help: 'Phrases buyers search for (SEO). Separate with | or commas.',
+    example: 'safety gloves for welding',
+    parse: parse.list(/\s*[|,\n]\s*/),
+  },
+  {
     key: 'specifications',
     scope: 'product',
     help: 'Label: Value pairs separated by |',
@@ -254,6 +261,7 @@ export function productToRows(p, categoryPathName) {
     warranty_months: p.warranty?.months ?? '',
     warranty_details: p.warranty?.details ?? '',
     tags: fmt.list(p.tags),
+    search_keywords: fmt.list(p.searchKeywords),
     specifications: (p.specifications ?? []).map((s) => `${s.label}: ${s.value}`).join(' | '),
     image_urls: fmt.list((p.images ?? []).map((i) => i.url)),
     publish: fmt.bool(['active', 'pending'].includes(p.status)),

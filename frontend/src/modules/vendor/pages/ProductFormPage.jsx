@@ -118,6 +118,7 @@ const schema = z
     compatibleWith: z.array(z.object({ _id: z.string(), name: z.string() }).loose()).max(100),
     compatibleModels: z.array(z.string()).max(100),
     tags: z.array(z.string()).max(20),
+    searchKeywords: z.array(z.string().max(80)).max(30),
   })
   .superRefine((v, ctx) => {
     const issue = (path, message) => ctx.addIssue({ code: 'custom', path, message })
@@ -175,6 +176,7 @@ const EMPTY = {
   compatibleWith: [],
   compatibleModels: [],
   tags: [],
+  searchKeywords: [],
 }
 
 function toForm(p) {
@@ -231,6 +233,7 @@ function toForm(p) {
     compatibleWith: p.compatibleWith,
     compatibleModels: p.compatibleModels,
     tags: p.tags,
+    searchKeywords: p.searchKeywords ?? [],
   }
 }
 
@@ -284,6 +287,7 @@ function toPayload(v) {
     compatibleWith: isPart ? v.compatibleWith.map((c) => c._id) : [],
     compatibleModels: isPart ? v.compatibleModels : [],
     tags: v.tags,
+    searchKeywords: v.searchKeywords,
   }
 }
 
@@ -827,13 +831,26 @@ function ProductForm({ product, cloneFrom }) {
           </Card>
 
           <Card>
-            <CardHeader title="Search tags" description="Extra words buyers might search for" />
-            <CardBody>
-              <Controller
-                name="tags"
-                control={control}
-                render={({ field }) => <TagInput value={field.value} onChange={field.onChange} placeholder="e.g. drilling, masonry" />}
-              />
+            <CardHeader title="Search tags & keywords" description="Help buyers and Google find this product" />
+            <CardBody className="space-y-4">
+              <Field label="Search tags" hint="Single words buyers might search for.">
+                {() => (
+                  <Controller
+                    name="tags"
+                    control={control}
+                    render={({ field }) => <TagInput value={field.value} onChange={field.onChange} placeholder="e.g. drilling, masonry" />}
+                  />
+                )}
+              </Field>
+              <Field label="Search keywords" hint="Phrases people type into Google, used as the page's SEO keywords.">
+                {() => (
+                  <Controller
+                    name="searchKeywords"
+                    control={control}
+                    render={({ field }) => <TagInput value={field.value} onChange={field.onChange} max={30} placeholder="e.g. 3hp petrol water pump" />}
+                  />
+                )}
+              </Field>
             </CardBody>
           </Card>
         </div>

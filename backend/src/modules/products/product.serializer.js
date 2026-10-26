@@ -124,6 +124,7 @@ export function serializeProduct(p) {
     compatibleWith: p.compatibleWith ?? [],
     compatibleModels: p.compatibleModels ?? [],
     tags: p.tags ?? [],
+    searchKeywords: p.searchKeywords ?? [],
     status: p.status,
     moderation: p.moderation ?? null,
     isFeatured: Boolean(p.isFeatured),

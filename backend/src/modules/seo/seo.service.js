@@ -183,6 +183,7 @@ export const seoService = {
       siteName,
       title: `${p.seo?.title || p.name} | ${siteName}`,
       description: snippet(description),
+      keywords: [...new Set([...(p.searchKeywords ?? []), ...(p.tags ?? [])])].join(', ') || undefined,
       path,
       image: images[0],
       imageAlt: p.images[0]?.alt || p.name,

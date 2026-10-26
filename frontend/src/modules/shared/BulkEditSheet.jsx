@@ -1,12 +1,13 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, RotateCcw, Save, Sheet as SheetIcon, X } from 'lucide-react'
-import { Dialog as RDialog } from 'radix-ui'
+import { Check, ChevronLeft, ChevronRight, Columns3, RotateCcw, Save, Sheet as SheetIcon, X } from 'lucide-react'
+import { DropdownMenu, Dialog as RDialog } from 'radix-ui'
 import { useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { errorMessage } from '@/core/api/errors'
 import { cn } from '@/core/lib/cn'
 import { GST_RATES } from '@/core/lib/constants'
 import { formatNumber } from '@/core/lib/format'
+import { safeStorage } from '@/core/lib/storage'
 import { StatusBadge } from '@/ui/Badge'
 import { Thumb } from '@/ui/Brand'
 import { Button } from '@/ui/Button'
@@ -48,7 +49,15 @@ const parse = {
     return v || null
   },
   bool: (v) => v === true || v === 'true' || v === '1' || /^(yes|y|on)$/i.test(String(v)),
+  /** "a, b, c" → ['a', 'b', 'c'] */
+  list: (s) =>
+    s
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean),
 }
+
+const listText = (list) => (list ?? []).join(', ')
 
 /**
  * Editable columns. `get` reads the product's current value as cell text; `key` is the field the bulk API takes;
@@ -108,11 +117,53 @@ const COLUMNS = [
     placeholder: (p) => (p.taxInherit?.hsn && p.hsnCode ? p.hsnCode : 'Category'),
   },
   { id: 'available', label: 'Available', key: 'available', width: 'w-24', kind: 'bool', get: (p) => p.inventory.available !== false, parse: parse.bool },
+  {
+    id: 'shortDescription',
+    label: 'Short description',
+    key: 'shortDescription',
+    width: 'min-w-80',
+    get: (p) => p.shortDescription ?? '',
+    parse: parse.text,
+  },
+  { id: 'tags', label: 'Search tags', key: 'tags', width: 'min-w-56', get: (p) => listText(p.tags), parse: parse.list, placeholder: 'Comma separated' },
+  {
+    id: 'searchKeywords',
+    label: 'Search keywords',
+    key: 'searchKeywords',
+    width: 'min-w-64',
+    get: (p) => listText(p.searchKeywords),
+    parse: parse.list,
+    placeholder: 'Comma separated',
+  },
 ]
 
+/** Columns that start hidden; each browser remembers its own choice. */
+const DEFAULT_HIDDEN = ['sku', 'brand', 'gst', 'hsn']
+const HIDDEN_KEY = 'bulk-edit:hidden-columns'
+
 /** Server error paths ('pricing.price', 'hsnCode', 'inventory.stock'…) → column ids. */
-const PATH_TO_COLUMN = { price: 'price', mrp: 'mrp', gstRate: 'gst', hsnCode: 'hsn', stock: 'stock', moq: 'moq', sku: 'sku', name: 'name', brand: 'brand', available: 'available' }
-const columnOfPath = (path) => PATH_TO_COLUMN[String(path ?? '').split('.').pop()]
+const PATH_TO_COLUMN = {
+  price: 'price',
+  mrp: 'mrp',
+  gstRate: 'gst',
+  hsnCode: 'hsn',
+  stock: 'stock',
+  moq: 'moq',
+  sku: 'sku',
+  name: 'name',
+  brand: 'brand',
+  available: 'available',
+  shortDescription: 'shortDescription',
+  tags: 'tags',
+  searchKeywords: 'searchKeywords',
+}
+// "tags.2" → tags: the last part that names a column.
+const columnOfPath = (path) =>
+  String(path ?? '')
+    .split('.')
+    .reverse()
+    .map((part) => PATH_TO_COLUMN[part])
+    .find(Boolean)
 
 /**
  * Spreadsheet-style editor for many products at once: type over cells, move with Enter / arrow keys,
@@ -146,6 +197,17 @@ function SheetBody({ filters, queryKey, load, save, onSaved, onClose, showVendor
   const [errors, setErrors] = useState({})
   const [saving, setSaving] = useState(false)
   const grid = useRef(null)
+  const [hidden, setHidden] = useState(() => new Set(safeStorage.get(HIDDEN_KEY, DEFAULT_HIDDEN)))
+  // What's on screen; hidden columns keep their edits and still save.
+  const shown = COLUMNS.filter((c) => c.pinned || !hidden.has(c.id))
+  const toggleColumn = (id) =>
+    setHidden((h) => {
+      const next = new Set(h)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      safeStorage.set(HIDDEN_KEY, [...next])
+      return next
+    })
 
   const valueOf = (p, col) => edits[p._id]?.[col.id] ?? col.get(p)
   const isChanged = (p, col) => edits[p._id]?.[col.id] !== undefined && String(edits[p._id][col.id]) !== String(col.get(p))
@@ -191,7 +253,7 @@ function SheetBody({ filters, queryKey, load, save, onSaved, onClose, showVendor
       focusCell(r, c + 1)
     } else if (e.key === 'Escape') {
       e.preventDefault()
-      setCell(rows[r]._id, COLUMNS[c].id, COLUMNS[c].get(rows[r]))
+      setCell(rows[r]._id, shown[c].id, shown[c].get(rows[r]))
     }
   }
 
@@ -206,7 +268,7 @@ function SheetBody({ filters, queryKey, load, save, onSaved, onClose, showVendor
       const p = rows[r + i]
       if (!p) return
       line.split('\t').forEach((raw, j) => {
-        const col = COLUMNS[c + j]
+        const col = shown[c + j]
         if (!col || !editable(p, col)) return
         const value = col.kind === 'bool' ? parse.bool(raw.trim()) : col.kind === 'select' ? raw.trim().replace('%', '') : raw.trim()
         setCell(p._id, col.id, value)
@@ -301,6 +363,7 @@ function SheetBody({ filters, queryKey, load, save, onSaved, onClose, showVendor
         <span className={cn('text-sm', dirty ? 'font-semibold text-amber-700' : 'text-slate-500')} aria-live="polite">
           {dirty ? `${formatNumber(changedCells)} change${changedCells === 1 ? '' : 's'} in ${changedRows.length} product${changedRows.length === 1 ? '' : 's'}` : 'No changes'}
         </span>
+        <ColumnPicker hidden={hidden} onToggle={toggleColumn} />
         <Button variant="ghost" size="sm" disabled={!dirty || saving} onClick={discard}>
           <RotateCcw /> Discard
         </Button>
@@ -320,7 +383,7 @@ function SheetBody({ filters, queryKey, load, save, onSaved, onClose, showVendor
                 #
               </th>
               <th scope="col" className="sticky left-12 z-30 w-14 border-r border-b border-slate-300 bg-slate-100" aria-label="Photo" />
-              {COLUMNS.map((c) => (
+              {shown.map((c) => (
                 <th
                   key={c.id}
                   scope="col"
@@ -342,7 +405,7 @@ function SheetBody({ filters, queryKey, load, save, onSaved, onClose, showVendor
             {isLoading
               ? Array.from({ length: 8 }, (_, i) => (
                   <tr key={i}>
-                    <td colSpan={COLUMNS.length + 3} className="border-b border-slate-200 p-2">
+                    <td colSpan={shown.length + 3} className="border-b border-slate-200 p-2">
                       <Skeleton className="h-6 w-full" />
                     </td>
                   </tr>
@@ -362,7 +425,7 @@ function SheetBody({ filters, queryKey, load, save, onSaved, onClose, showVendor
                       <td className="sticky left-12 z-10 border-r border-b border-slate-200 bg-white p-1">
                         <Thumb src={p.images?.[0]?.url} className="size-8 rounded border border-slate-200" />
                       </td>
-                      {COLUMNS.map((col, c) => (
+                      {shown.map((col, c) => (
                         <Cell
                           key={col.id}
                           col={col}
@@ -413,6 +476,45 @@ function SheetBody({ filters, queryKey, load, save, onSaved, onClose, showVendor
         )}
       </div>
     </RDialog.Content>
+  )
+}
+
+/** Show or hide sheet columns. The product name always stays. */
+function ColumnPicker({ hidden, onToggle }) {
+  const optional = COLUMNS.filter((c) => !c.pinned)
+  const count = optional.filter((c) => !hidden.has(c.id)).length
+  return (
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger asChild>
+        <Button variant="outline" size="sm">
+          <Columns3 /> Columns
+          <span className="tabular text-xs text-slate-500">
+            {count}/{optional.length}
+          </span>
+        </Button>
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content align="end" sideOffset={6} className="z-[60] max-h-[70vh] min-w-52 overflow-y-auto rounded-md border border-slate-200 bg-white p-1 shadow-xl">
+          <DropdownMenu.Label className="px-2 py-1.5 text-xs font-semibold text-slate-500">Show columns</DropdownMenu.Label>
+          {optional.map((c) => (
+            <DropdownMenu.CheckboxItem
+              key={c.id}
+              checked={!hidden.has(c.id)}
+              onCheckedChange={() => onToggle(c.id)}
+              onSelect={(e) => e.preventDefault()}
+              className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm text-slate-800 outline-none select-none data-[highlighted]:bg-slate-100"
+            >
+              <span className="grid size-4 place-items-center rounded border border-slate-300 data-[state=checked]:border-primary">
+                <DropdownMenu.ItemIndicator>
+                  <Check className="size-3 text-primary" />
+                </DropdownMenu.ItemIndicator>
+              </span>
+              {c.label}
+            </DropdownMenu.CheckboxItem>
+          ))}
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
   )
 }
 

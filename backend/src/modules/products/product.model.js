@@ -180,6 +180,8 @@ const productSchema = new Schema(
     compatibleWith: { type: [{ type: Schema.Types.ObjectId, ref: 'Product' }], default: [] },
     compatibleModels: { type: [{ type: String, trim: true, maxlength: 80 }], default: [] },
     tags: { type: [{ type: String, trim: true, lowercase: true, maxlength: 40 }], default: [] },
+    // Phrases people search for ("petrol water pump 3hp"): the page's meta keywords, and matched by site search.
+    searchKeywords: { type: [{ type: String, trim: true, lowercase: true, maxlength: 80 }], default: [] },
 
     status: { type: String, enum: PRODUCT_STATUSES, default: 'draft' },
     moderation: {
@@ -216,11 +218,19 @@ productSchema.index({ category: 1, status: 1, vendorApproved: 1, isFeatured: -1,
 // Product page "more from this seller", sorted without loading all of the seller's listings.
 productSchema.index({ vendor: 1, status: 1, 'rating.count': -1, publishedAt: -1 });
 productSchema.index(
-  { name: 'text', brand: 'text', modelNumber: 'text', compatibleModels: 'text', tags: 'text', shortDescription: 'text' },
+  {
+    name: 'text',
+    brand: 'text',
+    modelNumber: 'text',
+    compatibleModels: 'text',
+    tags: 'text',
+    searchKeywords: 'text',
+    shortDescription: 'text',
+  },
   {
     name: 'product_text',
     // compatibleModels lets the parts finder match "GSB 550" to spares that fit it.
-    weights: { name: 10, brand: 6, modelNumber: 6, compatibleModels: 6, tags: 4, shortDescription: 1 },
+    weights: { name: 10, brand: 6, modelNumber: 6, compatibleModels: 6, tags: 4, searchKeywords: 4, shortDescription: 1 },
     default_language: 'english',
   },
 );

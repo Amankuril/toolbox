@@ -179,6 +179,7 @@ function buildItem(group, categories, issues) {
     }),
     warranty: compact({ months: p.warranty_months, details: p.warranty_details }),
     tags: p.tags,
+    searchKeywords: p.search_keywords,
     specifications: p.specifications,
     ...(variants.length ? { variantOptions, variants: variants.map(({ _imageUrl, ...v }) => compact(v)) } : {}),
     publish: p.publish ?? false,

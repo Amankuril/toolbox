@@ -64,6 +64,7 @@ function renderHead(page) {
   }
   const url = absoluteUrl(page.path);
   meta('name', 'description', page.description);
+  meta('name', 'keywords', page.keywords);
   tags.push(`<link data-ssr rel="canonical" href="${escapeHtml(url)}">`);
   meta('property', 'og:type', page.ogType ?? 'website');
   meta('property', 'og:site_name', page.siteName);
