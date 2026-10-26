@@ -7,7 +7,7 @@ import { Breadcrumbs } from './Breadcrumbs'
  * Title block above a product listing: breadcrumbs, title, sub-department links.
  * Sub-departments with icons (`subLinks[].image`) show as icon tiles; otherwise as chips.
  */
-export function ListingHeader({ crumbs, title, description, eyebrow, children, subLinks, compact = false }) {
+export function ListingHeader({ crumbs, title, description, eyebrow, children, subLinks, compact = false, action }) {
   return (
     <header className={cn('border-b border-slate-200', compact ? 'pb-2.5' : 'pb-3.5 sm:pb-4')}>
       {crumbs && <Breadcrumbs items={crumbs} />}
@@ -17,9 +17,12 @@ export function ListingHeader({ crumbs, title, description, eyebrow, children, s
           <h1 className="font-display text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{title}</h1>
         </div>
       ) : (
-        <h1 className={cn('font-display font-bold text-slate-900', compact ? 'mt-1 text-2xl sm:text-3xl' : 'mt-1.5 text-2xl sm:text-3xl lg:text-4xl')}>
-          {title}
-        </h1>
+        <div className="flex items-start justify-between gap-3">
+          <h1 className={cn('font-display font-bold text-slate-900', compact ? 'mt-1 text-2xl sm:text-3xl' : 'mt-1.5 text-2xl sm:text-3xl lg:text-4xl')}>
+            {title}
+          </h1>
+          {action && <div className="mt-1.5 shrink-0">{action}</div>}
+        </div>
       )}
       {description && <p className="mt-1 max-w-3xl text-xs sm:text-sm text-slate-600">{description}</p>}
       {children}

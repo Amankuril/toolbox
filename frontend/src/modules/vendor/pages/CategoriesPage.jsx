@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ChevronRight, FolderPlus, FolderTree, Pencil, Plus, Trash2 } from 'lucide-react'
+import { ChevronRight, FolderPlus, FolderTree, Pencil, Plus, Share2, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { errorMessage } from '@/core/api/errors'
@@ -13,6 +13,8 @@ import { DataTable } from '@/ui/DataTable'
 import { ConfirmDialog } from '@/ui/Dialog'
 import { PageHeader } from '@/ui/PageHeader'
 import { Tooltip } from '@/ui/Controls'
+import { useBranding } from '@/core/settings/usePublicSettings'
+import { categoryShareItem, useShare } from '@/modules/shared/share'
 import { useSeller } from '../seller'
 import { CategoryDialog } from '../components/CategoryDialog'
 import { useVendorCategories } from '../components/categoryOptions'
@@ -20,6 +22,8 @@ import { useVendorCategories } from '../components/categoryOptions'
 export default function VendorCategoriesPage() {
   const seller = useSeller()
   const qc = useQueryClient()
+  const { siteName } = useBranding()
+  const { share, dialog: shareDialog } = useShare()
   const { data = [], isLoading } = useVendorCategories()
   const [dialog, setDialog] = useState(null) // { category?, parent? }
   const [deleting, setDeleting] = useState(null)
@@ -67,9 +71,14 @@ export default function VendorCategoriesPage() {
                 <span className="text-xs text-slate-500">
                   {node.children?.length ? `${node.children.length} sub-categor${node.children.length === 1 ? 'y' : 'ies'}` : 'No sub-categories'}
                 </span>
-                <Button variant="ghost" size="sm" onClick={() => setDialog({ parent: node._id })}>
-                  <Plus /> Sub-category
-                </Button>
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="sm" onClick={() => setDialog({ parent: node._id })}>
+                    <Plus /> Sub-category
+                  </Button>
+                  <Button variant="ghost" size="icon-sm" aria-label={`Share ${node.name}`} title="Share category" onClick={() => share(categoryShareItem(node, siteName))}>
+                    <Share2 />
+                  </Button>
+                </div>
               </li>
             ))}
           </ul>
@@ -156,7 +165,14 @@ export default function VendorCategoriesPage() {
                     <h3 className="px-2 pt-1 text-xs font-bold tracking-wide text-slate-500 uppercase">{top.name}</h3>
                     <ul>
                       {top.children.map((node) => (
-                        <TreeNode key={node._id} node={node} depth={0} level={1} onAddChild={(parent) => setDialog({ parent: parent._id })} />
+                        <TreeNode
+                          key={node._id}
+                          node={node}
+                          depth={0}
+                          level={1}
+                          onAddChild={(parent) => setDialog({ parent: parent._id })}
+                          onShare={(c) => share(categoryShareItem(c, siteName))}
+                        />
                       ))}
                     </ul>
                   </section>
@@ -175,6 +191,7 @@ export default function VendorCategoriesPage() {
         category={dialog?.category}
         defaultParent={dialog?.parent}
       />
+      {shareDialog}
       <ConfirmDialog
         open={Boolean(deleting)}
         onOpenChange={(v) => !v && setDeleting(null)}
@@ -188,7 +205,7 @@ export default function VendorCategoriesPage() {
 }
 
 /** `depth` indents; `level` is the real tree level (0 = top), which limits where sub-categories can be added. */
-function TreeNode({ node, onAddChild, depth = 0, level = depth }) {
+function TreeNode({ node, onAddChild, onShare, depth = 0, level = depth }) {
   const [open, setOpen] = useState(false)
   const hasChildren = node.children?.length > 0
   return (
@@ -205,6 +222,11 @@ function TreeNode({ node, onAddChild, depth = 0, level = depth }) {
           <ChevronRight className={cn('size-4 transition-transform', open && 'rotate-90')} />
         </button>
         <span className="flex-1 py-2 text-sm text-slate-800">{node.name}</span>
+        {onShare && (
+          <button type="button" onClick={() => onShare(node)} className="mr-2 text-xs font-medium text-primary opacity-0 group-hover:opacity-100 focus:opacity-100">
+            Share
+          </button>
+        )}
         {level < 2 && (
           <button
             type="button"
@@ -218,7 +240,7 @@ function TreeNode({ node, onAddChild, depth = 0, level = depth }) {
       {open && hasChildren && (
         <ul>
           {node.children.map((c) => (
-            <TreeNode key={c._id} node={c} depth={depth + 1} level={level + 1} onAddChild={onAddChild} />
+            <TreeNode key={c._id} node={c} depth={depth + 1} level={level + 1} onAddChild={onAddChild} onShare={onShare} />
           ))}
         </ul>
       )}

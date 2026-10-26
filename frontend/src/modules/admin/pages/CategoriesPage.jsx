@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, ExternalLink, Pencil, Plus, Star, Trash2, X } from 'lucide-react'
+import { Check, ExternalLink, Pencil, Plus, Share2, Star, Trash2, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
@@ -24,6 +24,8 @@ import { ReasonDialog } from '@/ui/ReasonDialog'
 import { RowActions } from '@/ui/RowActions'
 import { SearchField } from '@/ui/SearchField'
 import { CategoryTaxFields } from '@/modules/shared/CategoryTaxFields'
+import { categoryShareItem, useShare } from '@/modules/shared/share'
+import { useBranding } from '@/core/settings/usePublicSettings'
 import { adminApi, adminKeys } from '../api'
 
 const TABS = [
@@ -36,6 +38,8 @@ const TABS = [
 
 export default function CategoriesPage() {
   const qc = useQueryClient()
+  const { siteName } = useBranding()
+  const { share, dialog: shareDialog } = useShare()
   const [filters, setFilters] = useSearchParamsState()
   const [editing, setEditing] = useState(null) // null | 'new' | category
   const [deleting, setDeleting] = useState(null)
@@ -108,6 +112,7 @@ export default function CategoriesPage() {
           label={`Actions for ${c.name}`}
           items={[
             c.status === 'active' && { label: 'View on store', icon: ExternalLink, onSelect: () => window.open(`/c/${c.slug}`, '_blank', 'noopener') },
+            c.status === 'active' && { label: 'Share category', icon: Share2, onSelect: () => share(categoryShareItem(c, siteName, { productCount: c.productCount })) },
             { label: 'Edit', icon: Pencil, onSelect: () => setEditing(c) },
             c.status === 'pending' && 'separator',
             c.status === 'pending' && { label: 'Approve', icon: Check, onSelect: () => review.mutate({ id: c._id, action: 'approve' }) },
@@ -165,6 +170,7 @@ export default function CategoriesPage() {
       </Card>
 
       <CategoryDialog category={editing} onClose={() => setEditing(null)} onSaved={refresh} />
+      {shareDialog}
       <ReasonDialog
         key={rejecting?._id}
         open={Boolean(rejecting)}

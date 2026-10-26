@@ -240,6 +240,31 @@ export function productShareItem(product, siteName) {
   }
 }
 
+/** Public storefront address of a category. */
+export const categoryLink = (slug) => `${window.location.origin}/c/${slug}`
+
+/**
+ * A whole category to share: its name, description and sub-categories, then the link. `productCount` adds
+ * "120+ products" when known.
+ */
+export function categoryShareItem(category, siteName, { productCount } = {}) {
+  const children = (category.children ?? []).map((c) => c.name).slice(0, 5)
+  const lines = [
+    `*${category.name}*${siteName ? ` on ${siteName}` : ''}`,
+    category.description,
+    productCount ? `${productCount}+ products from reviewed sellers, with bulk prices.` : null,
+    children.length ? `Includes: ${children.join(', ')}${(category.children?.length ?? 0) > children.length ? ' and more' : ''}` : null,
+    'Browse the full range:',
+  ].filter(Boolean)
+  const image = category.image?.url
+  return {
+    title: category.name,
+    url: categoryLink(category.slug),
+    text: lines.join('\n'),
+    image: image ? new URL(image, window.location.origin).href : undefined,
+  }
+}
+
 /** Icon/labelled share button for one product (or any item). */
 export function ShareButton({ item, onShare, variant = 'outline', size = 'md', label = 'Share', iconOnly = false, className }) {
   const { share, dialog } = useShare({ onShare })

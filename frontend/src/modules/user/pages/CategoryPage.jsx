@@ -7,6 +7,8 @@ import { storeApi, storeKeys } from '../api'
 import { ListingHeader } from '../components/ListingHeader'
 import { ProductListing } from '../components/ProductListing'
 import { useSeoTitle } from '@/core/seo/templates'
+import { track } from '@/core/analytics/ga'
+import { categoryShareItem, ShareButton } from '@/modules/shared/share'
 
 export default function CategoryPage() {
   const { slug } = useParams()
@@ -57,6 +59,14 @@ export default function CategoryPage() {
               title={category.name}
               description={category.description}
               subLinks={category.children?.map((c) => ({ to: `/c/${c.slug}`, label: c.name, image: c.image?.url }))}
+              action={
+                <ShareButton
+                  item={categoryShareItem(category, siteName)}
+                  size="sm"
+                  label="Share"
+                  onShare={(method) => track('share', { method, content_type: 'category', item_id: category._id })}
+                />
+              }
             />
           )
         }
