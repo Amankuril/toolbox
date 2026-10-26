@@ -1,5 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Ban, Building2, Eye, RotateCcw, User } from 'lucide-react'
+import { Ban, Building2, Eye, RotateCcw, TicketPercent, User, X } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { errorMessage } from '@/core/api/errors'
@@ -15,14 +15,23 @@ import { DescriptionList, PageHeader } from '@/ui/PageHeader'
 import { ActionDialog, RowActions } from '@/ui/RowActions'
 import { SearchField } from '@/ui/SearchField'
 import { useBranding } from '@/core/settings/usePublicSettings'
-import { WhatsAppButton } from '@/modules/shared/whatsapp'
-import { adminApi, adminKeys } from '../api'
+import { ShareCouponDialog } from '@/modules/shared/ShareCoupon'
+import { WhatsAppButton, WhatsAppIcon, whatsappLink } from '@/modules/shared/whatsapp'
+import { Textarea } from '@/ui/Field'
+import { useAdminAccess } from '../access'
+import { adminApi, adminKeys, platformCouponApi } from '../api'
+
+const couponShareClient = { root: ['admin', 'platform-coupons'], coupons: platformCouponApi.coupons, customers: platformCouponApi.customers, share: platformCouponApi.shareCoupon }
 
 export default function CustomersPage() {
   const { siteName } = useBranding()
   const [filters, setFilters] = useSearchParamsState()
   const [selected, setSelected] = useState(null)
   const [action, setAction] = useState(null)
+  // Ticked customers, kept across pages and searches: { id → customer }.
+  const [picked, setPicked] = useState(() => new Map())
+  const [bulk, setBulk] = useState(null) // 'coupon' | 'whatsapp' | 'block'
+  const { can } = useAdminAccess()
   const qc = useQueryClient()
   const setStatus = async (u, status) => {
     try {
@@ -40,7 +49,28 @@ export default function CustomersPage() {
 
   return (
     <>
-      <PageHeader title="Customers" description="People who buy on the storefront." />
+      <PageHeader title="Customers" description="People who buy on the storefront. Tick customers to send them a coupon or a WhatsApp message together." />
+      {picked.size > 0 && (
+        <div className="sticky top-2 z-20 mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-white p-3 shadow-lg">
+          <span className="mr-auto text-sm font-semibold text-slate-900">{picked.size} selected</span>
+          {can('marketing') && (
+            <Button size="sm" onClick={() => setBulk('coupon')}>
+              <TicketPercent /> Share coupon
+            </Button>
+          )}
+          <Button size="sm" variant="outline" className="text-[#128c4b]" onClick={() => setBulk('whatsapp')}>
+            <WhatsAppIcon /> WhatsApp message
+          </Button>
+          {can('customers', 'manage') && (
+            <Button size="sm" variant="outline" className="text-red-600" onClick={() => setBulk('block')}>
+              <Ban /> Block
+            </Button>
+          )}
+          <Button size="sm" variant="ghost" onClick={() => setPicked(new Map())}>
+            <X /> Clear
+          </Button>
+        </div>
+      )}
       <Card>
         <div className="px-4 pt-2">
           <FilterTabs
@@ -61,6 +91,41 @@ export default function CustomersPage() {
           rows={data?.items}
           empty={{ title: 'No customers found' }}
           columns={[
+            {
+              key: 'pick',
+              header: (
+                <input
+                  type="checkbox"
+                  aria-label="Select all on this page"
+                  className="size-4 accent-[var(--tb-primary)]"
+                  checked={Boolean(data?.items?.length) && data.items.every((u) => picked.has(u._id))}
+                  onChange={(e) =>
+                    setPicked((m) => {
+                      const next = new Map(m)
+                      for (const u of data?.items ?? []) e.target.checked ? next.set(u._id, u) : next.delete(u._id)
+                      return next
+                    })
+                  }
+                />
+              ),
+              className: 'w-px',
+              cell: (u) => (
+                <input
+                  type="checkbox"
+                  aria-label={`Select ${u.name}`}
+                  className="size-4 accent-[var(--tb-primary)]"
+                  checked={picked.has(u._id)}
+                  onChange={() =>
+                    setPicked((m) => {
+                      const next = new Map(m)
+                      if (next.has(u._id)) next.delete(u._id)
+                      else next.set(u._id, u)
+                      return next
+                    })
+                  }
+                />
+              ),
+            },
             {
               key: 'name',
               header: 'Customer',
@@ -125,7 +190,56 @@ export default function CustomersPage() {
           },
         }}
       />
+      <ShareCouponDialog open={bulk === 'coupon'} onOpenChange={(o) => !o && setBulk(null)} client={couponShareClient} users={[...picked.values()]} />
+      <BulkWhatsApp open={bulk === 'whatsapp'} onOpenChange={(o) => !o && setBulk(null)} users={[...picked.values()]} siteName={siteName} />
+      <ConfirmDialog
+        open={bulk === 'block'}
+        onOpenChange={(o) => !o && setBulk(null)}
+        title={`Block ${picked.size} customer${picked.size === 1 ? '' : 's'}?`}
+        description="They are signed out and cannot sign in or place orders until unblocked."
+        confirmLabel="Block"
+        onConfirm={async () => {
+          const results = await Promise.allSettled([...picked.values()].filter((u) => u.status === 'active').map((u) => adminApi.setUserStatus(u._id, 'blocked')))
+          qc.invalidateQueries({ queryKey: ['admin', 'users'] })
+          const failed = results.filter((r) => r.status === 'rejected').length
+          if (failed) toast.error(`${failed} could not be blocked`)
+          else toast.success('Customers blocked')
+          setPicked(new Map())
+        }}
+      />
     </>
+  )
+}
+
+/** One message, sent to each ticked customer with a tap (WhatsApp has no bulk send from a browser). */
+function BulkWhatsApp({ open, onOpenChange, users, siteName }) {
+  const [text, setText] = useState(`Greetings from ${siteName}! `)
+  const [sent, setSent] = useState(() => new Set())
+  const withPhone = users.filter((u) => u.phone)
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange} size="lg" title="WhatsApp message" description={`${withPhone.length} of ${users.length} selected have a mobile number.`}>
+      <Textarea rows={4} value={text} onChange={(e) => setText(e.target.value)} aria-label="Message" maxLength={1000} />
+      <p className="mt-1 mb-3 text-xs text-slate-500">Each chat opens with the message typed in, starting “Hi &lt;first name&gt;”.</p>
+      <ul className="max-h-80 divide-y divide-slate-100 overflow-y-auto rounded-md border border-slate-200">
+        {withPhone.map((u) => (
+          <li key={u._id} className="flex items-center gap-3 px-3 py-2 text-sm">
+            <span className="min-w-0 flex-1">
+              <span className="font-medium text-slate-900">{u.name}</span> <span className="text-xs text-slate-500">{formatPhone(u.phone)}</span>
+            </span>
+            <Button asChild size="sm" variant={sent.has(u._id) ? 'ghost' : 'outline'} className="text-[#128c4b]">
+              <a
+                href={whatsappLink(u.phone, `Hi ${u.name.split(' ')[0]}, ${text.trim()}`)}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setSent((s) => new Set(s).add(u._id))}
+              >
+                <WhatsAppIcon /> {sent.has(u._id) ? 'Opened' : 'Send'}
+              </a>
+            </Button>
+          </li>
+        ))}
+      </ul>
+    </Dialog>
   )
 }
 
