@@ -1,17 +1,20 @@
 import { useQuery } from '@tanstack/react-query'
-import { CornerDownLeft, FolderTree, Search } from 'lucide-react'
+import { CornerDownLeft, FolderTree, Mic, Search } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
+import { toast } from 'sonner'
 import { useDebounce } from '@/core/hooks/useDebounce'
 import { cn } from '@/core/lib/cn'
 import { formatINR } from '@/core/lib/format'
 import { Thumb } from '@/ui/Brand'
 import { storeApi, storeKeys } from '../api'
 import { useCategoryTree } from '../hooks'
+import { useVoiceSearch } from './useVoiceSearch'
 
 /**
  * Header search: optional department scope, instant product/category suggestions,
  * full keyboard support. Model numbers match too, which is how trade buyers search.
+ * A mic button (where the browser supports speech input) fills the box and runs the search.
  */
 export function SearchBox({ className, autoFocus, compact = false }) {
   const navigate = useNavigate()
@@ -44,13 +47,19 @@ export function SearchBox({ className, autoFocus, compact = false }) {
     navigate(to)
   }
 
-  const searchAll = () => {
-    const value = q.trim()
+  const searchAll = (text = q) => {
+    const value = text.trim()
     if (!value) return
     const qs = new URLSearchParams({ q: value })
     if (scope) qs.set('category', scope)
     go(`/search?${qs}`)
   }
+
+  const voice = useVoiceSearch({
+    onInterim: (text) => (setQ(text), setCursor(-1)),
+    onResult: (text) => (setQ(text), searchAll(text)),
+    onError: (message) => toast.error(message),
+  })
 
   const submit = (e) => {
     e.preventDefault()
@@ -96,7 +105,7 @@ export function SearchBox({ className, autoFocus, compact = false }) {
               setCursor((c) => Math.max(-1, c - 1))
             } else if (e.key === 'Escape') setOpen(false)
           }}
-          placeholder="Search products, brands or model numbers"
+          placeholder={voice.listening ? 'Listening… speak now' : 'Search products, brands or model numbers'}
           aria-label="Search products"
           role="combobox"
           aria-expanded={showList}
@@ -104,6 +113,21 @@ export function SearchBox({ className, autoFocus, compact = false }) {
           aria-autocomplete="list"
           className="min-w-0 flex-1 bg-transparent px-4 text-[15px] text-slate-900 outline-none placeholder:text-slate-500"
         />
+        {voice.supported && (
+          <button
+            type="button"
+            onClick={voice.toggle}
+            aria-label={voice.listening ? 'Stop voice search' : 'Search by voice'}
+            aria-pressed={voice.listening}
+            title={voice.listening ? 'Stop listening' : 'Search by voice'}
+            className={cn(
+              'grid w-10 shrink-0 place-items-center text-slate-500 hover:text-slate-900',
+              voice.listening && 'animate-pulse text-red-600 hover:text-red-700',
+            )}
+          >
+            <Mic className="size-[18px]" />
+          </button>
+        )}
         <button type="submit" className="flex shrink-0 items-center gap-2 bg-accent px-4 text-sm font-bold text-accent-fg hover:brightness-[0.96] lg:px-5">
           <Search className="size-[18px]" />
           <span className="hidden lg:inline">Search</span>
@@ -143,7 +167,7 @@ export function SearchBox({ className, autoFocus, compact = false }) {
           <li className="border-t border-slate-100">
             <button
               type="button"
-              onClick={searchAll}
+              onClick={() => searchAll()}
               className="flex w-full items-center justify-between px-3 py-2.5 text-left text-sm font-medium text-slate-900 hover:bg-slate-50"
             >
               See all results for “{q.trim()}”
