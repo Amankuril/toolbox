@@ -8,6 +8,7 @@ import { validate } from '#core/middlewares/validate.js';
 import { paginationQuery } from '#core/utils/pagination.js';
 import { ok } from '#core/utils/response.js';
 import { objectId } from '#core/validation/common.js';
+import { settingsService } from '#services/settings/settings.service.js';
 import { seoAudit, PRODUCT_CHECKS } from './seo.audit.js';
 import { absoluteUrl, seoService } from './seo.service.js';
 
@@ -90,8 +91,20 @@ function renderHead(page) {
   return tags.join('\n    ');
 }
 
-function renderPage(html, page) {
+const ICON_TYPES = { svg: 'image/svg+xml', png: 'image/png', ico: 'image/x-icon', webp: 'image/webp', gif: 'image/gif', jpg: 'image/jpeg', jpeg: 'image/jpeg' };
+
+/** The storefront's tab icon from Admin → Settings → Branding, so search results show it too. */
+function faviconTag(favicon) {
+  if (!favicon?.url) return null;
+  const ext = favicon.url.split('?')[0].split('.').pop().toLowerCase();
+  const type = ICON_TYPES[ext] ? ` type="${ICON_TYPES[ext]}"` : '';
+  return `<link id="app-favicon" rel="icon"${type} href="${escapeHtml(favicon.url)}" />`;
+}
+
+function renderPage(html, page, favicon) {
+  const icon = faviconTag(favicon);
   return html
+    .replace(/<link\s+id="app-favicon"[^>]*>/i, (tag) => icon ?? tag)
     .replace(/<title>[\s\S]*?<\/title>/i, '')
     .replace(/<meta\s+name="description"[^>]*>/i, '')
     .replace('</head>', `  ${renderHead(page)}\n  </head>`)
@@ -108,13 +121,13 @@ const page = (load) => async (req, res, next) => {
     return res.status(503).type('text/plain').send('Storefront build not found');
   }
   try {
-    const data = await load(req.params);
+    const [data, branding] = await Promise.all([load(req.params), settingsService.get('branding')]);
     // Same rule as nginx's index.html: always revalidate so a deploy reaches users immediately.
     res
       .status(data.status ?? 200)
       .set('Cache-Control', 'no-cache')
       .type('html')
-      .send(renderPage(html, data));
+      .send(renderPage(html, data, branding.modules.user.favicon));
   } catch (err) {
     next(err);
   }

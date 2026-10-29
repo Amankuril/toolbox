@@ -2,6 +2,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Category } from '#modules/categories/category.model.js';
 import { Product } from '#modules/products/product.model.js';
+import { settingsService } from '#services/settings/settings.service.js';
 import { API, approvedVendor, bearer, createAdmin, setModeration, startTestApp, stopTestApp } from './helpers.js';
 
 let app;
@@ -84,6 +85,17 @@ describe('crawlable storefront pages', () => {
     const home = (await request(app).get('/').expect(200)).text;
     expect(jsonLd(home).map((d) => d['@type'])).toEqual(['Organization', 'WebSite']);
     expect(home).toContain('<a href="/c/power-tools">Power tools</a>');
+  });
+
+  it("uses the storefront's uploaded tab icon, or keeps the default", async () => {
+    expect((await request(app).get('/').expect(200)).text).toContain('href="/toolboxlogo.jpeg"');
+
+    const favicon = { media: '64b000000000000000000001', url: '/uploads/favicons/shop.png' };
+    await settingsService.update('branding', { modules: { user: { logo: null, favicon } } }, { kind: 'system' });
+    const home = (await request(app).get('/').expect(200)).text;
+    expect(home).toContain('<link id="app-favicon" rel="icon" type="image/png" href="/uploads/favicons/shop.png" />');
+    expect(home).not.toContain('href="/toolboxlogo.jpeg"');
+    await settingsService.update('branding', { modules: { user: { logo: null, favicon: null } } }, { kind: 'system' });
   });
 
   it('answers 404 with noindex for hidden or unknown pages', async () => {
