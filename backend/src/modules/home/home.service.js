@@ -1,22 +1,24 @@
+import { catalogGeneration, remember } from '#core/cache/cached.js';
 import { Category } from '#modules/categories/category.model.js';
 import { categoryService } from '#modules/categories/category.service.js';
 import { productService } from '#modules/products/product.service.js';
 import { settingsService } from '#services/settings/settings.service.js';
 
 const PER_ROW = 12;
-const POOL_TTL = 2 * 60_000;
+const POOL_TTL_SECONDS = 120;
 // Sections fewer than this many unique products are topped up with ones shown higher up the page.
 const MIN_ITEMS = 6;
 
-/** Candidate lists per source, shared by every visitor for a couple of minutes (each visit shuffles its own copy). */
-const pools = new Map();
-
-async function pool(key, params, size) {
-  const hit = pools.get(key);
-  if (hit && hit.expires > Date.now() && hit.size >= size) return hit.items;
-  const { items } = await productService.publicList({ page: 1, limit: size, ...params });
-  pools.set(key, { items, size, expires: Date.now() + POOL_TTL });
-  return items;
+/**
+ * Candidate lists per source, shared by every visitor (and server) for a couple of minutes or until the
+ * catalogue changes; each visit shuffles its own copy.
+ */
+async function pool(key, params, size, gen) {
+  return remember(
+    `home:pool:${gen}:${key}:${size}`,
+    POOL_TTL_SECONDS,
+    async () => (await productService.publicList({ page: 1, limit: size, ...params })).items,
+  );
 }
 
 const SOURCES = {
@@ -62,12 +64,19 @@ export async function buildHomePage() {
   const tree = live.some((s) => s.kind === 'departmentRails') ? await categoryService.tree() : [];
   const categoryIds = live.filter((s) => s.kind === 'products' && s.source === 'category').map((s) => s.category);
   const categories = new Map(
-    (categoryIds.length ? await Category.find({ _id: { $in: categoryIds }, status: 'active' }).select('name slug').lean() : []).map((c) => [String(c._id), c]),
+    (categoryIds.length
+      ? await Category.find({ _id: { $in: categoryIds }, status: 'active' })
+          .select('name slug')
+          .lean()
+      : []
+    ).map((c) => [String(c._id), c]),
   );
 
   const expanded = live.flatMap((s) => {
     if (s.kind === 'departmentRails') {
-      return tree.slice(0, s.count).map((d) => ({ ...s, id: `${s.id}:${d.slug}`, kind: 'products', source: 'category', resolved: d, title: d.name }));
+      return tree
+        .slice(0, s.count)
+        .map((d) => ({ ...s, id: `${s.id}:${d.slug}`, kind: 'products', source: 'category', resolved: d, title: d.name }));
     }
     if (s.kind === 'products' && s.source === 'category') {
       const c = categories.get(String(s.category));
@@ -77,16 +86,17 @@ export async function buildHomePage() {
   });
 
   // Fetch every pool at once, then hand out products top to bottom.
+  const gen = await catalogGeneration.current();
   const productSections = expanded.filter((s) => s.kind === 'products');
   const fetched = await Promise.all(
     productSections.map((s) => {
       const { params } = SOURCES[s.source](s.resolved);
       const want = s.rows * PER_ROW;
-      return pool(`${s.source}:${s.resolved?.slug ?? ''}`, params, Math.min(60, want * 2));
+      return pool(`${s.source}:${s.resolved?.slug ?? ''}`, params, Math.min(60, want * 2), gen);
     }),
   );
   const candidates = new Map(productSections.map((s, i) => [s.id, fetched[i]]));
-  const brands = expanded.some((s) => s.kind === 'brands') ? await brandFacet() : null;
+  const brands = expanded.some((s) => s.kind === 'brands') ? await brandFacet(gen) : null;
 
   const used = new Set();
   const out = [];
@@ -96,7 +106,12 @@ export async function buildHomePage() {
       const list = candidates.get(s.id);
       const items = pick(s.shuffle ? shuffled(list) : list, s.rows * PER_ROW, used);
       if (!items.length) continue;
-      out.push({ ...base, rows: Math.min(s.rows, Math.ceil(items.length / 4)), viewAll: SOURCES[s.source](s.resolved).viewAll, products: items });
+      out.push({
+        ...base,
+        rows: Math.min(s.rows, Math.ceil(items.length / 4)),
+        viewAll: SOURCES[s.source](s.resolved).viewAll,
+        products: items,
+      });
     } else if (s.kind === 'brands') {
       if (brands?.length) out.push({ ...base, brands: brands.slice(0, 12) });
     } else {
@@ -106,16 +121,15 @@ export async function buildHomePage() {
   return { sections: out };
 }
 
-let brandCache = null;
-async function brandFacet() {
-  if (brandCache && brandCache.expires > Date.now()) return brandCache.brands;
-  const { facets } = await productService.publicList({ page: 1, limit: 1 });
-  brandCache = { brands: facets.brands, expires: Date.now() + POOL_TTL };
-  return facets.brands;
+function brandFacet(gen) {
+  return remember(
+    `home:brands:${gen}`,
+    POOL_TTL_SECONDS,
+    async () => (await productService.publicList({ page: 1, limit: 1 })).facets.brands,
+  );
 }
 
-/** Tests: forget cached pools. */
+/** Tests: start the next build from fresh lists. */
 export function clearHomeCache() {
-  pools.clear();
-  brandCache = null;
+  return catalogGeneration.bump();
 }

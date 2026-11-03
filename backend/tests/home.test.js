@@ -35,7 +35,9 @@ beforeAll(async () => {
   for (let i = 0; i < 4; i++) await make(`Milker ${i}`, dairy._id);
 });
 
-beforeEach(() => clearHomeCache());
+beforeEach(async () => {
+  await clearHomeCache();
+});
 afterAll(() => stopTestApp());
 
 const save = (sections) => request(app).put(`${API}/admin/home-sections`).set(bearer(admin.accessToken)).send({ sections });
