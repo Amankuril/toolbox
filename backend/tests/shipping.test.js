@@ -8,7 +8,7 @@ import { createRazorpayProvider } from '#services/payment/providers/razorpay.pro
 import { paymentService } from '#services/payment/payment.service.js';
 import { settingsService } from '#services/settings/settings.service.js';
 import { createShipmozoClient } from '#services/shipping/providers/shipmozo/client.js';
-import { mapTrackingStatus, pushOrderBody, pushReturnOrderBody } from '#services/shipping/providers/shipmozo/mapper.js';
+import { mapTrackingStatus, pushOrderBody, pushReturnOrderBody, rateCalculatorBody } from '#services/shipping/providers/shipmozo/mapper.js';
 import { ShippingProviderError } from '#services/shipping/shipping.errors.js';
 import { shippingProvider } from '#services/shipping/shipping.provider.js';
 import { API, approvedVendor, bearer, createAdmin, otpSignIn, setModeration, startTestApp, stopTestApp } from './helpers.js';
@@ -318,6 +318,26 @@ describe('shipmozo mapper', () => {
     expect(body).toMatchObject({ weight: 9, return_reason_id: 9, customer_request: 'REFUND', pickup_pin_code: 422001 });
   });
 
+  it('prices each box of a multi-box package', () => {
+    const body = rateCalculatorBody({
+      pickupPincode: '411001',
+      deliveryPincode: '422001',
+      paymentType: 'prepaid',
+      orderAmount: 1_000_000,
+      package: {
+        ...base.package,
+        boxes: [
+          { count: 1, lengthCm: 80, widthCm: 50, heightCm: 40 },
+          { count: 2, lengthCm: 40, widthCm: 30, heightCm: 20 },
+        ],
+      },
+    });
+    expect(body.dimensions).toEqual([
+      { no_of_box: '1', length: '80', width: '50', height: '40' },
+      { no_of_box: '2', length: '40', width: '30', height: '20' },
+    ]);
+  });
+
   it('maps free-text tracking statuses', () => {
     expect(mapTrackingStatus('Pickup Pending')).toBe('pickup_pending');
     expect(mapTrackingStatus('In Transit')).toBe('in_transit');
@@ -339,7 +359,14 @@ describe('shipment creation', () => {
     expect(shipments[0]).toMatchObject({ status: 'created', paymentType: 'cod', providerOrderId: order.orderNumber, warehouseId: '23481' });
     // 2 × ₹4000 + ₹50 shipping, computed server-side.
     expect(shipments[0].codAmount).toBe(805_000);
-    expect(shipments[0].package).toEqual({ weightGrams: 9000, lengthCm: 40, widthCm: 30, heightCm: 40 });
+    expect(shipments[0].package).toEqual({
+      weightGrams: 9000,
+      lengthCm: 40,
+      widthCm: 30,
+      heightCm: 40,
+      boxCount: 2,
+      boxes: [{ count: 2, lengthCm: 40, widthCm: 30, heightCm: 20 }],
+    });
     expect(fake.last('pushOrder')).toMatchObject({ paymentType: 'cod', codAmount: 805_000, warehouseId: '23481' });
 
     await shipFor(order._id);

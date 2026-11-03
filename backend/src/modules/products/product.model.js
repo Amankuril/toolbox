@@ -174,6 +174,26 @@ const productSchema = new Schema(
       widthCm: { type: Number, min: 0 },
       heightCm: { type: Number, min: 0 },
       dispatchDays: { type: Number, min: 0, max: 60, default: 2 },
+      /**
+       * Machines that ship in parts (assembled at the customer's): one entry per box. Two or more = the
+       * product goes as that many boxes; the single-box fields above then hold the total weight and the
+       * first box's size. Empty = one box, described by the fields above.
+       */
+      boxes: {
+        type: [
+          new Schema(
+            {
+              label: { type: String, trim: true, maxlength: 60 },
+              weightKg: { type: Number, min: 0 },
+              lengthCm: { type: Number, min: 0 },
+              widthCm: { type: Number, min: 0 },
+              heightCm: { type: Number, min: 0 },
+            },
+            { _id: false },
+          ),
+        ],
+        default: undefined,
+      },
     },
 
     // Spare parts / accessories: the machines or tools they fit.

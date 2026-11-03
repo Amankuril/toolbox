@@ -116,6 +116,18 @@ const schema = z
       widthCm: optNum(z.number().min(0).max(10_000)),
       heightCm: optNum(z.number().min(0).max(10_000)),
       dispatchDays: optNum(z.number().int().min(0).max(60)),
+      // Machines shipped in parts: 2-10 boxes, each measured. Empty = one box (the fields above).
+      boxes: z
+        .array(
+          z.object({
+            label: z.string().trim().max(60).optional(),
+            weightKg: z.number({ error: 'Weight' }).positive('Weight'),
+            lengthCm: z.number({ error: 'Length' }).positive('Length'),
+            widthCm: z.number({ error: 'Width' }).positive('Width'),
+            heightCm: z.number({ error: 'Height' }).positive('Height'),
+          }),
+        )
+        .max(10),
     }),
     specifications: z.array(z.object({ label: required('Label', 80), value: required('Value', 300) })).max(50),
     compatibleWith: z.array(z.object({ _id: z.string(), name: z.string() }).loose()).max(100),
@@ -175,7 +187,7 @@ const EMPTY = {
   quotes: { enabled: true, minQty: undefined },
   condition: 'new',
   warranty: { months: undefined, details: '' },
-  shipping: { weightKg: undefined, lengthCm: undefined, widthCm: undefined, heightCm: undefined, dispatchDays: 2 },
+  shipping: { weightKg: undefined, lengthCm: undefined, widthCm: undefined, heightCm: undefined, dispatchDays: 2, boxes: [] },
   specifications: [],
   compatibleWith: [],
   compatibleModels: [],
@@ -233,6 +245,13 @@ function toForm(p) {
       widthCm: p.shipping?.widthCm ?? undefined,
       heightCm: p.shipping?.heightCm ?? undefined,
       dispatchDays: p.shipping?.dispatchDays ?? undefined,
+      boxes: (p.shipping?.boxes ?? []).map((b) => ({
+        label: b.label ?? '',
+        weightKg: b.weightKg,
+        lengthCm: b.lengthCm,
+        widthCm: b.widthCm,
+        heightCm: b.heightCm,
+      })),
     },
     specifications: p.specifications,
     compatibleWith: p.compatibleWith,
@@ -255,6 +274,21 @@ function toCloneForm(p) {
 }
 
 const clean = (obj) => Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined && v !== ''))
+
+/** Several boxes: the single-box fields carry the total weight and the first box's size (listings, older readers). */
+function shippingPayload({ boxes = [], ...single }) {
+  if (boxes.length < 2) return { ...clean(single), boxes: [] }
+  const [first] = boxes
+  const total = Math.round(boxes.reduce((sum, b) => sum + b.weightKg, 0) * 1000) / 1000
+  return {
+    ...clean({ dispatchDays: single.dispatchDays }),
+    weightKg: total,
+    lengthCm: first.lengthCm,
+    widthCm: first.widthCm,
+    heightCm: first.heightCm,
+    boxes: boxes.map((b) => clean({ ...b, label: b.label?.trim() })),
+  }
+}
 
 function toPayload(v) {
   const isPart = v.type === 'part'
@@ -288,7 +322,7 @@ function toPayload(v) {
     quotes: hasVariants ? { enabled: false } : clean(v.quotes),
     condition: v.condition,
     warranty: clean(v.warranty),
-    shipping: clean(v.shipping),
+    shipping: shippingPayload(v.shipping),
     specifications: v.specifications,
     compatibleWith: isPart ? v.compatibleWith.map((c) => c._id) : [],
     compatibleModels: isPart ? v.compatibleModels : [],
@@ -405,7 +439,11 @@ function ProductForm({ product, cloneFrom }) {
   return (
     <form onSubmit={(ev) => ev.preventDefault()} noValidate className="pb-24">
       <PageHeader
-        back={seller.adminEdit && product ? { to: `${seller.base}/products/${product._id}`, label: 'Product' } : { to: `${seller.base}/products`, label: 'Products' }}
+        back={
+          seller.adminEdit && product
+            ? { to: `${seller.base}/products/${product._id}`, label: 'Product' }
+            : { to: `${seller.base}/products`, label: 'Products' }
+        }
         title={isNew ? (cloneFrom ? 'Add product (copy)' : 'Add product') : product.name}
         meta={status && <StatusBadge status={status} />}
         description={
@@ -439,8 +477,7 @@ function ProductForm({ product, cloneFrom }) {
 
       {cloneFrom && (
         <Alert tone="info" icon={Copy} className="mb-6" title={`Copied from “${cloneFrom.name}”`}>
-          Everything except the SKU and barcode is filled in. Change what&apos;s different, then save it as a new product. The original isn&apos;t
-          changed.
+          Everything except the SKU and barcode is filled in. Change what&apos;s different, then save it as a new product. The original isn&apos;t changed.
         </Alert>
       )}
 
@@ -785,20 +822,10 @@ function ProductForm({ product, cloneFrom }) {
           <Card>
             <CardHeader
               title="Shipping & warranty"
-              description="Packed size and weight, as the courier will collect it. Used to book shipments and price delivery."
+              description="Packed size and weight, as the courier will collect it. Used to book shipments and price delivery. Machines sent in parts can list each box."
             />
             <CardBody className="grid grid-cols-2 gap-4">
-              <Field label="Package weight" error={e.shipping?.weightKg?.message} hint={variantCount > 0 ? 'Variants can set their own weight' : undefined}>
-                {(p) => (
-                  <Controller
-                    name="shipping.weightKg"
-                    control={control}
-                    render={({ field }) => (
-                      <NumberInput {...p} step="0.01" inputMode="decimal" value={field.value} onChange={field.onChange} suffix="kg" placeholder="0.00" />
-                    )}
-                  />
-                )}
-              </Field>
+              <PackageFields control={control} errors={e.shipping} setValue={setValue} getValues={form.getValues} variantCount={variantCount} />
               <Field label="Dispatch in" error={e.shipping?.dispatchDays?.message}>
                 {(p) => (
                   <Controller
@@ -808,35 +835,6 @@ function ProductForm({ product, cloneFrom }) {
                   />
                 )}
               </Field>
-              <fieldset className="col-span-2 flex flex-col gap-1.5">
-                <legend className="mb-1.5 text-sm font-semibold text-slate-900">Package size (L × W × H)</legend>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    ['lengthCm', 'Length'],
-                    ['widthCm', 'Width'],
-                    ['heightCm', 'Height'],
-                  ].map(([key, label]) => (
-                    <Controller
-                      key={key}
-                      name={`shipping.${key}`}
-                      control={control}
-                      render={({ field }) => (
-                        <NumberInput
-                          aria-label={`${label} in centimetres`}
-                          aria-invalid={Boolean(e.shipping?.[key]) || undefined}
-                          step="0.1"
-                          inputMode="decimal"
-                          value={field.value}
-                          onChange={field.onChange}
-                          placeholder={label}
-                          suffix="cm"
-                        />
-                      )}
-                    />
-                  ))}
-                </div>
-                <p className="text-xs text-slate-500">Measure the box it ships in. Leave empty to use the store’s default package size.</p>
-              </fieldset>
               <div className="col-span-2 border-t border-slate-100" />
               <Field label="Warranty" error={e.warranty?.months?.message}>
                 {(p) => (
@@ -938,5 +936,153 @@ function ProductForm({ product, cloneFrom }) {
         onSaved={(c) => setValue('category', c._id, { shouldDirty: true, shouldValidate: true })}
       />
     </form>
+  )
+}
+
+const SIDES = [
+  ['lengthCm', 'Length'],
+  ['widthCm', 'Width'],
+  ['heightCm', 'Height'],
+]
+
+const PACKING = [
+  { value: 'single', label: 'One box' },
+  { value: 'multi', label: 'Several boxes' },
+]
+
+/**
+ * How the product is packed: one box (weight + L×W×H), or for machines shipped in parts and assembled
+ * at the customer's, a row per box. Couriers charge per box, so each one is measured.
+ */
+function PackageFields({ control, errors, setValue, getValues, variantCount }) {
+  const boxes = useFieldArray({ control, name: 'shipping.boxes' })
+  const watched = useWatch({ control, name: 'shipping.boxes' }) ?? []
+  const multi = boxes.fields.length >= 2
+  const total = watched.reduce((sum, b) => sum + (Number(b?.weightKg) || 0), 0)
+
+  const switchTo = (mode) => {
+    if (mode === 'multi' && !multi) {
+      const s = getValues('shipping')
+      // Start from the single box already entered, plus an empty second one.
+      boxes.replace([
+        { label: '', weightKg: s.weightKg, lengthCm: s.lengthCm, widthCm: s.widthCm, heightCm: s.heightCm },
+        { label: '', weightKg: undefined, lengthCm: undefined, widthCm: undefined, heightCm: undefined },
+      ])
+    } else if (mode === 'single' && multi) {
+      const [first] = getValues('shipping.boxes')
+      boxes.replace([])
+      if (first) for (const k of ['lengthCm', 'widthCm', 'heightCm']) setValue(`shipping.${k}`, first[k], { shouldDirty: true })
+      setValue('shipping.weightKg', total || undefined, { shouldDirty: true })
+    }
+  }
+
+  // `short`: L / W / H placeholders, for the narrow per-box rows.
+  const sizeInputs = (prefix, errs, short = false) =>
+    SIDES.map(([key, label]) => (
+      <Controller
+        key={key}
+        name={`${prefix}.${key}`}
+        control={control}
+        render={({ field }) => (
+          <NumberInput
+            aria-label={`${label} in centimetres`}
+            aria-invalid={Boolean(errs?.[key]) || undefined}
+            step="0.1"
+            inputMode="decimal"
+            value={field.value}
+            onChange={field.onChange}
+            placeholder={short ? label[0] : label}
+            suffix="cm"
+          />
+        )}
+      />
+    ))
+
+  return (
+    <>
+      <div className="col-span-2">
+        <p className="mb-1.5 text-sm font-semibold text-slate-900">Ships in</p>
+        <SegmentedControl value={multi ? 'multi' : 'single'} onChange={switchTo} options={PACKING} />
+        {multi && <p className="mt-1.5 text-xs text-slate-500">For machines sent in parts and assembled at the customer’s. Couriers charge for each box.</p>}
+      </div>
+
+      {multi ? (
+        <div className="col-span-2 flex flex-col gap-3">
+          {boxes.fields.map((f, i) => {
+            const errs = errors?.boxes?.[i]
+            return (
+              <fieldset key={f.id} className="rounded-md border border-slate-200 p-3">
+                <legend className="px-1 text-sm font-semibold text-slate-900">Box {i + 1}</legend>
+                <div className="grid grid-cols-[minmax(0,1fr)_7.5rem] gap-2">
+                  <Controller
+                    name={`shipping.boxes.${i}.label`}
+                    control={control}
+                    render={({ field }) => (
+                      <Input aria-label={`Box ${i + 1} contents`} placeholder="Contents, e.g. Engine" maxLength={60} {...field} value={field.value ?? ''} />
+                    )}
+                  />
+                  <Controller
+                    name={`shipping.boxes.${i}.weightKg`}
+                    control={control}
+                    render={({ field }) => (
+                      <NumberInput
+                        aria-label={`Box ${i + 1} weight in kg`}
+                        aria-invalid={Boolean(errs?.weightKg) || undefined}
+                        step="0.01"
+                        inputMode="decimal"
+                        value={field.value}
+                        onChange={field.onChange}
+                        placeholder="Weight"
+                        suffix="kg"
+                      />
+                    )}
+                  />
+                </div>
+                <div className="mt-2 grid grid-cols-3 gap-2">{sizeInputs(`shipping.boxes.${i}`, errs, true)}</div>
+                {errs && <p className="mt-1.5 text-xs text-red-600">Enter this box’s weight and all three sides.</p>}
+                {boxes.fields.length > 2 && (
+                  <Button size="xs" variant="ghost" className="mt-2" onClick={() => boxes.remove(i)}>
+                    <Trash2 /> Remove box
+                  </Button>
+                )}
+              </fieldset>
+            )
+          })}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={boxes.fields.length >= 10}
+              onClick={() => boxes.append({ label: '', weightKg: undefined, lengthCm: undefined, widthCm: undefined, heightCm: undefined })}
+            >
+              <Plus /> Add box
+            </Button>
+            <p className="text-sm text-slate-700">
+              {boxes.fields.length} boxes · total <span className="font-semibold tabular">{Math.round(total * 100) / 100} kg</span>
+            </p>
+          </div>
+        </div>
+      ) : (
+        <>
+          <Field label="Package weight" error={errors?.weightKg?.message} hint={variantCount > 0 ? 'Variants can set their own weight' : undefined}>
+            {(p) => (
+              <Controller
+                name="shipping.weightKg"
+                control={control}
+                render={({ field }) => (
+                  <NumberInput {...p} step="0.01" inputMode="decimal" value={field.value} onChange={field.onChange} suffix="kg" placeholder="0.00" />
+                )}
+              />
+            )}
+          </Field>
+          <div />
+          <fieldset className="col-span-2 flex flex-col gap-1.5">
+            <legend className="mb-1.5 text-sm font-semibold text-slate-900">Package size (L × W × H)</legend>
+            <div className="grid grid-cols-3 gap-2">{sizeInputs('shipping', errors)}</div>
+            <p className="text-xs text-slate-500">Measure the box it ships in. Leave empty to use the store’s default package size.</p>
+          </fieldset>
+        </>
+      )}
+    </>
   )
 }

@@ -105,9 +105,15 @@ export function rateCalculatorBody(q) {
     rov_type: DEFAULT_ROV_TYPE,
     cod_amount: cod ? String(toRupees(q.codAmount ?? q.orderAmount)) : '',
     weight: q.package.weightGrams,
-    dimensions: [
-      { no_of_box: '1', length: String(q.package.lengthCm), width: String(q.package.widthCm), height: String(q.package.heightCm) },
-    ],
+    // Each box priced on its own (machines shipped in parts); older packages carry one envelope.
+    dimensions: q.package.boxes?.length
+      ? q.package.boxes.map((b) => ({
+          no_of_box: String(b.count),
+          length: String(b.lengthCm),
+          width: String(b.widthCm),
+          height: String(b.heightCm),
+        }))
+      : [{ no_of_box: '1', length: String(q.package.lengthCm), width: String(q.package.widthCm), height: String(q.package.heightCm) }],
   };
 }
 

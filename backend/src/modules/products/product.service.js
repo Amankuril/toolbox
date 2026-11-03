@@ -78,6 +78,15 @@ async function assertCompatibleTargets(ids, selfId) {
 async function buildChanges(input, actor, selfId, { allowMedia } = {}) {
   const changes = {};
   for (const key of SIMPLE_FIELDS) if (input[key] !== undefined) changes[key] = input[key];
+  // Shipping sent without its box list (spreadsheet import, older clients) keeps the boxes already set.
+  if (changes.shipping) {
+    const { boxes, ...single } = changes.shipping;
+    delete changes.shipping;
+    // The single-box fields are still replaced as a set: one left out is cleared.
+    for (const k of ['weightKg', 'lengthCm', 'widthCm', 'heightCm']) changes[`shipping.${k}`] = single[k];
+    if (single.dispatchDays !== undefined) changes['shipping.dispatchDays'] = single.dispatchDays;
+    if (boxes !== undefined) changes['shipping.boxes'] = boxes.length ? boxes : undefined;
+  }
   // No rate on the product: it follows the category's (see applyTax).
   if (changes.pricing?.gstRate == null && changes.pricing) {
     const { gstRate: _inherit, ...pricing } = changes.pricing;
@@ -248,7 +257,8 @@ async function cloneMedia(vendor, sourceId) {
 function bulkRowInput(product, row) {
   const input = {};
   // An emptied cell clears the value (null also keeps an empty SKU out of the unique SKU index).
-  for (const key of ['name', 'sku', 'brand', 'shortDescription']) if (row[key] !== undefined) input[key] = row[key] === '' ? null : row[key];
+  for (const key of ['name', 'sku', 'brand', 'shortDescription'])
+    if (row[key] !== undefined) input[key] = row[key] === '' ? null : row[key];
   for (const key of ['tags', 'searchKeywords']) if (row[key] !== undefined) input[key] = row[key];
   if (row.hsnCode !== undefined) input.hsnCode = row.hsnCode;
 

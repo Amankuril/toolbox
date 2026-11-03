@@ -1,4 +1,5 @@
 import request from 'supertest';
+import { computePackage } from '#modules/shipping/shipping.package.js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Product } from '#modules/products/product.model.js';
 import { API, approvedVendor, bearer, createAdmin, otpSignIn, setModeration, startTestApp, stopTestApp } from './helpers.js';
@@ -90,9 +91,61 @@ describe('inventory basics', () => {
 
 describe('shipping details', () => {
   it('stores package weight and dimensions from the product form', async () => {
-    const { data } = await create(base({ name: 'Boxed sprayer', shipping: { weightKg: 4.25, lengthCm: 42, widthCm: 30.5, heightCm: 20, dispatchDays: 3 } }));
+    const { data } = await create(
+      base({ name: 'Boxed sprayer', shipping: { weightKg: 4.25, lengthCm: 42, widthCm: 30.5, heightCm: 20, dispatchDays: 3 } }),
+    );
     expect(data.shipping).toMatchObject({ weightKg: 4.25, lengthCm: 42, widthCm: 30.5, heightCm: 20, dispatchDays: 3 });
     await create(base({ name: 'Bad box', shipping: { lengthCm: -1 } }), 422);
+  });
+
+  it('stores a machine that ships in several boxes, and keeps them when shipping is sent without the list', async () => {
+    const boxes = [
+      { label: 'Engine', weightKg: 32, lengthCm: 60, widthCm: 45, heightCm: 50 },
+      { label: 'Tines and handle', weightKg: 12.5, lengthCm: 110, widthCm: 30, heightCm: 20 },
+    ];
+    const { data } = await create(
+      base({ name: 'Power tiller kit', shipping: { weightKg: 44.5, lengthCm: 60, widthCm: 45, heightCm: 50, boxes } }),
+    );
+    expect(data.shipping.boxes).toEqual(boxes);
+    // e.g. a spreadsheet re-import updating the weight only.
+    const patched = await request(app)
+      .patch(`${API}/vendor/products/${data._id}`)
+      .set(V())
+      .send({ shipping: { weightKg: 45, dispatchDays: 4 } })
+      .expect(200);
+    expect(patched.body.data.shipping).toMatchObject({ weightKg: 45, dispatchDays: 4, boxes });
+    // Back to one box.
+    const single = await request(app)
+      .patch(`${API}/vendor/products/${data._id}`)
+      .set(V())
+      .send({ shipping: { weightKg: 45, boxes: [] } })
+      .expect(200);
+    expect(single.body.data.shipping.boxes).toBeUndefined();
+    await create(base({ name: 'One box listed', shipping: { boxes: [boxes[0]] } }), 422);
+    await create(base({ name: 'Box without size', shipping: { boxes: [boxes[0], { weightKg: 3 }] } }), 422);
+  });
+
+  it('counts every box of a machine shipped in parts when packing an order', async () => {
+    const boxes = [
+      { weightKg: 30, lengthCm: 60, widthCm: 45, heightCm: 50 },
+      { weightKg: 10, lengthCm: 110, widthCm: 30, heightCm: 20 },
+    ];
+    const kit = (await create(base({ name: 'Weeder kit', shipping: { weightKg: 40, boxes } }))).data;
+    const plain = (await create(base({ name: 'Spare belt', shipping: { weightKg: 0.5, lengthCm: 20, widthCm: 10, heightCm: 5 } }))).data;
+    const fallback = { weightGrams: 500, lengthCm: 20, widthCm: 15, heightCm: 10 };
+    const pkg = await computePackage(
+      [
+        { product: kit._id, quantity: 2 },
+        { product: plain._id, quantity: 1 },
+      ],
+      fallback,
+    );
+    expect(pkg).toMatchObject({ weightGrams: 80_500, boxCount: 5, lengthCm: 110, widthCm: 45, heightCm: 145 });
+    expect(pkg.boxes).toEqual([
+      { count: 2, lengthCm: 60, widthCm: 45, heightCm: 50 },
+      { count: 2, lengthCm: 110, widthCm: 30, heightCm: 20 },
+      { count: 1, lengthCm: 20, widthCm: 10, heightCm: 5 },
+    ]);
   });
 });
 

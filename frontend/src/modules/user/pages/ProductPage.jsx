@@ -540,9 +540,20 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related, fro
                 </div>
               ))}
               {p.shipping?.weightKg != null && (
-                <div className="flex items-baseline justify-between gap-6 py-2.5">
+                <div className="flex items-baseline justify-between gap-6 border-b border-dotted border-slate-300 py-2.5 last:border-b-0">
                   <dt className="text-slate-600">Shipping weight</dt>
                   <dd className="text-right font-semibold text-slate-900">{p.shipping.weightKg} kg</dd>
+                </div>
+              )}
+              {p.shipping?.boxes?.length > 1 && (
+                <div className="flex items-baseline justify-between gap-6 py-2.5">
+                  <dt className="text-slate-600">Delivered in</dt>
+                  <dd className="text-right font-semibold text-slate-900">
+                    {p.shipping.boxes.length} boxes, assembled on arrival
+                    <span className="block text-xs font-normal text-slate-500">
+                      {p.shipping.boxes.map((b, i) => `${b.label || `Box ${i + 1}`}: ${b.weightKg} kg`).join(' · ')}
+                    </span>
+                  </dd>
                 </div>
               )}
             </dl>

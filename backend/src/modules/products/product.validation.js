@@ -144,6 +144,20 @@ const fields = {
     widthCm: nonNegative(10_000).optional(),
     heightCm: nonNegative(10_000).optional(),
     dispatchDays: z.number().int().min(0).max(60).optional(),
+    // Two or more boxes for a machine shipped in parts; [] = a single box (the fields above).
+    boxes: z
+      .array(
+        z.object({
+          label: optionalText(60),
+          weightKg: z.number().positive('Enter the box weight').max(100_000),
+          lengthCm: z.number().positive('Enter the length').max(10_000),
+          widthCm: z.number().positive('Enter the width').max(10_000),
+          heightCm: z.number().positive('Enter the height').max(10_000),
+        }),
+      )
+      .max(10, 'Up to 10 boxes')
+      .refine((boxes) => boxes.length !== 1, 'A single box goes in the package fields; add boxes only for 2 or more')
+      .optional(),
   }),
   compatibleWith: z.array(objectId).max(100),
   compatibleModels: stringList(100, 80),

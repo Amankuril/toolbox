@@ -44,7 +44,18 @@ export const TRACKABLE_STATUSES = [
 ];
 export const SHIPMENT_TYPES = ['forward', 'return'];
 
-const packageSchema = new Schema({ weightGrams: Number, lengthCm: Number, widthCm: Number, heightCm: Number }, { _id: false });
+const packageSchema = new Schema(
+  {
+    weightGrams: Number,
+    lengthCm: Number,
+    widthCm: Number,
+    heightCm: Number,
+    // Machines shipped in parts: how many boxes, and their sizes (identical boxes grouped).
+    boxCount: Number,
+    boxes: { type: [{ _id: false, count: Number, lengthCm: Number, widthCm: Number, heightCm: Number }], default: undefined },
+  },
+  { _id: false },
+);
 
 const historySchema = new Schema(
   {
