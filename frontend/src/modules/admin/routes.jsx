@@ -15,7 +15,13 @@ export const adminRoutes = {
           ...page(() => import('./AdminLayout')),
           // Each group is visible only to admins with access to that section (see access.jsx).
           children: [
-            { element: <RequireSection section="dashboard" />, children: [{ index: true, ...page(() => import('./pages/DashboardPage')) }] },
+            {
+              element: <RequireSection section="dashboard" />,
+              children: [
+                { index: true, ...page(() => import('./pages/DashboardPage')) },
+                { path: 'analytics', ...page(() => import('./pages/AnalyticsPage')) },
+              ],
+            },
             {
               element: <RequireSection section="orders" />,
               children: [

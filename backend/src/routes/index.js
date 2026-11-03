@@ -24,7 +24,7 @@ import { adminCategoryRoutes, publicCategoryRoutes, vendorCategoryRoutes } from 
 import { dashboardService } from '#modules/dashboard/dashboard.service.js';
 import { adminMediaRouter, mediaUploadRouter } from '#modules/media/media.routes.js';
 import { manualOrderRoutes, publicPayRoutes } from '#modules/orders/manual.routes.js';
-import { publicTrackRoutes, sellerAnalyticsRoutes } from '#modules/analytics/analytics.routes.js';
+import { adminAnalyticsRoutes, publicTrackRoutes, sellerAnalyticsRoutes } from '#modules/analytics/analytics.routes.js';
 import { enquiryRoutes, publicEnquiryRoutes } from '#modules/enquiries/enquiry.routes.js';
 import { adminPageRoutes, publicPageRoutes } from '#modules/pages/page.routes.js';
 import { publicPickupRoutes, sellerPickupRoutes } from '#modules/pickup/pickup.routes.js';
@@ -154,6 +154,7 @@ export function buildRoutes() {
     .use(authenticate('admin'))
     .use(adminSelfRoutes)
     .get('/dashboard', requireSection('dashboard'), async (_req, res) => ok(res, await dashboardService.admin()))
+    .use('/analytics', requireSection('dashboard'), adminAnalyticsRoutes)
     .use('/admins', adminManagementRoutes)
     .use('/vendors', requireSection('vendors', { readableBy: ['products'], readablePath: /^\/(?:[0-9a-f]{24})?$/i }), adminVendorRoutes)
     // Sending a coupon to customers (Coupons & offers) needs to list them, nothing more.

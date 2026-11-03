@@ -8,6 +8,7 @@ import {
   FolderTree,
   Heart,
   Image,
+  ChartNoAxesCombined,
   LayoutTemplate,
   KeyRound,
   LayoutDashboard,
@@ -61,6 +62,7 @@ export default function AdminLayout() {
     {
       items: [
         allow('dashboard', { to: '/admin', end: true, label: 'Dashboard', icon: LayoutDashboard }),
+        allow('dashboard', { to: '/admin/analytics', label: 'Analytics', icon: ChartNoAxesCombined }),
         allow('orders', { to: '/admin/orders', label: 'Orders', icon: ShoppingBag }),
         allow('orders', { to: '/admin/enquiries', label: 'Enquiries', icon: BellRing }),
         allow('quotes', { to: '/admin/quotes', label: 'Bulk quotes', icon: FileText }),
