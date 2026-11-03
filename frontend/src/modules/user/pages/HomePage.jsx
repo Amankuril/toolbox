@@ -102,60 +102,17 @@ function FallbackHero({ siteName, tagline, tree }) {
           {tagline && <p className="max-w-md text-[1.0625rem] leading-relaxed text-secondary-fg/75">{tagline}</p>}
         </div>
         <div className="flex flex-wrap gap-3">
-          <a href="#departments" className="inline-flex h-12 items-center gap-2 rounded-md bg-accent px-5 font-bold text-accent-fg hover:brightness-[0.96]">
-            Shop departments <ArrowRight className="size-4" />
-          </a>
+          <Link
+            to={tree[0] ? `/c/${tree[0].slug}` : '/search'}
+            className="inline-flex h-12 items-center gap-2 rounded-md bg-accent px-5 font-bold text-accent-fg hover:brightness-[0.96]"
+          >
+            {tree[0] ? `Shop ${tree[0].name}` : 'Shop all products'} <ArrowRight className="size-4" />
+          </Link>
           <Link to="/search?bulk=true" className="inline-flex h-12 items-center rounded-md border-[1.5px] border-white/35 px-5 font-semibold hover:border-white/70">
             Bulk &amp; quotes
           </Link>
         </div>
       </div>
-    </section>
-  )
-}
-
-/** Department directory: every root with its sub-departments as plain links, like a trade catalogue index. */
-function Departments({ tree, loading }) {
-  return (
-    <section id="departments" className="mx-auto mt-14 max-w-7xl scroll-mt-40 px-4 sm:px-6">
-      <SectionHeading title="Shop by department" />
-      {loading ? (
-        <div className="grid gap-px sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }, (_, i) => (
-            <Skeleton key={i} className="h-36" />
-          ))}
-        </div>
-      ) : (
-        <div className="grid gap-px overflow-hidden rounded-md border border-slate-200 bg-slate-200 sm:grid-cols-2 lg:grid-cols-3">
-          {tree.map((dept) => (
-            <div key={dept._id} className="flex gap-4 bg-white p-5">
-              <Link to={`/c/${dept.slug}`} className="shrink-0" tabIndex={-1} aria-hidden>
-                <Thumb src={dept.image?.url} alt="" className="size-20 rounded bg-slate-100" fit="cover" />
-              </Link>
-              <div className="min-w-0">
-                <Link to={`/c/${dept.slug}`} className="font-display text-xl leading-tight font-bold text-slate-900 hover:underline">
-                  {dept.name}
-                </Link>
-                <ul className="mt-2 flex flex-col gap-1">
-                  {(dept.children ?? []).slice(0, 4).map((sub) => (
-                    <li key={sub._id}>
-                      <Link to={`/c/${sub.slug}`} className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 hover:underline">
-                        {sub.image?.url && <Thumb src={sub.image.url} alt="" className="size-5 shrink-0 rounded-sm" fit="cover" />}
-                        {sub.name}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-                {dept.children?.length > 4 && (
-                  <Link to={`/c/${dept.slug}`} className="mt-1.5 inline-block text-sm font-semibold text-slate-900 hover:underline">
-                    + {dept.children.length - 4} more
-                  </Link>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
     </section>
   )
 }
@@ -307,8 +264,6 @@ export default function HomePage() {
         )}
       </div>
       <ServiceStrip className="mt-4" />
-
-      <Departments tree={tree} loading={treeLoading} />
 
       {home.isLoading
         ? [0, 1].map((i) => <ProductRail key={i} className="mt-16" title="" loading />)
