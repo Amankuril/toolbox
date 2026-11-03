@@ -13,10 +13,6 @@ import { ProductRail, SectionHeading } from '../components/ProductCard'
 import { useCategoryTree } from '../hooks'
 import { fillTemplate, useSeoTitle } from '@/core/seo/templates'
 
-function useProducts(params) {
-  return useQuery({ queryKey: storeKeys.products(params), queryFn: () => storeApi.products(params), staleTime: 60_000 })
-}
-
 /** The trade buyer's shortcut: search by the machine you own, land on parts that fit it. */
 function PartsFinder() {
   const navigate = useNavigate()
@@ -164,11 +160,11 @@ function Departments({ tree, loading }) {
   )
 }
 
-function Brands({ brands }) {
+function Brands({ title, brands }) {
   if (!brands?.length) return null
   return (
     <section className="mx-auto mt-16 max-w-7xl px-4 sm:px-6">
-      <SectionHeading title="Brands" />
+      <SectionHeading title={title || 'Brands'} />
       <div className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-slate-200 bg-slate-200 sm:grid-cols-4 lg:grid-cols-6">
         {brands.slice(0, 12).map((b) => (
           <Link
@@ -191,14 +187,101 @@ const HOW_IT_WORKS = [
   { title: 'GST billing', text: 'Add your GSTIN at checkout; it’s shared with the seller for billing.' },
 ]
 
+function OfferTiles({ offers }) {
+  if (!offers.length) return null
+  return (
+    <section className="mx-auto mt-14 grid max-w-7xl gap-4 px-4 sm:grid-cols-2 sm:px-6 lg:grid-cols-3">
+      {offers.slice(0, 3).map((b) => (
+        <Link key={b._id} to={b.link || '#'} className="block overflow-hidden rounded-md">
+          <img src={b.image.url} alt={b.title} loading="lazy" className="aspect-[2/1] w-full object-cover transition-transform duration-500 hover:scale-[1.02]" />
+        </Link>
+      ))}
+    </section>
+  )
+}
+
+function PromoStrip({ strip }) {
+  if (!strip) return null
+  return (
+    <section className="mx-auto mt-16 max-w-7xl px-4 sm:px-6">
+      <Link to={strip.link || '#'} className="block overflow-hidden rounded-md">
+        <img src={strip.image.url} alt={strip.title} loading="lazy" className="aspect-[16/3] w-full object-cover" />
+      </Link>
+    </section>
+  )
+}
+
+function HowItWorks() {
+  return (
+    <section className="mt-20 border-y border-slate-200 bg-slate-100">
+      <div className="mx-auto grid max-w-7xl gap-px px-4 sm:grid-cols-2 sm:px-6 lg:grid-cols-4">
+        {HOW_IT_WORKS.map((item, i) => (
+          <div key={item.title} className={`py-8 lg:px-6 ${i > 0 ? 'lg:border-l lg:border-slate-200' : 'lg:pl-0'}`}>
+            <p className="font-display text-sm font-semibold text-slate-400 tabular">0{i + 1}</p>
+            <h3 className="mt-1 font-display text-xl font-bold text-slate-900">{item.title}</h3>
+            <p className="mt-1 text-sm text-slate-600">{item.text}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function SellCta({ siteName }) {
+  return (
+    <section className="mx-auto mt-16 max-w-7xl px-4 sm:px-6">
+      <div className="grid items-center gap-6 rounded-md border-2 border-slate-900 p-8 md:grid-cols-[1fr_auto]">
+        <div>
+          <h2 className="font-display text-3xl leading-tight font-bold text-slate-900">Sell on {siteName}</h2>
+          <p className="mt-2 max-w-2xl text-slate-600">
+            Dealers, distributors and manufacturers: list tools, machinery and spare parts, set bulk prices, answer quote requests and manage orders from one dashboard.
+          </p>
+        </div>
+        <Button size="lg" variant="secondary" asChild>
+          <Link to="/vendor/login">
+            Start selling <ArrowRight />
+          </Link>
+        </Button>
+      </div>
+    </section>
+  )
+}
+
+/** One block of the admin-arranged page (Admin → Home page). */
+function HomeSection({ section: s, siteName, offers, strip }) {
+  switch (s.kind) {
+    case 'products':
+      return <ProductRail className="mt-16" title={s.title} subtitle={s.subtitle} products={s.products} rows={s.rows} viewAll={s.viewAll} />
+    case 'partsFinder':
+      return (
+        <div className="mx-auto mt-4 grid max-w-7xl gap-4 px-4 sm:px-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+          <PartsFinder />
+          <BulkCallout />
+        </div>
+      )
+    case 'offers':
+      return <OfferTiles offers={offers} />
+    case 'strip':
+      return <PromoStrip strip={strip} />
+    case 'brands':
+      return <Brands title={s.title} brands={s.brands} />
+    case 'stats':
+      return <StatsBand siteName={siteName} className="mt-16" />
+    case 'howItWorks':
+      return <HowItWorks />
+    case 'sellCta':
+      return <SellCta siteName={siteName} />
+    default:
+      return null
+  }
+}
+
 export default function HomePage() {
   const { data: settings } = usePublicSettings()
   const { data: tree = [], isLoading: treeLoading } = useCategoryTree()
   const { data: banners = [], isLoading: bannersLoading } = useQuery({ queryKey: storeKeys.banners, queryFn: storeApi.banners, staleTime: 5 * 60_000 })
-  const featured = useProducts({ featured: true, limit: 12 })
-  const bulk = useProducts({ bulk: true, limit: 12 })
-  const latest = useProducts({ sort: 'newest', limit: 12 })
-  const brands = useProducts({ limit: 1 }).data?.meta?.facets?.brands
+  // Shuffled per visit on the server; kept for the session so going back doesn't reshuffle under the visitor.
+  const home = useQuery({ queryKey: storeKeys.home, queryFn: storeApi.home, staleTime: Infinity })
 
   const siteName = settings?.branding.siteName ?? 'ToolsHubs'
   const title = useSeoTitle('home', {})
@@ -224,82 +307,12 @@ export default function HomePage() {
         )}
       </div>
       <ServiceStrip className="mt-4" />
-      <div className="mx-auto mt-4 grid max-w-7xl gap-4 px-4 sm:px-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <PartsFinder />
-        <BulkCallout />
-      </div>
 
       <Departments tree={tree} loading={treeLoading} />
 
-      {offers.length > 0 && (
-        <section className="mx-auto mt-14 grid max-w-7xl gap-4 px-4 sm:grid-cols-2 sm:px-6 lg:grid-cols-3">
-          {offers.slice(0, 3).map((b) => (
-            <Link key={b._id} to={b.link || '#'} className="block overflow-hidden rounded-md">
-              <img src={b.image.url} alt={b.title} loading="lazy" className="aspect-[2/1] w-full object-cover transition-transform duration-500 hover:scale-[1.02]" />
-            </Link>
-          ))}
-        </section>
-      )}
-
-      <ProductRail className="mt-16" title="Featured" products={featured.data?.items} loading={featured.isLoading} viewAll="/search?featured=true" />
-      <ProductRail
-        className="mt-16"
-        title="Bulk deals"
-        subtitle="The more you buy, the lower the price per unit"
-        products={bulk.data?.items}
-        loading={bulk.isLoading}
-        viewAll="/search?bulk=true"
-      />
-
-      {strip && (
-        <section className="mx-auto mt-16 max-w-7xl px-4 sm:px-6">
-          <Link to={strip.link || '#'} className="block overflow-hidden rounded-md">
-            <img src={strip.image.url} alt={strip.title} loading="lazy" className="aspect-[16/3] w-full object-cover" />
-          </Link>
-        </section>
-      )}
-
-      <ProductRail className="mt-16" title="New in" products={latest.data?.items} loading={latest.isLoading} viewAll="/search?sort=newest" />
-      {tree.slice(0, 3).map((c) => (
-        <DepartmentRail key={c._id} department={c} />
-      ))}
-
-      <Brands brands={brands} />
-
-      <StatsBand siteName={siteName} className="mt-16" />
-
-      <section className="mt-20 border-y border-slate-200 bg-slate-100">
-        <div className="mx-auto grid max-w-7xl gap-px px-4 sm:grid-cols-2 sm:px-6 lg:grid-cols-4">
-          {HOW_IT_WORKS.map((item, i) => (
-            <div key={item.title} className={`py-8 lg:px-6 ${i > 0 ? 'lg:border-l lg:border-slate-200' : 'lg:pl-0'}`}>
-              <p className="font-display text-sm font-semibold text-slate-400 tabular">0{i + 1}</p>
-              <h3 className="mt-1 font-display text-xl font-bold text-slate-900">{item.title}</h3>
-              <p className="mt-1 text-sm text-slate-600">{item.text}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="mx-auto mt-16 max-w-7xl px-4 sm:px-6">
-        <div className="grid items-center gap-6 rounded-md border-2 border-slate-900 p-8 md:grid-cols-[1fr_auto]">
-          <div>
-            <h2 className="font-display text-3xl leading-tight font-bold text-slate-900">Sell on {siteName}</h2>
-            <p className="mt-2 max-w-2xl text-slate-600">
-              Dealers, distributors and manufacturers: list tools, machinery and spare parts, set bulk prices, answer quote requests and manage orders from one dashboard.
-            </p>
-          </div>
-          <Button size="lg" variant="secondary" asChild>
-            <Link to="/vendor/login">
-              Start selling <ArrowRight />
-            </Link>
-          </Button>
-        </div>
-      </section>
+      {home.isLoading
+        ? [0, 1].map((i) => <ProductRail key={i} className="mt-16" title="" loading />)
+        : (home.data?.sections ?? []).map((s) => <HomeSection key={s.id} section={s} siteName={siteName} offers={offers} strip={strip} />)}
     </>
   )
-}
-
-function DepartmentRail({ department }) {
-  const { data, isLoading } = useProducts({ category: department.slug, limit: 12 })
-  return <ProductRail className="mt-16" title={department.name} products={data?.items} loading={isLoading} viewAll={`/c/${department.slug}`} />
 }

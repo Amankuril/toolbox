@@ -126,6 +126,8 @@ export const adminApi = {
   createBanner: (body) => one(a.post('/banners', body)),
   updateBanner: (id, body) => one(a.patch(`/banners/${id}`, body)),
   deleteBanner: (id) => a.delete(`/banners/${id}`),
+  homeSections: () => one(a.get('/home-sections')),
+  saveHomeSections: (body) => one(a.put('/home-sections', body)),
 
   settings: () => one(a.get('/settings')),
   updateSettings: (key, body) => one(a.put(`/settings/${key}`, body)),

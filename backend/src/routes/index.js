@@ -14,6 +14,7 @@ import { cartRoutes } from '#modules/cart/cart.routes.js';
 import { adminCouponRoutes, userCouponRoutes, vendorCouponRoutes } from '#modules/coupons/coupon.routes.js';
 import { sellerCustomerRoutes, userChatRoutes, vendorLeadRoutes } from '#modules/leads/leads.routes.js';
 import { wishlistInsightRoutes, wishlistRoutes } from '#modules/wishlist/wishlist.routes.js';
+import { adminHomeRoutes, publicHomeRoutes } from '#modules/home/home.routes.js';
 import { publicImageSearchRoutes } from '#modules/search/imageSearch.routes.js';
 import { seoAuditRoutes } from '#modules/seo/seo.routes.js';
 import { adminWalletRoutes, userWalletRoutes } from '#modules/wallet/wallet.routes.js';
@@ -75,6 +76,7 @@ export function buildRoutes() {
     .use('/pickup-points', publicPickupRoutes)
     .use('/track', publicTrackRoutes)
     .use('/image-search', publicImageSearchRoutes)
+    .use('/home', publicHomeRoutes)
     .get(
       '/pincodes/:pincode',
       rateLimit({ keyPrefix: 'pincode', points: 30, duration: 60 }),
@@ -169,6 +171,7 @@ export function buildRoutes() {
     .use('/quotes', requireSection('quotes'), adminQuoteRoutes)
     .use('/reviews', requireSection('reviews'), adminReviewRoutes)
     .use('/banners', requireSection('banners'), adminBannerRoutes)
+    .use('/home-sections', requireSection('banners'), adminHomeRoutes)
     // The banner form lists coupons to attach to an exit offer.
     .use('/coupons', requireSection('marketing', { readableBy: ['banners'] }), adminCouponRoutes)
     // Uploading is part of whichever section the file is for (banners, categories, branding…);

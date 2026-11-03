@@ -1,6 +1,14 @@
 import { z } from 'zod';
 import { hexColor, imageRef } from '#core/validation/common.js';
 
+/** Blocks the home page is built from (see the homepage group). */
+export const HOME_SECTION_KINDS = ['products', 'departmentRails', 'offers', 'strip', 'partsFinder', 'brands', 'stats', 'howItWorks', 'sellCta'];
+export const HOME_PRODUCT_SOURCES = ['featured', 'bulk', 'newest', 'discount', 'category'];
+
+function homeSection(id, kind, fields = {}) {
+  return { id, kind, enabled: true, title: '', subtitle: '', source: 'featured', category: null, rows: 1, shuffle: true, count: 3, ...fields };
+}
+
 export const THEME_MODULES = ['user', 'vendor', 'admin'];
 export const RADIUS_SCALE = ['none', 'sm', 'md', 'lg', 'xl'];
 
@@ -211,6 +219,50 @@ export const SETTINGS = {
       loginPopupEnabled: true,
       loginPopupDelaySeconds: 4,
       loginPopupRepeatDays: 3,
+    },
+  },
+
+  /**
+   * Home page below the hero, top to bottom. Product sections pull from a source and can show 1–3
+   * rows that scroll sideways together; the other kinds are the page's fixed blocks, which the admin
+   * can move or hide.
+   */
+  homepage: {
+    schema: z.object({
+      sections: z
+        .array(
+          z.object({
+            id: z.string().trim().min(1).max(40),
+            kind: z.enum(HOME_SECTION_KINDS),
+            enabled: z.boolean(),
+            title: z.string().trim().max(80),
+            subtitle: z.string().trim().max(160),
+            source: z.enum(HOME_PRODUCT_SOURCES),
+            category: z.string().regex(/^[0-9a-f]{24}$/i).nullable(),
+            rows: z.number().int().min(1).max(3),
+            shuffle: z.boolean(),
+            /** departmentRails: how many top-level departments get a row each. */
+            count: z.number().int().min(1).max(12),
+          }),
+        )
+        .max(40)
+        .refine((list) => new Set(list.map((s) => s.id)).size === list.length, 'Each section once')
+        .refine((list) => list.every((s) => s.kind !== 'products' || s.source !== 'category' || s.category), 'Pick a category for each category section'),
+    }),
+    defaults: {
+      sections: [
+        homeSection('parts-finder', 'partsFinder'),
+        homeSection('offers', 'offers'),
+        homeSection('featured', 'products', { title: 'Featured', source: 'featured' }),
+        homeSection('bulk', 'products', { title: 'Bulk deals', subtitle: 'The more you buy, the lower the price per unit', source: 'bulk' }),
+        homeSection('strip', 'strip'),
+        homeSection('new-in', 'products', { title: 'New in', source: 'newest', shuffle: false }),
+        homeSection('departments', 'departmentRails', { count: 3 }),
+        homeSection('brands', 'brands', { title: 'Brands' }),
+        homeSection('stats', 'stats'),
+        homeSection('how-it-works', 'howItWorks'),
+        homeSection('sell', 'sellCta'),
+      ],
     },
   },
 

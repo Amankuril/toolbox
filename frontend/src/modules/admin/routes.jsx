@@ -81,7 +81,13 @@ export const adminRoutes = {
                 { path: 'wishlists', ...page(() => import('./pages/WishlistsPage')) },
               ],
             },
-            { element: <RequireSection section="banners" />, children: [{ path: 'banners', ...page(() => import('./pages/BannersPage')) }] },
+            {
+              element: <RequireSection section="banners" />,
+              children: [
+                { path: 'banners', ...page(() => import('./pages/BannersPage')) },
+                { path: 'home-page', ...page(() => import('./pages/HomeSectionsPage')) },
+              ],
+            },
             { element: <RequireSection section="marketing" />, children: [{ path: 'coupons', ...page(() => import('./PlatformCouponsPage')) }] },
             { element: <RequireSection section="content" />, children: [{ path: 'pages', ...page(() => import('./pages/ContentPagesPage')) }] },
             {

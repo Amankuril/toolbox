@@ -225,8 +225,13 @@ export function SectionHeading({ title, subtitle, action, className }) {
   )
 }
 
-/** Horizontal scroller of product tiles with arrow controls. */
-export function ProductRail({ title, subtitle, products, loading, viewAll, className }) {
+const ROWS_CLASS = { 1: 'grid-rows-1', 2: 'grid-rows-2', 3: 'grid-rows-3' }
+
+/**
+ * Horizontal scroller of product tiles with arrow controls. `rows` > 1 stacks that many rows that
+ * scroll sideways together (filled column by column).
+ */
+export function ProductRail({ title, subtitle, products, loading, viewAll, rows = 1, className }) {
   const ref = useRef(null)
   if (!loading && !products?.length) return null
   const scroll = (dir) => ref.current?.scrollBy({ left: dir * ref.current.clientWidth * 0.85, behavior: 'smooth' })
@@ -254,9 +259,15 @@ export function ProductRail({ title, subtitle, products, loading, viewAll, class
           </div>
         }
       />
-      <div ref={ref} className="scrollbar-none -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
-        {(loading ? Array.from({ length: 6 }, (_, i) => ({ _id: i })) : products).map((p) => (
-          <div key={p._id} className="w-[46%] shrink-0 snap-start sm:w-[30%] lg:w-[23%] xl:w-[18.6%]">
+      <div
+        ref={ref}
+        className={cn(
+          'scrollbar-none -mx-4 grid snap-x snap-mandatory auto-cols-[46%] grid-flow-col gap-x-4 gap-y-8 overflow-x-auto px-4 pb-2 sm:mx-0 sm:auto-cols-[30%] sm:px-0 lg:auto-cols-[23%] xl:auto-cols-[18.6%]',
+          ROWS_CLASS[rows] ?? ROWS_CLASS[1],
+        )}
+      >
+        {(loading ? Array.from({ length: 6 * rows }, (_, i) => ({ _id: i })) : products).map((p) => (
+          <div key={p._id} className="snap-start">
             {loading ? <ProductCardSkeleton /> : <ProductCard product={p} className="h-full" />}
           </div>
         ))}
