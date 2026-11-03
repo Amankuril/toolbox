@@ -340,7 +340,7 @@ export const categoryService = {
 
     const [ancestors, children] = await Promise.all([
       Category.find({ _id: { $in: category.ancestors } })
-        .select('name slug level status')
+        .select('name slug level status image')
         .lean(),
       Category.find({ parent: category._id, status: 'active' }).sort({ sortOrder: 1, name: 1 }).select(PUBLIC_FIELDS).lean(),
     ]);
@@ -348,7 +348,9 @@ export const categoryService = {
 
     return {
       ...category,
-      breadcrumbs: ancestors.sort((a, b) => a.level - b.level).map(({ _id, name, slug: s }) => ({ _id, name, slug: s })),
+      breadcrumbs: ancestors
+        .sort((a, b) => a.level - b.level)
+        .map(({ _id, name, slug: s, image }) => ({ _id, name, slug: s, image: image?.url ?? null })),
       children,
     };
   },

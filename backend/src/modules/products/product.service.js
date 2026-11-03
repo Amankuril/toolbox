@@ -701,7 +701,7 @@ export const productService = {
 
     const [breadcrumbs, spareParts, related, fromSeller, bought] = await Promise.all([
       Category.find({ _id: { $in: product.categoryPath } })
-        .select('name slug level')
+        .select('name slug level image')
         .sort({ level: 1 })
         .lean(),
       product.type === 'part'
@@ -731,7 +731,7 @@ export const productService = {
         vendor: serializePublicVendor(product.vendor),
         compatibleWith: (product.compatibleWith ?? []).map(serializeProductCard),
       },
-      breadcrumbs: breadcrumbs.map(({ _id, name, slug: s }) => ({ _id, name, slug: s })),
+      breadcrumbs: breadcrumbs.map(({ _id, name, slug: s, image }) => ({ _id, name, slug: s, image: image?.url ?? null })),
       spareParts: spareParts.map(serializeProductCard),
       related: related.map(serializeProductCard),
       // The same seller's other listings, minus anything already shown as similar.

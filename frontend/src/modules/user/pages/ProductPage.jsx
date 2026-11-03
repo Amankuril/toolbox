@@ -266,7 +266,7 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related, fro
       <meta name="description" content={p.seo?.description || p.shortDescription || `Buy ${p.name} on ${siteName}.`} />
       {p.images[0] && <meta property="og:image" content={p.images[0].url} />}
 
-      <Breadcrumbs items={[...breadcrumbs.map((b) => ({ label: b.name, to: `/c/${b.slug}` })), { label: p.name }]} />
+      <Breadcrumbs items={[...breadcrumbs.map((b) => ({ label: b.name, to: `/c/${b.slug}`, image: b.image })), { label: p.name, image: p.images?.[0]?.url }]} />
 
       <div className="mt-4 grid gap-6 lg:grid-cols-[380px_1fr] xl:grid-cols-[440px_1fr] lg:gap-8 xl:gap-10 items-start">
         <div className="relative lg:sticky lg:top-24 lg:self-start">

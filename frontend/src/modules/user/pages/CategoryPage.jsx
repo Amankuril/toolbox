@@ -55,7 +55,10 @@ export default function CategoryPage() {
             </div>
           ) : (
             <ListingHeader
-              crumbs={[...category.breadcrumbs.map((b) => ({ label: b.name, to: `/c/${b.slug}` })), { label: category.name }]}
+              crumbs={[
+                ...category.breadcrumbs.map((b) => ({ label: b.name, to: `/c/${b.slug}`, image: b.image })),
+                { label: category.name, image: category.image?.url },
+              ]}
               title={category.name}
               description={category.description}
               subLinks={category.children?.map((c) => ({ to: `/c/${c.slug}`, label: c.name, image: c.image?.url }))}
