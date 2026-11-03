@@ -30,6 +30,7 @@
     "db:backfill-cart-vendors": "node --env-file-if-exists=.env scripts/backfill-cart-vendors.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.4.0",
     "argon2": "^0.45.1",
     "cloudinary": "^2.11.0",
     "compression": "^1.8.2",

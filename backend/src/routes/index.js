@@ -14,6 +14,7 @@ import { cartRoutes } from '#modules/cart/cart.routes.js';
 import { adminCouponRoutes, userCouponRoutes, vendorCouponRoutes } from '#modules/coupons/coupon.routes.js';
 import { sellerCustomerRoutes, userChatRoutes, vendorLeadRoutes } from '#modules/leads/leads.routes.js';
 import { wishlistInsightRoutes, wishlistRoutes } from '#modules/wishlist/wishlist.routes.js';
+import { publicImageSearchRoutes } from '#modules/search/imageSearch.routes.js';
 import { seoAuditRoutes } from '#modules/seo/seo.routes.js';
 import { adminWalletRoutes, userWalletRoutes } from '#modules/wallet/wallet.routes.js';
 import { actAsStore } from '#modules/store/store.service.js';
@@ -73,6 +74,7 @@ export function buildRoutes() {
     .use('/pages', publicPageRoutes)
     .use('/pickup-points', publicPickupRoutes)
     .use('/track', publicTrackRoutes)
+    .use('/image-search', publicImageSearchRoutes)
     .get(
       '/pincodes/:pincode',
       rateLimit({ keyPrefix: 'pincode', points: 30, duration: 60 }),

@@ -9,17 +9,21 @@ import { formatINR } from '@/core/lib/format'
 import { Thumb } from '@/ui/Brand'
 import { storeApi, storeKeys } from '../api'
 import { useCategoryTree } from '../hooks'
+import { usePublicSettings } from '@/core/settings/usePublicSettings'
+import { ImageSearchButton } from './ImageSearch'
 import { useVoiceSearch } from './useVoiceSearch'
 
 /**
  * Header search: optional department scope, instant product/category suggestions,
  * full keyboard support. Model numbers match too, which is how trade buyers search.
  * A mic button (where the browser supports speech input) fills the box and runs the search.
+ * A camera button (when the server has image search configured) finds an item from a photo.
  */
 export function SearchBox({ className, autoFocus, compact = false }) {
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const { data: tree = [] } = useCategoryTree()
+  const imageSearch = usePublicSettings().data?.search?.imageSearch
   const [q, setQ] = useState(params.get('q') ?? '')
   const [scope, setScope] = useState(params.get('category') ?? '')
   const [open, setOpen] = useState(false)
@@ -128,6 +132,7 @@ export function SearchBox({ className, autoFocus, compact = false }) {
             <Mic className="size-[18px]" />
           </button>
         )}
+        {imageSearch && <ImageSearchButton />}
         <button type="submit" className="flex shrink-0 items-center gap-2 bg-accent px-4 text-sm font-bold text-accent-fg hover:brightness-[0.96] lg:px-5">
           <Search className="size-[18px]" />
           <span className="hidden lg:inline">Search</span>

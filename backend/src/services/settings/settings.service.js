@@ -114,6 +114,7 @@ export const settingsService = {
         noCostMonths: values.payments.noCostMonths,
       },
       shipping: { flatFee: values.shipping.flatFee, freeAbove: values.shipping.freeAbove },
+      search: { imageSearch: env.imageSearchConfigured },
       analytics: { gaMeasurementId: values.analytics.gaMeasurementId || null },
       seo: values.seo,
     };

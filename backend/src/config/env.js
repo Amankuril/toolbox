@@ -173,6 +173,11 @@ const schema = z
     PINCODE_LOOKUP_URL: z.url().default('https://api.postalpincode.in/pincode'),
     PINCODE_LOOKUP_TIMEOUT_MS: z.coerce.number().int().positive().default(5_000),
     SHIPMOZO_TIMEOUT_MS: z.coerce.number().int().positive().default(15_000),
+
+    // Search by image: the photo is identified by Claude (vision). Unset key = the camera button is hidden.
+    ANTHROPIC_API_KEY: z.string().optional(),
+    IMAGE_SEARCH_MODEL: z.string().default('claude-opus-5-5'),
+    IMAGE_SEARCH_PER_HOUR: z.coerce.number().int().positive().default(30),
   })
   .superRefine((env, ctx) => {
     if (env.SMS_PROVIDER === 'smsindiahub' && (!env.SMSINDIAHUB_API_KEY || !env.SMSINDIAHUB_SENDER_ID)) {
@@ -250,6 +255,7 @@ export const env = Object.freeze({
   SHIPMOZO_BASE_URL: raw.SHIPMOZO_BASE_URL.replace(/\/+$/, ''),
   PINCODE_LOOKUP_URL: raw.PINCODE_LOOKUP_URL.replace(/\/+$/, ''),
   shipmozoConfigured: Boolean(raw.SHIPMOZO_PUBLIC_KEY && raw.SHIPMOZO_PRIVATE_KEY),
+  imageSearchConfigured: Boolean(raw.ANTHROPIC_API_KEY),
 });
 
 /** Normalises mobile phone digits to 10-digit format for matching. */
