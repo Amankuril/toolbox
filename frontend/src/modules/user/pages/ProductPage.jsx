@@ -22,7 +22,7 @@ import { useCart } from '../cart/useCart'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { BulkPricingTable } from '../components/BulkPricingTable'
 import { ProductCard, ProductRail, SectionHeading } from '../components/ProductCard'
-import { EmiLine } from '../components/EmiCalculator'
+import { RazorpayEmiWidget } from '../components/RazorpayEmiWidget'
 import { EnquiryCard } from '../components/EnquiryDialog'
 import { QuoteRequestDialog } from '../components/QuoteRequestDialog'
 import { ServiceTiles } from '../components/Highlights'
@@ -329,7 +329,7 @@ function ProductView({ data: { product: p, breadcrumbs, spareParts, related, fro
                 {formatNumber(p.recentBuyers.count)} {p.recentBuyers.count === 1 ? 'person has' : 'people have'} bought this recently
               </p>
             )}
-            <EmiLine price={unitPrice * qty} className="mt-2" />
+            <RazorpayEmiWidget amount={unitPrice * qty} className="mt-3" />
             {tier && (
               <p className="mt-1.5 text-xs sm:text-sm font-semibold text-accent-ink">
                 Bulk price applied for {formatNumber(tier.minQty)}+ {unitPlural(p.inventory.unit, 2)}
