@@ -115,6 +115,11 @@ export const settingsService = {
       },
       shipping: { flatFee: values.shipping.flatFee, freeAbove: values.shipping.freeAbove },
       search: { imageSearch: env.imageSearchConfigured },
+      storefront: {
+        loginPopupEnabled: values.storefront.loginPopupEnabled,
+        loginPopupDelaySeconds: values.storefront.loginPopupDelaySeconds,
+        loginPopupRepeatDays: values.storefront.loginPopupRepeatDays,
+      },
       analytics: { gaMeasurementId: values.analytics.gaMeasurementId || null },
       seo: values.seo,
     };

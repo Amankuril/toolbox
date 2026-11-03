@@ -197,8 +197,21 @@ export const SETTINGS = {
       recentBuyersDays: z.number().int().min(1).max(365),
       /** Hidden below this many buyers (a "1 person bought this" badge does more harm than good). */
       recentBuyersMin: z.number().int().min(1).max(10_000),
+      /** Sign-in pop-up for visitors who aren't signed in (they can close it). */
+      loginPopupEnabled: z.boolean(),
+      /** Seconds on the site before it opens. */
+      loginPopupDelaySeconds: z.number().int().min(0).max(120),
+      /** After it's closed, days before it's shown again to that browser. */
+      loginPopupRepeatDays: z.number().int().min(1).max(365),
     }),
-    defaults: { recentBuyersEnabled: true, recentBuyersDays: 30, recentBuyersMin: 3 },
+    defaults: {
+      recentBuyersEnabled: true,
+      recentBuyersDays: 30,
+      recentBuyersMin: 3,
+      loginPopupEnabled: true,
+      loginPopupDelaySeconds: 4,
+      loginPopupRepeatDays: 3,
+    },
   },
 
   moderation: {

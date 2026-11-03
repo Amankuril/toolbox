@@ -500,8 +500,64 @@ function PaymentSettings({ payments, integrations }) {
   )
 }
 
-/** Storefront touches: the "people bought this recently" badge. */
+/** Storefront touches: the sign-in pop-up and the "people bought this recently" badge. */
 function StorefrontSettings({ storefront }) {
+  return (
+    <div className="flex flex-col gap-6">
+      <LoginPopupSettings storefront={storefront} />
+      <RecentBuyersSettings storefront={storefront} />
+    </div>
+  )
+}
+
+function LoginPopupSettings({ storefront }) {
+  const save = useSaveSettings('storefront', 'Storefront settings saved')
+  const [v, setV] = useState({ delay: storefront.loginPopupDelaySeconds, repeat: storefront.loginPopupRepeatDays })
+  return (
+    <Card>
+      <CardHeader
+        title="Sign-in pop-up"
+        description="Asks visitors who aren’t signed in to sign in or create an account. They can close it and keep browsing. Never shown during checkout or payment."
+      />
+      <CardBody className="flex flex-col gap-5">
+        <Switch
+          checked={storefront.loginPopupEnabled}
+          disabled={save.isPending}
+          onCheckedChange={(loginPopupEnabled) => save.mutate({ loginPopupEnabled })}
+          label="Show the sign-in pop-up to new visitors"
+        />
+        {storefront.loginPopupEnabled && (
+          <>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Open after" hint="Seconds on the site (0 = straight away)">
+                {(p) => (
+                  <Input {...p} type="number" min={0} max={120} value={v.delay} onChange={(e) => setV({ ...v, delay: Number(e.target.value) })} suffix="seconds" />
+                )}
+              </Field>
+              <Field label="Once closed, show again after" hint="Per browser">
+                {(p) => (
+                  <Input {...p} type="number" min={1} max={365} value={v.repeat} onChange={(e) => setV({ ...v, repeat: Number(e.target.value) })} suffix="days" />
+                )}
+              </Field>
+            </div>
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                loading={save.isPending}
+                disabled={!(v.delay >= 0 && v.delay <= 120 && v.repeat >= 1 && v.repeat <= 365)}
+                onClick={() => save.mutate({ loginPopupDelaySeconds: v.delay, loginPopupRepeatDays: v.repeat })}
+              >
+                Save
+              </Button>
+            </div>
+          </>
+        )}
+      </CardBody>
+    </Card>
+  )
+}
+
+function RecentBuyersSettings({ storefront }) {
   const save = useSaveSettings('storefront', 'Storefront settings saved')
   const [v, setV] = useState({ days: storefront.recentBuyersDays, min: storefront.recentBuyersMin })
   return (
