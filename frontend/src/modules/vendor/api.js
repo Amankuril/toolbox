@@ -63,6 +63,7 @@ export function createSellerApi(v) {
     quickUpdate: (id, body) => one(v.patch(`/products/${id}/stock`, body)),
     setVisibility: (id, visible) => one(v.patch(`/products/${id}/visibility`, { visible })),
     archiveProduct: (id) => v.delete(`/products/${id}`),
+    productBulkAction: (action, ids) => one(v.post('/products/bulk-action', { action, ids })),
     compatibilitySearch: (q) => one(v.get('/products/compatibility-search', { params: { q } })),
 
     quotes: (params) => list(v.get('/quotes', { params })),

@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Copy, ExternalLink, Eye, EyeOff, Layers, MessageSquareWarning, Pencil, Plus, Share2, Sheet, Star, Upload, X } from 'lucide-react'
+import { Check, Copy, ExternalLink, Eye, EyeOff, Layers, MessageSquareWarning, Pencil, Plus, Share2, Sheet, Star, StarOff, Trash2, Upload, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { toast } from 'sonner'
@@ -17,6 +17,7 @@ import { Select } from '@/ui/Field'
 import { PageHeader } from '@/ui/PageHeader'
 import { ActionDialog, RowActions } from '@/ui/RowActions'
 import { SearchField } from '@/ui/SearchField'
+import { BulkActionBar } from '@/modules/shared/BulkActionBar'
 import { BulkEditSheet } from '@/modules/shared/BulkEditSheet'
 import { productShareItem, useShare } from '@/modules/shared/share'
 import { useBranding } from '@/core/settings/usePublicSettings'
@@ -24,6 +25,26 @@ import { useAdminAccess } from '../access'
 import { adminApi, adminKeys } from '../api'
 import { CategoryFilter, StockFilter } from '@/ui/Filters'
 import { flattenTree } from '@/core/lib/tree'
+
+const BULK_ACTIONS = [
+  { key: 'approve', label: 'Approve', icon: Check },
+  { key: 'show', label: 'Show on store', icon: Eye },
+  { key: 'hide', label: 'Hide', icon: EyeOff },
+  { key: 'feature', label: 'Feature', icon: Star },
+  { key: 'unfeature', label: 'Unfeature', icon: StarOff },
+  {
+    key: 'delete',
+    label: 'Delete',
+    icon: Trash2,
+    danger: true,
+    confirm: {
+        title: (n) => `Delete ${n} product${n === 1 ? '' : 's'}?`,
+        description: 'They are removed from the store and from this list. Orders that include them keep their full history.',
+        label: 'Delete',
+      },
+  },
+]
+const BULK_DONE = { approve: 'approved', show: 'live', hide: 'hidden', feature: 'featured', unfeature: 'removed from featured', delete: 'deleted' }
 
 const TABS = [
   { value: '', label: 'All' },
@@ -43,7 +64,13 @@ export default function ProductsPage() {
   const [filters, setFilters] = useSearchParamsState()
   const [action, setAction] = useState(null)
   const [bulkOpen, setBulkOpen] = useState(false)
+  const [selected, setSelected] = useState(() => new Set())
   const { can } = useAdminAccess()
+  // A new filter or page shows other rows: start the ticks over.
+  const setFiltersAndClear = (next) => {
+    setSelected(new Set())
+    setFilters(next)
+  }
   const params = {
     page: Number(filters.page ?? 1),
     limit: pageSize(filters.limit),
@@ -103,11 +130,11 @@ export default function ProductsPage() {
       />
       <Card>
         <div className="px-4 pt-2">
-          <FilterTabs value={filters.status ?? ''} onChange={(status) => setFilters({ status })} options={TABS} />
+          <FilterTabs value={filters.status ?? ''} onChange={(status) => setFiltersAndClear({ status })} options={TABS} />
         </div>
         <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 p-4">
-          <SearchField value={filters.q ?? ''} onChange={(q) => setFilters({ q })} placeholder="Name, SKU, brand or model" />
-          <Select value={filters.type ?? ''} onChange={(e) => setFilters({ type: e.target.value })} className="w-auto">
+          <SearchField value={filters.q ?? ''} onChange={(q) => setFiltersAndClear({ q })} placeholder="Name, SKU, brand or model" />
+          <Select value={filters.type ?? ''} onChange={(e) => setFiltersAndClear({ type: e.target.value })} className="w-auto">
             <option value="">All types</option>
             {PRODUCT_TYPES.map((t) => (
               <option key={t.value} value={t.value}>
@@ -115,21 +142,37 @@ export default function ProductsPage() {
               </option>
             ))}
           </Select>
-          <CategoryFilter options={categoryOptions} value={filters.category} onChange={(category) => setFilters({ category })} />
-          <StockFilter value={filters.stock} onChange={(stock) => setFilters({ stock })} />
-          <Select value={filters.featured ?? ''} onChange={(e) => setFilters({ featured: e.target.value })} className="w-auto">
+          <CategoryFilter options={categoryOptions} value={filters.category} onChange={(category) => setFiltersAndClear({ category })} />
+          <StockFilter value={filters.stock} onChange={(stock) => setFiltersAndClear({ stock })} />
+          <Select value={filters.featured ?? ''} onChange={(e) => setFiltersAndClear({ featured: e.target.value })} className="w-auto">
             <option value="">Featured: any</option>
             <option value="true">Featured only</option>
           </Select>
           {filters.vendor && (
-            <Button variant="soft" size="sm" onClick={() => setFilters({ vendor: '' })}>
+            <Button variant="soft" size="sm" onClick={() => setFiltersAndClear({ vendor: '' })}>
               Vendor: {vendorName ?? 'selected'} <X />
             </Button>
           )}
         </div>
+        {can('products', 'manage') && (
+          <BulkActionBar
+            selected={selected}
+            onClear={() => setSelected(new Set())}
+            actions={BULK_ACTIONS}
+            done={BULK_DONE}
+            run={adminApi.productBulkAction}
+            onDone={() => {
+              qc.invalidateQueries({ queryKey: ['admin', 'products'] })
+              qc.invalidateQueries({ queryKey: adminKeys.dashboard })
+            }}
+          />
+        )}
         <DataTable
           loading={isLoading}
           rows={data?.items}
+          selected={can('products', 'manage') ? selected : undefined}
+          onSelectedChange={setSelected}
+          rowLabel={(p) => p.name}
           empty={{ title: 'No products found', description: 'Try a different filter.' }}
           columns={[
             {
@@ -200,7 +243,7 @@ export default function ProductsPage() {
             },
           ]}
         />
-        <Pagination meta={data?.meta} onPageChange={(page) => setFilters({ page })} onLimitChange={(limit) => setFilters({ limit })} />
+        <Pagination meta={data?.meta} onPageChange={(page) => setFiltersAndClear({ page })} onLimitChange={(limit) => setFiltersAndClear({ limit })} />
       </Card>
 
       {shareDialog}

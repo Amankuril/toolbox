@@ -422,6 +422,50 @@ export const productService = {
     return serializeProduct(product.toObject());
   },
 
+  /**
+   * One action on many ticked products. Rows the action doesn't apply to (e.g. showing a product that's
+   * still pending review) are skipped, not failed. "delete" archives: the product leaves the store and
+   * every list, while orders that contain it keep their history.
+   *
+   * @param {object} scope extra filter (the seller's own products), {} for admins
+   * @returns {Promise<{ updated: number, skipped: number }>}
+   */
+  async bulkAction(scope, ids, action) {
+    const base = { ...scope, _id: { $in: ids }, status: { $ne: 'archived' } };
+    const now = new Date();
+    let updated;
+    switch (action) {
+      case 'delete':
+        ({ modifiedCount: updated } = await Product.updateMany(base, { status: 'archived', isFeatured: false }));
+        break;
+      case 'hide':
+        ({ modifiedCount: updated } = await Product.updateMany({ ...base, status: 'active' }, { status: 'inactive' }));
+        break;
+      case 'show':
+        ({ modifiedCount: updated } = await Product.updateMany({ ...base, status: 'inactive' }, { status: 'active' }));
+        break;
+      case 'feature':
+        ({ modifiedCount: updated } = await Product.updateMany({ ...base, status: 'active', isFeatured: false }, { isFeatured: true }));
+        break;
+      case 'unfeature':
+        ({ modifiedCount: updated } = await Product.updateMany({ ...base, isFeatured: true }, { isFeatured: false }));
+        break;
+      case 'approve': {
+        const pending = await Product.find({ ...base, status: { $in: ['pending', 'rejected'] } });
+        for (const product of pending) {
+          markActive(product, now);
+          product.set('moderation.reviewedAt', now);
+          await product.save();
+        }
+        updated = pending.length;
+        break;
+      }
+      default:
+        throw ApiError.badRequest('Unknown action');
+    }
+    return { updated, skipped: ids.length - updated };
+  },
+
   async vendorArchive(vendor, id) {
     const res = await Product.updateOne(
       { _id: id, vendor: vendor._id, status: { $ne: 'archived' } },

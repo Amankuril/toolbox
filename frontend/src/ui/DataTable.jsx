@@ -1,15 +1,50 @@
 import { ChevronLeft, ChevronRight, Inbox } from 'lucide-react'
+import { useEffect, useRef } from 'react'
 import { cn } from '@/core/lib/cn'
 import { formatNumber } from '@/core/lib/format'
 import { safeStorage } from '@/core/lib/storage'
 import { Button } from './Button'
 import { EmptyState, Skeleton } from './Card'
 
+/** Header checkbox: ticked when every row is, a dash when only some are. */
+function SelectAll({ rows, selected, onChange, rowKey }) {
+  const ref = useRef(null)
+  const ids = rows.map(rowKey)
+  const count = ids.filter((id) => selected.has(id)).length
+  const all = ids.length > 0 && count === ids.length
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = count > 0 && !all
+  }, [count, all])
+  return (
+    <input
+      ref={ref}
+      type="checkbox"
+      aria-label={all ? 'Untick all rows on this page' : 'Tick all rows on this page'}
+      checked={all}
+      onChange={() => {
+        const next = new Set(selected)
+        ids.forEach((id) => (all ? next.delete(id) : next.add(id)))
+        onChange(next)
+      }}
+      className="size-4 cursor-pointer accent-primary"
+    />
+  )
+}
+
 /**
  * @param {{ columns: { key: string, header: string, className?: string, cell: (row) => any }[], rows?: any[], loading?: boolean,
- *   empty?: { title: string, description?: string, action?: any }, onRowClick?: (row) => void, rowKey?: (row) => string }} props
+ *   empty?: { title: string, description?: string, action?: any }, onRowClick?: (row) => void, rowKey?: (row) => string,
+ *   selected?: Set<string>, onSelectedChange?: (next: Set<string>) => void, rowLabel?: (row) => string }} props
+ *   `selected` + `onSelectedChange` add a checkbox column (with tick-all for the page) for bulk actions.
  */
-export function DataTable({ columns, rows, loading, empty, onRowClick, rowKey = (r) => r._id }) {
+export function DataTable({ columns, rows, loading, empty, onRowClick, rowKey = (r) => r._id, selected, onSelectedChange, rowLabel }) {
+  const selectable = Boolean(selected && onSelectedChange)
+  const toggle = (id) => {
+    const next = new Set(selected)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    onSelectedChange(next)
+  }
   if (!loading && !rows?.length) {
     return <EmptyState icon={Inbox} title={empty?.title ?? 'Nothing here yet'} description={empty?.description} action={empty?.action} />
   }
@@ -18,6 +53,11 @@ export function DataTable({ columns, rows, loading, empty, onRowClick, rowKey = 
       <table className="w-full min-w-[640px] text-left text-sm">
         <thead>
           <tr className="border-b border-slate-300">
+            {selectable && (
+              <th scope="col" className="w-px py-3 pr-1 pl-4">
+                {!loading && <SelectAll rows={rows} selected={selected} onChange={onSelectedChange} rowKey={rowKey} />}
+              </th>
+            )}
             {columns.map((c) => (
               <th key={c.key} scope="col" className={cn('px-4 py-3 text-[0.7rem] font-semibold tracking-[0.07em] text-slate-600 uppercase', c.className)}>
                 {c.header}
@@ -29,6 +69,7 @@ export function DataTable({ columns, rows, loading, empty, onRowClick, rowKey = 
           {loading
             ? Array.from({ length: 6 }, (_, i) => (
                 <tr key={i}>
+                  {selectable && <td className="py-3.5 pr-1 pl-4" />}
                   {columns.map((c) => (
                     <td key={c.key} className="px-4 py-3.5">
                       <Skeleton className="h-4 w-full max-w-40" />
@@ -40,8 +81,23 @@ export function DataTable({ columns, rows, loading, empty, onRowClick, rowKey = 
                 <tr
                   key={rowKey(row)}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
-                  className={cn('align-middle transition-colors', onRowClick && 'cursor-pointer hover:bg-slate-50/70')}
+                  className={cn(
+                    'align-middle transition-colors',
+                    onRowClick && 'cursor-pointer hover:bg-slate-50/70',
+                    selectable && selected.has(rowKey(row)) && 'bg-primary/5',
+                  )}
                 >
+                  {selectable && (
+                    <td className="py-3.5 pr-1 pl-4" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selected.has(rowKey(row))}
+                        onChange={() => toggle(rowKey(row))}
+                        aria-label={`Tick ${rowLabel ? rowLabel(row) : 'row'}`}
+                        className="size-4 cursor-pointer accent-primary"
+                      />
+                    </td>
+                  )}
                   {columns.map((c) => (
                     <td key={c.key} className={cn('px-4 py-3.5', c.className)}>
                       {c.cell(row)}

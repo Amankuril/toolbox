@@ -10,11 +10,13 @@ import { productService } from './product.service.js';
 import {
   adminListProducts,
   adminUpdateProduct,
+  adminBulkAction,
   bulkUpdateProducts,
   compareProducts,
   productSlugParams,
   publicListProducts,
   reviewProduct,
+  sellerBulkAction,
   suggestQuery,
   vendorCreateProduct,
   vendorListProducts,
@@ -80,6 +82,9 @@ export const vendorProductRoutes = Router()
   .patch('/bulk', requireApprovedVendor, validate(bulkUpdateProducts), async (req, res) => {
     ok(res, await productService.vendorBulkUpdate(req.account, req.body.items));
   })
+  .post('/bulk-action', requireApprovedVendor, validate(sellerBulkAction), async (req, res) => {
+    ok(res, await productService.bulkAction({ vendor: req.account._id }, req.body.ids, req.body.action));
+  })
   .patch('/:id', requireApprovedVendor, validate(vendorUpdateProduct), async (req, res) => {
     ok(res, await productService.vendorUpdate(req.account, req.params.id, req.body));
   })
@@ -108,6 +113,9 @@ export const adminProductRoutes = Router()
   })
   .patch('/bulk', validate(bulkUpdateProducts), async (req, res) => {
     ok(res, await productService.adminBulkUpdate(req.body.items, actorOf(req)));
+  })
+  .post('/bulk-action', validate(adminBulkAction), async (req, res) => {
+    ok(res, await productService.bulkAction({}, req.body.ids, req.body.action));
   })
   .patch('/:id', validate(adminUpdateProduct), async (req, res) => {
     ok(res, await productService.adminUpdate(req.params.id, req.body, actorOf(req)));

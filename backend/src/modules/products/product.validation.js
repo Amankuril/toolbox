@@ -316,3 +316,16 @@ export const compareProducts = {
 
 export const suggestQuery = { query: z.object({ q: z.string().trim().min(2).max(100) }) };
 export const productSlugParams = { params: z.object({ slug: z.string().trim().min(1).max(200) }) };
+
+/** Actions on ticked rows of the products table. Sellers get the first three. */
+export const SELLER_BULK_ACTIONS = ['delete', 'hide', 'show'];
+export const ADMIN_BULK_ACTIONS = [...SELLER_BULK_ACTIONS, 'feature', 'unfeature', 'approve'];
+
+const bulkActionBody = (actions) => ({
+  body: z.object({
+    ids: z.array(objectId).min(1).max(500, 'Up to 500 products at a time'),
+    action: z.enum(actions),
+  }),
+});
+export const sellerBulkAction = bulkActionBody(SELLER_BULK_ACTIONS);
+export const adminBulkAction = bulkActionBody(ADMIN_BULK_ACTIONS);

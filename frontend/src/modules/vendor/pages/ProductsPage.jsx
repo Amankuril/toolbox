@@ -1,5 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Archive, Copy, Download, Eye, EyeOff, IndianRupee, MoreHorizontal, Package, PackagePlus, Pencil, Share2, Sheet, Upload } from 'lucide-react'
+import { Archive, Copy, Download, Eye, EyeOff, Trash2, IndianRupee, MoreHorizontal, Package, PackagePlus, Pencil, Share2, Sheet, Upload } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { toast } from 'sonner'
@@ -18,6 +18,7 @@ import { Field, Select } from '@/ui/Field'
 import { NumberInput, PriceInput } from '@/ui/inputs'
 import { PageHeader } from '@/ui/PageHeader'
 import { SearchField } from '@/ui/SearchField'
+import { BulkActionBar } from '@/modules/shared/BulkActionBar'
 import { BulkEditSheet } from '@/modules/shared/BulkEditSheet'
 import { productShareItem, useShare } from '@/modules/shared/share'
 import { useBranding } from '@/core/settings/usePublicSettings'
@@ -25,6 +26,23 @@ import { useSeller } from '../seller'
 import { CategoryFilter, StockFilter } from '@/ui/Filters'
 import { buildTree, flattenTree } from '@/core/lib/tree'
 import { useVendorCategories } from '../components/categoryOptions'
+
+const BULK_ACTIONS = [
+  { key: 'show', label: 'Show on store', icon: Eye },
+  { key: 'hide', label: 'Hide', icon: EyeOff },
+  {
+    key: 'delete',
+    label: 'Delete',
+    icon: Trash2,
+    danger: true,
+    confirm: {
+        title: (n) => `Delete ${n} product${n === 1 ? '' : 's'}?`,
+        description: 'They are removed from the store and from this list. Orders that include them keep their full history.',
+        label: 'Delete',
+      },
+  },
+]
+const BULK_DONE = { show: 'live', hide: 'hidden', delete: 'deleted' }
 
 const TABS = [
   { value: '', label: 'All' },
@@ -44,6 +62,12 @@ export default function VendorProductsPage() {
   const [quickEdit, setQuickEdit] = useState(null)
   const [archiving, setArchiving] = useState(null)
   const [bulkOpen, setBulkOpen] = useState(false)
+  const [selected, setSelected] = useState(() => new Set())
+  // A new filter or page shows other rows: start the ticks over.
+  const setFiltersAndClear = (next) => {
+    setSelected(new Set())
+    setFilters(next)
+  }
   const { siteName } = useBranding()
   const { share, dialog: shareDialog } = useShare()
   const approved = vendor?.status === 'approved'
@@ -148,11 +172,11 @@ export default function VendorProductsPage() {
       ) : (
         <Card>
           <div className="px-4 pt-2">
-            <FilterTabs value={filters.status ?? ''} onChange={(status) => setFilters({ status })} options={TABS} />
+            <FilterTabs value={filters.status ?? ''} onChange={(status) => setFiltersAndClear({ status })} options={TABS} />
           </div>
           <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 p-4">
-            <SearchField value={filters.q ?? ''} onChange={(q) => setFilters({ q })} placeholder="Name, SKU, brand or model" />
-            <Select value={filters.type ?? ''} onChange={(e) => setFilters({ type: e.target.value })} className="w-auto">
+            <SearchField value={filters.q ?? ''} onChange={(q) => setFiltersAndClear({ q })} placeholder="Name, SKU, brand or model" />
+            <Select value={filters.type ?? ''} onChange={(e) => setFiltersAndClear({ type: e.target.value })} className="w-auto">
               <option value="">All types</option>
               {PRODUCT_TYPES.map((t) => (
                 <option key={t.value} value={t.value}>
@@ -160,12 +184,25 @@ export default function VendorProductsPage() {
                 </option>
               ))}
             </Select>
-            <CategoryFilter options={categoryOptions} value={filters.category} onChange={(category) => setFilters({ category })} />
-            <StockFilter value={filters.stock} onChange={(stock) => setFilters({ stock })} />
+            <CategoryFilter options={categoryOptions} value={filters.category} onChange={(category) => setFiltersAndClear({ category })} />
+            <StockFilter value={filters.stock} onChange={(stock) => setFiltersAndClear({ stock })} />
           </div>
+          {approved && (
+            <BulkActionBar
+              selected={selected}
+              onClear={() => setSelected(new Set())}
+              actions={BULK_ACTIONS}
+              done={BULK_DONE}
+              run={seller.api.productBulkAction}
+              onDone={refresh}
+            />
+          )}
           <DataTable
             loading={isLoading}
             rows={data?.items}
+            selected={approved ? selected : undefined}
+            onSelectedChange={setSelected}
+            rowLabel={(p) => p.name}
             onRowClick={(p) => navigate(`${seller.base}/products/${p._id}`)}
             empty={{ title: 'No products match', description: 'Try a different filter.' }}
             columns={[
@@ -277,7 +314,7 @@ export default function VendorProductsPage() {
               },
             ]}
           />
-          <Pagination meta={data?.meta} onPageChange={(page) => setFilters({ page })} onLimitChange={(limit) => setFilters({ limit })} />
+          <Pagination meta={data?.meta} onPageChange={(page) => setFiltersAndClear({ page })} onLimitChange={(limit) => setFiltersAndClear({ limit })} />
         </Card>
       )}
 
