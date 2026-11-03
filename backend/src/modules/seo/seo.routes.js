@@ -4,6 +4,7 @@ import { Router } from 'express';
 import { env } from '#config/env.js';
 import { logger } from '#config/logger.js';
 import { z } from 'zod';
+import { rateLimit } from '#core/middlewares/rateLimit.js';
 import { validate } from '#core/middlewares/validate.js';
 import { paginationQuery } from '#core/utils/pagination.js';
 import { ok } from '#core/utils/response.js';
@@ -173,12 +174,37 @@ const auditQuery = z.object({
   vendor: objectId.optional(),
 });
 
+const text = (max) => z.string().max(max).optional();
+/** A product form's current values, as far as the SEO checks look at them. */
+const previewBody = z.object({
+  productId: objectId.optional(),
+  name: text(200),
+  brand: text(120),
+  modelNumber: text(120),
+  shortDescription: text(1000),
+  description: text(50_000),
+  category: objectId.nullable().optional(),
+  images: z.array(z.object({ alt: z.string().max(300).optional() })).max(30).optional(),
+  specifications: z.array(z.object({ label: z.string().max(200), value: z.string().max(500) })).max(100).optional(),
+  tags: z.array(z.string().max(80)).max(50).optional(),
+  searchKeywords: z.array(z.string().max(80)).max(50).optional(),
+  pricing: z.object({ price: z.number().int().min(0).optional() }).optional(),
+  seo: z.object({ title: text(200), description: text(400) }).optional(),
+});
+const previewLimit = rateLimit({ keyPrefix: 'seo-preview', points: 120, duration: 60 });
+
 /** Mounted at /vendor/seo-audit, /admin/store/seo-audit (`scope` = the seller) and /admin/seo-audit (every product, plus site checks). */
 export function seoAuditRoutes({ scope, site = false }) {
-  const router = Router().get('/', validate({ query: auditQuery }), async (req, res) => {
-    const { items, meta } = await seoAudit.products({ ...req.query, ...scope(req) });
-    ok(res, items, meta);
-  });
+  const router = Router()
+    .get('/', validate({ query: auditQuery }), async (req, res) => {
+      const { items, meta } = await seoAudit.products({ ...req.query, ...scope(req) });
+      ok(res, items, meta);
+    })
+    // The product form asks as the seller types; nothing is saved.
+    .post('/preview', previewLimit, validate({ body: previewBody }), async (req, res) => {
+      const { productId, ...draft } = req.body;
+      ok(res, await seoAudit.preview(draft, { excludeId: productId }));
+    });
   if (site) router.get('/site', async (_req, res) => ok(res, await seoAudit.site()));
   return router;
 }

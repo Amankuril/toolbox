@@ -23,6 +23,7 @@ import { NumberInput, PriceInput, TagInput } from '@/ui/inputs'
 import { PageHeader } from '@/ui/PageHeader'
 import { productShareItem, ShareButton } from '@/modules/shared/share'
 import { ProductSeoCard } from '@/modules/shared/seo'
+import { SeoLiveCheck } from '@/modules/shared/SeoLiveCheck'
 import { fillTemplate } from '@/core/seo/templates'
 import { useBranding, usePublicSettings } from '@/core/settings/usePublicSettings'
 import { useSeller } from '../seller'
@@ -621,6 +622,9 @@ function ProductForm({ product, cloneFrom }) {
         </div>
 
         <div className="flex flex-col gap-6">
+          {seller.api.seoPreview && (
+            <SeoLiveCheck control={control} setValue={setValue} getValues={form.getValues} productId={product?._id} preview={seller.api.seoPreview} />
+          )}
           <Card>
             <CardHeader title="Pricing" description="Prices include GST" />
             <CardBody className="flex flex-col gap-4">

@@ -1,3 +1,4 @@
+import { escapeRegex } from '#core/utils/strings.js';
 import { Category } from '#modules/categories/category.model.js';
 import { pageService } from '#modules/pages/page.service.js';
 import { Product } from '#modules/products/product.model.js';
@@ -209,6 +210,36 @@ export const seoAudit = {
     return {
       items: audited.slice((page - 1) * limit, page * limit),
       meta: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)), summary, checks: PRODUCT_CHECKS },
+    };
+  },
+
+  /**
+   * Checks a product as it's being written (the add/edit form), before it's saved: the same checks and
+   * suggestions as the SEO improvements page. `excludeId` is the product being edited, so it isn't its own duplicate.
+   */
+  async preview(draft, { excludeId } = {}) {
+    const name = draft.name?.trim() ?? '';
+    const [seo, branding, category, twin] = await Promise.all([
+      settingsService.get('seo'),
+      settingsService.get('branding'),
+      draft.category ? Category.findById(draft.category).select('name').lean() : null,
+      name
+        ? Product.exists({
+            name: new RegExp(`^${escapeRegex(name)}$`, 'i'),
+            status: { $ne: 'archived' },
+            ...(excludeId ? { _id: { $ne: excludeId } } : {}),
+          })
+        : null,
+    ]);
+    const site = branding.siteName;
+    const p = { ...draft, name };
+    const titleCounts = new Map([[name.toLowerCase(), twin ? 2 : 1]]);
+    const a = auditProduct(p, { titleCounts, templates: seo, site });
+    return {
+      score: a.score,
+      effective: { title: a.title, description: a.meta },
+      issues: a.issues.map((key) => ({ key, ...PRODUCT_CHECKS[key] })),
+      suggestion: name ? suggest(p, { site, templates: seo.product, category: category?.name }) : null,
     };
   },
 

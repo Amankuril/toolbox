@@ -26,6 +26,7 @@ const catalogSeller = {
     createCategory: adminApi.createCategory,
     updateCategory: adminApi.updateCategory,
     compatibilitySearch: (q) => one(a.get('/products/compatibility-search', { params: { q } })),
+    seoPreview: (body) => one(a.post('/seo-audit/preview', body)),
   },
   keys,
   base: '/admin',

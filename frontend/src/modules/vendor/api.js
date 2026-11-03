@@ -89,6 +89,7 @@ export function createSellerApi(v) {
     enquiries: (params) => list(v.get('/enquiries', { params })),
     wishlists: (params) => list(v.get('/wishlists', { params })),
     seoAudit: (params) => list(v.get('/seo-audit', { params })),
+    seoPreview: (body) => one(v.post('/seo-audit/preview', body)),
     remindWishlists: (body) => one(v.post('/wishlists/remind', body)),
     setEnquiryStatus: (id, status) => one(v.patch(`/enquiries/${id}`, { status })),
 
