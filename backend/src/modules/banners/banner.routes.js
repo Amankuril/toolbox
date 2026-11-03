@@ -24,8 +24,10 @@ const bannerFields = {
   subtitle: optionalText(240),
   ctaLabel: optionalText(40),
   link: safeLink,
-  image: imageInput,
+  image: imageInput.nullable().optional(),
   mobileImage: imageInput.nullable().optional(),
+  video: z.object({ media: objectId }).nullable().optional(),
+  showText: z.boolean().optional(),
   placement: z.enum(BANNER_PLACEMENTS),
   sortOrder: z.number().int().min(-1000).max(1000).optional(),
   status: z.enum(BANNER_STATUSES).optional(),
@@ -56,13 +58,37 @@ const activeBanners = cached(
   5 * 60_000,
 );
 
+/** Every placement needs a picture; the hero can have a video instead (or as well). */
+function assertMedia({ placement, image, video }) {
+  if (image) return;
+  if (placement === 'home_hero' && video) return;
+  throw ApiError.unprocessable(placement === 'home_hero' ? 'Add an image or a video' : 'Upload an image', {
+    code: 'BANNER_MEDIA_REQUIRED',
+    details: [{ path: 'image', message: placement === 'home_hero' ? 'Add an image or a video' : 'Upload an image' }],
+  });
+}
+
+/** Resolves media refs; cleared fields (null) are collected for $unset rather than stored as null. */
 async function resolveImages(input, actor) {
   const { coupon, ...out } = input;
+  const unset = {};
   if (coupon) out.coupon = coupon;
-  if (input.image) out.image = await mediaService.resolveOne(input.image, actor);
-  if (input.mobileImage !== undefined)
-    out.mobileImage = input.mobileImage ? await mediaService.resolveOne(input.mobileImage, actor) : undefined;
-  return out;
+  for (const field of ['image', 'mobileImage']) {
+    if (input[field] === undefined) continue;
+    if (input[field]) out[field] = await mediaService.resolveOne(input[field], actor);
+    else {
+      delete out[field];
+      unset[field] = 1;
+    }
+  }
+  if (input.video !== undefined) {
+    if (input.video) [out.video] = await mediaService.resolve([input.video], actor, { type: 'video' });
+    else {
+      delete out.video;
+      unset.video = 1;
+    }
+  }
+  return { fields: out, unset };
 }
 
 export const publicBannerRoutes = Router().get(
@@ -86,14 +112,28 @@ export const adminBannerRoutes = Router()
     ok(res, await Banner.find().sort({ placement: 1, sortOrder: 1, createdAt: -1 }).populate('coupon', 'code type value active expiresAt').lean()),
   )
   .post('/', validate({ body: z.object(bannerFields) }), async (req, res) => {
-    const banner = await Banner.create(await resolveImages(req.body, actorOf(req)));
+    const { fields } = await resolveImages(req.body, actorOf(req));
+    if (fields.placement !== 'home_hero') delete fields.video;
+    assertMedia(fields);
+    const banner = await Banner.create(fields);
     await activeBanners.invalidate();
     created(res, banner.toObject());
   })
   .patch('/:id', validate({ params: idParams, body: z.object(bannerFields).partial() }), async (req, res) => {
-    const fields = await resolveImages(req.body, actorOf(req));
+    const current = await Banner.findById(req.params.id).lean();
+    if (!current) throw ApiError.notFound('Banner not found');
+    const { fields, unset } = await resolveImages(req.body, actorOf(req));
     // A cleared coupon is removed rather than stored as null.
-    const update = req.body.coupon === null ? { $set: fields, $unset: { coupon: 1 } } : fields;
+    if (req.body.coupon === null) unset.coupon = 1;
+    // Only the hero plays video.
+    if ((fields.placement ?? current.placement) !== 'home_hero') {
+      delete fields.video;
+      unset.video = 1;
+    }
+    const next = { ...current, ...fields };
+    for (const k of Object.keys(unset)) delete next[k];
+    assertMedia(next);
+    const update = Object.keys(unset).length ? { $set: fields, $unset: unset } : fields;
     const banner = await Banner.findByIdAndUpdate(req.params.id, update, {
       returnDocument: 'after',
       runValidators: true,

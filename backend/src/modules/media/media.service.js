@@ -12,15 +12,15 @@ export const FOLDER_ACCESS = {
   user: ['users', 'reviews'],
 };
 
-/** Folders that take videos (product pages are the only place they're shown). */
-export const VIDEO_FOLDERS = ['products'];
+/** Folders that take videos: product galleries and the home page hero banner. */
+export const VIDEO_FOLDERS = ['products', 'banners'];
 
 const isVideo = (doc) => doc.mimeType?.startsWith('video/');
 
 function assertFolder(folder, actor, kind = 'image') {
   if (!FOLDER_ACCESS[actor.kind]?.includes(folder)) throw ApiError.forbidden(`You cannot upload to "${folder}"`);
   if (kind === 'video' && !VIDEO_FOLDERS.includes(folder))
-    throw ApiError.badRequest('Videos can only be added to products', { code: 'VIDEO_NOT_ALLOWED' });
+    throw ApiError.badRequest('Videos can only be added to products and hero banners', { code: 'VIDEO_NOT_ALLOWED' });
 }
 
 /** A link that couldn't be fetched is the user's to fix, not a server fault. */

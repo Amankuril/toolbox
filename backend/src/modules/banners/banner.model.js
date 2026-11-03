@@ -11,8 +11,13 @@ const bannerSchema = new Schema(
     subtitle: { type: String, trim: true, maxlength: 240 },
     ctaLabel: { type: String, trim: true, maxlength: 40 },
     link: { type: String, trim: true, maxlength: 500 },
-    image: { type: imageSchema, required: true },
+    // Required for every placement except the hero, where a video can stand in for it.
+    image: imageSchema,
     mobileImage: imageSchema,
+    /** Hero only: an uploaded video that plays muted on a loop (the image, if any, is its poster). */
+    video: imageSchema,
+    /** Hero only: false = just the picture or video, no title, subtitle or buttons over it. */
+    showText: { type: Boolean, default: true },
     placement: { type: String, enum: BANNER_PLACEMENTS, required: true },
     // Exit offers: the coupon the pop-up hands out (applied to the cart from the banner).
     coupon: { type: Schema.Types.ObjectId, ref: 'Coupon' },

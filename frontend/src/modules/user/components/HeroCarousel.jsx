@@ -5,29 +5,32 @@ import { cn } from '@/core/lib/cn'
 
 const INTERVAL = 7000
 
-function SmartLink({ to, className, children }) {
+function SmartLink({ to, className, children, ...rest }) {
   if (!to) return <span className={className}>{children}</span>
   return /^https?:\/\//.test(to) ? (
-    <a href={to} rel="noopener" className={className}>
+    <a href={to} rel="noopener" className={className} {...rest}>
       {children}
     </a>
   ) : (
-    <Link to={to} className={className}>
+    <Link to={to} className={className} {...rest}>
       {children}
     </Link>
   )
 }
 
 /**
- * One full-width banner: the image fills the frame and the banner's own words (title, subtitle, button)
+ * One full-width banner (an image, or a muted looping video with the image as its poster): the image fills the frame and the banner's own words (title, subtitle, button)
  * sit over it on a dark fade. Admins keep full control through the banner fields; text is real text
- * (searchable, translatable, readable on phones) rather than baked into the art.
+ * (searchable, translatable, readable on phones) rather than baked into the art. When the admin turns
+ * the words off (they're in the art already), the whole banner is the link.
  */
 export function HeroCarousel({ banners }) {
   const [index, setIndex] = useState(0)
   const [paused, setPaused] = useState(false)
   const count = banners.length
   const b = banners[index] ?? banners[0]
+  const showText = b.showText !== false
+  const [reducedMotion] = useState(() => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)
 
   useEffect(() => {
     if (count < 2 || paused || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
@@ -47,51 +50,91 @@ export function HeroCarousel({ banners }) {
       onFocus={() => setPaused(true)}
       onBlur={() => setPaused(false)}
     >
-      <SmartLink to={b.link} className="absolute inset-0 -z-10 block" aria-hidden tabIndex={-1}>
-        <picture>
-          {b.mobileImage && <source media="(max-width: 640px)" srcSet={b.mobileImage.url} />}
-          <img
+      <SmartLink
+        to={b.link}
+        className={cn('absolute inset-0 block', showText ? '-z-10' : 'z-0')}
+        aria-hidden={showText}
+        tabIndex={showText ? -1 : 0}
+        aria-label={showText ? undefined : b.title}
+      >
+        {b.video && !reducedMotion ? (
+          <video
             key={b._id}
-            src={b.image.url}
-            alt=""
+            src={b.video.url}
+            poster={b.image?.url}
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload={index === 0 ? 'auto' : 'metadata'}
+            aria-hidden
             className="size-full animate-[fade-in_400ms_ease-out] object-cover"
-            loading={index === 0 ? 'eager' : 'lazy'}
-            fetchPriority={index === 0 ? 'high' : 'auto'}
           />
-        </picture>
+        ) : b.image ? (
+          <picture>
+            {b.mobileImage && <source media="(max-width: 640px)" srcSet={b.mobileImage.url} />}
+            <img
+              key={b._id}
+              src={b.image.url}
+              alt={showText ? '' : b.title}
+              className="size-full animate-[fade-in_400ms_ease-out] object-cover"
+              loading={index === 0 ? 'eager' : 'lazy'}
+              fetchPriority={index === 0 ? 'high' : 'auto'}
+            />
+          </picture>
+        ) : (
+          // Video-only banner for a visitor who asked for less motion: a still first frame.
+          <video key={b._id} src={`${b.video.url}#t=0.5`} muted playsInline preload="metadata" aria-hidden className="size-full object-cover" />
+        )}
       </SmartLink>
       {/* Keeps the words readable over any photo: darkest behind the text, clear on the far side. */}
-      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-t from-black/80 via-black/45 to-black/10 sm:bg-gradient-to-r sm:from-black/75 sm:via-black/40 sm:to-transparent" />
+      {showText && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-t from-black/80 via-black/45 to-black/10 sm:bg-gradient-to-r sm:from-black/75 sm:via-black/40 sm:to-transparent"
+        />
+      )}
 
-      <div className="flex min-h-[340px] flex-col justify-end gap-8 p-7 sm:min-h-[380px] sm:justify-between sm:p-10 lg:h-[400px] lg:p-11">
-        <div key={b._id} className="flex max-w-xl animate-[fade-in_400ms_ease-out] flex-col gap-4">
-          {count > 1 && (
-            <span className="code text-xs tracking-widest text-white/60">
-              {String(index + 1).padStart(2, '0')} / {String(count).padStart(2, '0')}
-            </span>
-          )}
-          <h1 className="font-display text-[2.2rem] leading-[0.98] font-extrabold tracking-[-0.03em] [font-stretch:110%] drop-shadow-sm sm:text-[3.1rem] lg:text-[3.4rem]">
-            {b.title}
-          </h1>
-          {b.subtitle && <p className="max-w-md text-[1.0625rem] leading-relaxed text-white/85">{b.subtitle}</p>}
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex flex-wrap gap-3">
-            <SmartLink
-              to={b.link || '/search'}
-              className="inline-flex h-12 items-center gap-2 rounded-md bg-accent px-5 font-bold text-accent-fg transition-[filter] hover:brightness-[0.96]"
-            >
-              {b.ctaLabel || 'Shop now'} <ArrowRight className="size-4" />
-            </SmartLink>
-            <Link
-              to="/search?bulk=true"
-              className="inline-flex h-12 items-center rounded-md border-[1.5px] border-white/45 px-5 font-semibold text-white backdrop-blur-[2px] transition-colors hover:border-white/80"
-            >
-              Bulk &amp; quotes
-            </Link>
+      <div
+        className={cn(
+          'flex min-h-[340px] flex-col justify-end gap-8 p-7 sm:min-h-[380px] sm:justify-between sm:p-10 lg:h-[400px] lg:p-11',
+          !showText && 'pointer-events-none relative z-10 sm:justify-end',
+        )}
+      >
+        {showText && (
+          <div key={b._id} className="flex max-w-xl animate-[fade-in_400ms_ease-out] flex-col gap-4">
+            {count > 1 && (
+              <span className="code text-xs tracking-widest text-white/60">
+                {String(index + 1).padStart(2, '0')} / {String(count).padStart(2, '0')}
+              </span>
+            )}
+            <h1 className="font-display text-[2.2rem] leading-[0.98] font-extrabold tracking-[-0.03em] [font-stretch:110%] drop-shadow-sm sm:text-[3.1rem] lg:text-[3.4rem]">
+              {b.title}
+            </h1>
+            {b.subtitle && <p className="max-w-md text-[1.0625rem] leading-relaxed text-white/85">{b.subtitle}</p>}
           </div>
+        )}
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          {showText ? (
+            <div className="flex flex-wrap gap-3">
+              <SmartLink
+                to={b.link || '/search'}
+                className="inline-flex h-12 items-center gap-2 rounded-md bg-accent px-5 font-bold text-accent-fg transition-[filter] hover:brightness-[0.96]"
+              >
+                {b.ctaLabel || 'Shop now'} <ArrowRight className="size-4" />
+              </SmartLink>
+              <Link
+                to="/search?bulk=true"
+                className="inline-flex h-12 items-center rounded-md border-[1.5px] border-white/45 px-5 font-semibold text-white backdrop-blur-[2px] transition-colors hover:border-white/80"
+              >
+                Bulk &amp; quotes
+              </Link>
+            </div>
+          ) : (
+            <span />
+          )}
           {count > 1 && (
-            <div className="flex items-center gap-3">
+            <div className="pointer-events-auto flex items-center gap-3 rounded-md bg-black/25 p-1 backdrop-blur-[2px] sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
               <span className="flex gap-1.5" aria-hidden>
                 {banners.map((x, i) => (
                   <span key={x._id} className={cn('h-1.5 rounded-full transition-all', i === index ? 'w-6 bg-accent' : 'w-1.5 bg-white/70')} />
