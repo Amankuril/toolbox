@@ -9,6 +9,7 @@ import { escapeRegex } from '#core/utils/strings.js';
 import { cartService } from '#modules/cart/cart.service.js';
 import { couponService } from '#modules/coupons/coupon.service.js';
 import { confirmationService } from '#modules/invoices/confirmation.service.js';
+import { refundSummary } from './order.refunds.js';
 import { invoiceService } from '#modules/invoices/invoice.service.js';
 import { pickupService } from '#modules/pickup/pickup.service.js';
 import { Product } from '#modules/products/product.model.js';
@@ -173,7 +174,7 @@ async function settleLatePayment(orderId, paymentId) {
  * the advance no longer covered by what's still owed is refunded.
  * @returns {{ amount: number, refundId?: string, status?: string, balanceDue: number } | null}
  */
-async function settlePartialCancellation(order, item) {
+async function settlePartialCancellation(order, item, auto) {
   if (
     order.payment.method !== 'partial' ||
     !['partially_paid', 'paid', 'partially_refunded'].includes(order.payment.status) ||
@@ -186,7 +187,8 @@ async function settlePartialCancellation(order, item) {
   const paidOnline = (order.amounts.advance ?? 0) - order.amounts.refunded;
   const balanceDue = Math.max(0, stillOwed - paidOnline);
   const excess = Math.max(0, paidOnline - stillOwed);
-  if (!excess) return { amount: 0, balanceDue };
+  // Manual refunds: the courier still collects less, but the excess waits for an admin to refund it.
+  if (!excess || !auto) return { amount: 0, balanceDue };
   const refund = await paymentService.processRefund({
     order,
     itemId: item._id,
@@ -203,13 +205,14 @@ async function settlePartialCancellation(order, item) {
  * then collects only what's left over.
  * @returns {{ kind: 'wallet', walletBack: number, online: object|null, balanceDue: number|undefined }}
  */
-async function settleWalletCancellation(order, item) {
+async function settleWalletCancellation(order, item, auto) {
   if (item.refunded) return null;
   const remaining = order.items.filter((i) => i.status !== 'cancelled' && String(i._id) !== String(item._id));
   const stillOwed = remaining.length ? remaining.reduce((s, i) => s + i.lineTotal, 0) + order.amounts.shipping : 0;
   const walletLeft = order.amounts.wallet - (order.amounts.walletRefunded ?? 0);
   const paidOnline = order.payment.method === 'razorpay' && PAID_ONLINE.includes(order.payment.status) ? onlineAmount(order) - order.amounts.refunded : 0;
-  const excess = Math.max(0, walletLeft + paidOnline - stillOwed);
+  // Manual refunds: nothing goes back now (an admin refunds it from the order page).
+  const excess = auto ? Math.max(0, walletLeft + paidOnline - stillOwed) : 0;
   const walletBack = Math.min(excess, walletLeft);
   const onlineBack = Math.min(excess - walletBack, paidOnline);
 
@@ -231,9 +234,11 @@ async function settleWalletCancellation(order, item) {
   return { kind: 'wallet', walletBack, online, balanceDue };
 }
 
-async function refundForCancellation(order, item) {
-  if (order.amounts.wallet) return settleWalletCancellation(order, item);
-  if (order.payment.method === 'partial') return settlePartialCancellation(order, item);
+/** `auto` off (Settings → Payments): money owed back is left for an admin to refund by hand. */
+async function refundForCancellation(order, item, { auto = true } = {}) {
+  if (order.amounts.wallet) return settleWalletCancellation(order, item, auto);
+  if (order.payment.method === 'partial') return settlePartialCancellation(order, item, auto);
+  if (!auto) return null;
   if (order.payment.method !== 'razorpay' || !['paid', 'partially_refunded'].includes(order.payment.status) || item.refunded) return null;
 
   const remainingActive = order.items.filter((i) => i.status !== 'cancelled' && String(i._id) !== String(item._id));
@@ -621,7 +626,9 @@ export const orderService = {
       }
     }
 
-    const refund = changingStatus && status === 'cancelled' ? await refundForCancellation(order, item) : null;
+    const cancelling = changingStatus && status === 'cancelled';
+    const auto = cancelling ? (await settingsService.get('payments')).autoRefundOnCancel !== false : true;
+    const refund = cancelling ? await refundForCancellation(order, item, { auto }) : null;
 
     if (changingStatus) {
       item.status = status;
@@ -630,7 +637,7 @@ export const orderService = {
     for (const [key, value] of Object.entries(tracking ?? {})) item.set(`tracking.${key}`, value);
 
     if (refund?.kind === 'wallet') {
-      item.refunded = true;
+      item.refunded = Boolean(refund.walletBack || refund.online);
       order.amounts.walletRefunded = (order.amounts.walletRefunded ?? 0) + refund.walletBack;
       if (refund.online) {
         order.amounts.refunded += refund.online.amount;
@@ -641,7 +648,7 @@ export const orderService = {
       if (!anyLeft && (refund.walletBack || refund.online)) order.payment.status = 'refunded';
       else if (refund.walletBack || refund.online) order.payment.status = order.payment.status === 'pending' ? 'pending' : 'partially_refunded';
     } else if (refund && order.payment.method === 'partial') {
-      item.refunded = true;
+      item.refunded = auto || refund.amount > 0;
       order.amounts.balanceDue = refund.balanceDue;
       if (refund.amount > 0) {
         order.amounts.refunded += refund.amount;
@@ -785,7 +792,7 @@ export const orderService = {
       .lean();
     if (!order) throw ApiError.notFound('Order not found');
     // user and items.vendor are populated, and the serializer passes them through.
-    return serializeOrder(order);
+    return { ...serializeOrder(order), refunds: order.refunds ?? [], refundSummary: refundSummary(order) };
   },
 
   serializeOrder,

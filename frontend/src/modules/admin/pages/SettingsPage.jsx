@@ -494,6 +494,22 @@ function PaymentSettings({ payments, integrations }) {
           </div>
         </CardBody>
       </Card>
+      <Card>
+        <CardHeader title="Refunds" />
+        <CardBody className="flex flex-col gap-4">
+          <Switch
+            checked={payments.autoRefundOnCancel !== false}
+            disabled={save.isPending}
+            onCheckedChange={(autoRefundOnCancel) => save.mutate({ autoRefundOnCancel })}
+            label="Refund automatically when an order is cancelled"
+            description={
+              payments.autoRefundOnCancel !== false
+                ? 'Money goes back to the original payment or wallet as soon as an item is cancelled.'
+                : 'Cancelled orders wait for you: refund them from the order page, choosing the amount and where it goes.'
+            }
+          />
+        </CardBody>
+      </Card>
       <PartialPaymentSettings payments={payments} razorpayReady={rz.configured} />
       <EmiSettings payments={payments} razorpayReady={rz.configured} />
     </div>

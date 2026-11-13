@@ -9,6 +9,7 @@ import { actorOf } from '#modules/auth/auth.middleware.js';
 import { ITEM_STATUSES, ORDER_SOURCES, ORDER_STATUSES, PAYMENT_METHODS, PAYMENT_STATUSES } from './order.model.js';
 import { confirmationService } from '#modules/invoices/confirmation.service.js';
 import { invoiceService } from '#modules/invoices/invoice.service.js';
+import { manualRefund } from './order.refunds.js';
 import { orderService } from './order.service.js';
 
 const invoiceParams = z.object({ id: objectId, vendorId: objectId });
@@ -159,6 +160,17 @@ export const adminOrderRoutes = Router()
     await orderService.markCashCollected(req.params.id, req.body, actorOf(req));
     ok(res, await orderService.adminGet(req.params.id));
   })
+  .post(
+    '/:id/refunds',
+    validate({
+      params: idParams,
+      body: z.object({ amount: z.number().int().positive(), method: z.enum(['gateway', 'wallet', 'offline']), note: optionalText(300) }),
+    }),
+    async (req, res) => {
+      await manualRefund(req.params.id, req.body, actorOf(req));
+      ok(res, await orderService.adminGet(req.params.id));
+    },
+  )
   .get('/:id/invoices/:vendorId/pdf', pdfLimit, validate({ params: invoiceParams }), async (req, res) =>
     sendPdf(res, await invoiceService.pdf(req.params.id, req.params.vendorId)),
   )

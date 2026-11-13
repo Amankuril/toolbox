@@ -97,6 +97,7 @@ export const adminApi = {
   remindWishlists: (body) => one(a.post('/wishlists/remind', body)),
   setEnquiryStatus: (id, status) => one(a.patch(`/enquiries/${id}`, { status })),
   markCashCollected: (id, note) => one(a.post(`/orders/${id}/cash-collected`, { note })),
+  refundOrder: (id, body) => one(a.post(`/orders/${id}/refunds`, body)),
   order: (id) => one(a.get(`/orders/${id}`)),
   orderInvoices: (id) => one(a.get(`/orders/${id}/invoices`)),
   orderInvoicePdf: (id, vendorId) => a.get(`/orders/${id}/invoices/${vendorId}/pdf`, { responseType: 'blob' }),

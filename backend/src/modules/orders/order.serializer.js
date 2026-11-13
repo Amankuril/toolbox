@@ -59,7 +59,8 @@ export function serializeOrder(o) {
     items: doc.items.map(serializeItem),
     amounts: doc.amounts,
     coupon: doc.coupon?.code ? { code: doc.coupon.code, vendor: doc.coupon.vendor } : null,
-    refunds: doc.refunds ?? [],
+    // Who refunded and the admin's note stay internal (adminGet adds them back).
+    refunds: (doc.refunds ?? []).map(({ by: _by, note: _note, ...r }) => r),
     confirmationEmail: doc.confirmationEmail?.status
       ? { status: doc.confirmationEmail.status, at: doc.confirmationEmail.at, error: doc.confirmationEmail.error }
       : null,

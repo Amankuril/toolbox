@@ -90,11 +90,14 @@ export const SETTINGS = {
         .refine((plans) => new Set(plans.map((p) => p.months)).size === plans.length, 'Each tenure once'),
       /** Tenures shown as no-cost EMI (the seller or bank absorbs the interest). */
       noCostMonths: z.array(z.number().int().min(2).max(60)).max(6),
+      /** Refund straight away when an item is cancelled. Off: an admin reviews and refunds from the order page. */
+      autoRefundOnCancel: z.boolean(),
     }),
     defaults: {
       razorpayEnabled: false,
       codEnabled: true,
       codMaxOrderValue: 0,
+      autoRefundOnCancel: true,
       partialEnabled: false,
       partialAdvancePercent: 20,
       partialMinOrderValue: 0,

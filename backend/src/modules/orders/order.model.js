@@ -83,6 +83,12 @@ const refundSchema = new Schema(
     providerRefundId: String,
     status: String,
     at: { type: Date, default: Date.now },
+    // Refunds an admin issued from the order page: to the original payment, the buyer's wallet,
+    // or paid outside the site (cash, UPI, bank transfer) and only recorded here.
+    manual: Boolean,
+    method: { type: String, enum: ['gateway', 'wallet', 'offline'] },
+    note: { type: String, trim: true, maxlength: 300 },
+    by: actorSchema,
   },
   { _id: false },
 );
@@ -142,6 +148,8 @@ const orderSchema = new Schema(
       // Paid from the buyer's wallet, and how much of that went back to the wallet.
       wallet: Number,
       walletRefunded: { type: Number, default: 0 },
+      // Manual refunds to the wallet or paid outside the site (gateway refunds are in `refunded`).
+      manualRefunded: { type: Number, default: 0 },
     },
 
     payment: {
