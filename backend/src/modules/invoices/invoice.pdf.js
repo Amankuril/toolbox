@@ -28,7 +28,6 @@ const PAYMENT_LABELS = {
 
 // Brand palette (matches the storefront theme).
 const PRIMARY = '#1e5b38';
-const PRIMARY_DARK = '#10241a';
 const ACCENT = '#f5c518';
 const TINT = '#eef5f0';
 const ZEBRA = '#f7faf8';
@@ -86,7 +85,7 @@ async function loadLogo(url) {
  */
 export async function renderInvoicePdf(inv) {
   const branding = await settingsService.get('branding');
-  const { siteName, tagline, supportEmail, supportPhone } = branding;
+  const { siteName, supportEmail, supportPhone } = branding;
   const logo = await loadLogo(branding.modules?.user?.logo?.url);
 
   const doc = new PDFDocument({
@@ -138,19 +137,12 @@ export async function renderInvoicePdf(inv) {
   /* ── Header ── */
   brandStripe();
   let y = 26;
-  const img = doc.openImage(logo);
-  const logoH = 68;
-  const logoW = Math.min(150, (img.width / img.height) * logoH);
-  doc.image(img, left, y, { fit: [logoW, logoH], valign: 'center' });
-
-  const brandX = left + logoW + 14;
-  const brandW = width * 0.55 - logoW - 14;
-  let by = y + 8;
-  by = label('Ordered via', brandX, by);
-  by = text(siteName, brandX, by + 1, { font: 'bold', size: 15, color: PRIMARY_DARK, width: brandW });
-  if (tagline) by = text(tagline, brandX, by, { size: 7.8, color: MUTED, width: brandW });
+  const logoH = 78;
+  // "Ordered via", then the logo (it carries the name and tagline), then the support contacts.
+  label('Ordered via', left, y);
+  doc.image(doc.openImage(logo), left, y + 11, { fit: [240, 58], align: 'left', valign: 'center' });
   const contact = [supportEmail, supportPhone].filter(Boolean).join('   ·   ');
-  if (contact) text(contact, brandX, by + 3, { size: 7.5, color: PRIMARY, width: brandW });
+  if (contact) text(contact, left, y + 74, { size: 7.5, color: PRIMARY, width: width * 0.55, lineBreak: false });
 
   // Title + invoice number on the right.
   const metaW = 190;
@@ -471,7 +463,7 @@ export async function renderInvoicePdf(inv) {
   text(declText, left + 10, y + 20, { size: 7.8, width: declW - 20 });
 
   doc.roundedRect(totalsX, y, totalsW, declH, 5).lineWidth(0.7).strokeColor(RULE).stroke();
-  text(`For ${inv.seller.name}`, totalsX + 10, y + 9, { font: 'bold', size: 8.5, color: INK, width: totalsW - 20, align: 'right' });
+  text(`For ${siteName}`, totalsX + 10, y + 9, { font: 'bold', size: 8.5, color: INK, width: totalsW - 20, align: 'right' });
   hline(y + declH - 22, totalsX + 60, right - 10, '#94a3b8', 0.6);
   text('Authorised signatory', totalsX + 10, y + declH - 17, { size: 7.2, color: MUTED, width: totalsW - 20, align: 'right' });
   y += declH + 14;
