@@ -2,6 +2,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { downloadPdf } from '@/modules/shared/download'
 import { InvoicesCard } from '@/modules/shared/invoices'
 import { BadgeCheck } from 'lucide-react'
+import { useState } from 'react'
+import { Button } from '@/ui/Button'
 import { Link, useParams } from 'react-router'
 import { toast } from 'sonner'
 import { errorMessage } from '@/core/api/errors'
@@ -138,6 +140,17 @@ export default function OrderDetailPage() {
           <InvoicesCard
             invoices={o.status === 'pending_payment' ? [] : invoices}
             onDownload={(inv) => downloadPdf(() => adminApi.orderInvoicePdf(id, inv.vendor), `Invoice-${o.orderNumber}.pdf`)}
+            confirmation={
+              o.status === 'pending_payment' || o.status === 'cancelled'
+                ? undefined
+                : {
+                    onDownload: () => downloadPdf(() => adminApi.orderConfirmationPdf(id), `Order-${o.orderNumber}.pdf`),
+                    note: confirmationNote(o.confirmationEmail),
+                    action: can('orders', 'manage') && o.confirmationEmail?.status !== 'sending' && (
+                      <ResendConfirmation orderId={id} sent={o.confirmationEmail?.status === 'sent'} />
+                    ),
+                  }
+            }
           />
           <PaymentCard
             order={o}
@@ -187,4 +200,39 @@ function useShipmentRunner(orderId, qc) {
       qc.invalidateQueries({ queryKey: adminKeys.order(orderId) })
     }
   }
+}
+
+function confirmationNote(email) {
+  if (!email) return 'Emailing the buyer…'
+  if (email.status === 'sent') return `Emailed to the buyer ${formatDateTime(email.at)}`
+  if (email.status === 'sending') return 'Emailing the buyer…'
+  if (email.status === 'skipped') return `Not emailed: ${email.error ?? 'no email address'}`
+  return `Email failed: ${email.error ?? 'unknown error'}. Retrying automatically.`
+}
+
+/** Sends the buyer's order confirmation email again (e.g. after they added an email address). */
+function ResendConfirmation({ orderId, sent }) {
+  const qc = useQueryClient()
+  const [busy, setBusy] = useState(false)
+  return (
+    <Button
+      variant="link"
+      size="xs"
+      loading={busy}
+      onClick={async () => {
+        setBusy(true)
+        try {
+          await adminApi.resendOrderConfirmation(orderId)
+          toast.success('Order confirmation emailed')
+        } catch (err) {
+          toast.error(errorMessage(err))
+        } finally {
+          setBusy(false)
+          qc.invalidateQueries({ queryKey: adminKeys.order(orderId) })
+        }
+      }}
+    >
+      {sent ? 'Send email again' : 'Send email now'}
+    </Button>
+  )
 }

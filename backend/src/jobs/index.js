@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { logger } from '#config/logger.js';
 import { redis } from '#config/redis.js';
+import { confirmationService } from '#modules/invoices/confirmation.service.js';
 import { orderService } from '#modules/orders/order.service.js';
 import { productImportService } from '#modules/products/imports/import.service.js';
 import { quoteLifecycle } from '#modules/quotes/quote.lifecycle.js';
@@ -17,6 +18,16 @@ const JOBS = [
     async run() {
       const expired = await orderService.expireUnpaid();
       if (expired) logger.info({ expired }, 'Expired unpaid orders');
+    },
+  },
+  {
+    // Order confirmed → buyer's email with the confirmation PDF. Checkout sends it straight away;
+    // this catches webhook-paid and panel orders, and retries failures.
+    name: 'send-order-confirmations',
+    everyMs: 30_000,
+    async run() {
+      const sent = await confirmationService.sweep();
+      if (sent) logger.info({ sent }, 'Sent order confirmation emails');
     },
   },
   {

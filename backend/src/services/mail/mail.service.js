@@ -50,6 +50,21 @@ export const mailService = {
     return result;
   },
 
+  /** Whether email can actually go out (SMTP configured, or the dev console). */
+  get enabled() {
+    return provider.name !== 'disabled';
+  },
+
+  /**
+   * Any other email (order confirmations…). Message: { to, subject, text, html, attachments }.
+   * Attachments are nodemailer-style objects with in-memory `content` only.
+   */
+  async send(message) {
+    const result = await provider.send(message);
+    logger.debug({ to: message.to, subject: message.subject, provider: result.provider, messageId: result.messageId }, 'Email sent');
+    return result;
+  },
+
   /** Test seam: replace the provider. */
   useProvider(next) {
     provider = next;

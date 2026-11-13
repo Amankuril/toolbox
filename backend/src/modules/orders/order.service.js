@@ -8,6 +8,7 @@ import { gstFromInclusive } from '#core/utils/money.js';
 import { escapeRegex } from '#core/utils/strings.js';
 import { cartService } from '#modules/cart/cart.service.js';
 import { couponService } from '#modules/coupons/coupon.service.js';
+import { confirmationService } from '#modules/invoices/confirmation.service.js';
 import { invoiceService } from '#modules/invoices/invoice.service.js';
 import { pickupService } from '#modules/pickup/pickup.service.js';
 import { Product } from '#modules/products/product.model.js';
@@ -457,6 +458,7 @@ export const orderService = {
         lines.map((l) => l.product),
       );
       if (coupon) await cartService.clearCoupon(user._id);
+      confirmationService.sendSoon(order._id);
       return { order: serializeOrder(order), payment: null };
     }
 
@@ -483,6 +485,7 @@ export const orderService = {
       { providerOrderId, paymentId, signature },
       { latePaymentHandler: handleLatePayment },
     );
+    confirmationService.sendSoon(verifiedOrder._id);
     return serializeOrder(verifiedOrder);
   },
 

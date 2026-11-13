@@ -100,6 +100,8 @@ export const adminApi = {
   order: (id) => one(a.get(`/orders/${id}`)),
   orderInvoices: (id) => one(a.get(`/orders/${id}/invoices`)),
   orderInvoicePdf: (id, vendorId) => a.get(`/orders/${id}/invoices/${vendorId}/pdf`, { responseType: 'blob' }),
+  orderConfirmationPdf: (id) => a.get(`/orders/${id}/confirmation/pdf`, { responseType: 'blob' }),
+  resendOrderConfirmation: (id) => one(a.post(`/orders/${id}/confirmation/email`)),
   updateOrderItem: (id, itemId, body) => one(a.patch(`/orders/${id}/items/${itemId}`, body)),
 
   shipments: (orderId) => one(a.get(`/orders/${orderId}/shipments`)),

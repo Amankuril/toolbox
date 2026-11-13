@@ -29,9 +29,9 @@ export function createSmtpMailProvider({ host, port, secure, user, pass, from, t
 
   return {
     name: 'smtp',
-    async send({ to, subject, text, html }) {
+    async send({ to, subject, text, html, attachments }) {
       try {
-        const info = await transport.sendMail({ from, to, subject, text, html });
+        const info = await transport.sendMail({ from, to, subject, text, html, attachments });
         if (info.rejected?.length) throw new Error(`rejected: ${info.rejected.join(', ')}`);
         return { provider: 'smtp', messageId: info.messageId };
       } catch (err) {

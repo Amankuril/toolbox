@@ -91,6 +91,7 @@ export const userApi = {
   order: (id) => one(u.get(`/orders/${id}`)),
   invoices: (id) => one(u.get(`/orders/${id}/invoices`)),
   invoicePdf: (id, vendorId) => u.get(`/orders/${id}/invoices/${vendorId}/pdf`, { responseType: 'blob' }),
+  confirmationPdf: (id) => u.get(`/orders/${id}/confirmation/pdf`, { responseType: 'blob' }),
   checkout: (body) => one(u.post('/orders/checkout', body)),
   verifyPayment: (id, body) => one(u.post(`/orders/${id}/payment/verify`, body)),
   retryPayment: (id) => one(u.post(`/orders/${id}/payment/retry`)),

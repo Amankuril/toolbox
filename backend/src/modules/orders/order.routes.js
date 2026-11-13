@@ -7,6 +7,7 @@ import { paginationQuery } from '#core/utils/pagination.js';
 import { gstin, idParams, objectId, optionalText } from '#core/validation/common.js';
 import { actorOf } from '#modules/auth/auth.middleware.js';
 import { ITEM_STATUSES, ORDER_SOURCES, ORDER_STATUSES, PAYMENT_METHODS, PAYMENT_STATUSES } from './order.model.js';
+import { confirmationService } from '#modules/invoices/confirmation.service.js';
 import { invoiceService } from '#modules/invoices/invoice.service.js';
 import { orderService } from './order.service.js';
 
@@ -78,6 +79,9 @@ export const userOrderRoutes = Router()
   .get('/:id/invoices', validate({ params: idParams }), async (req, res) =>
     ok(res, await invoiceService.forOrder(req.params.id, { userId: req.auth.id })),
   )
+  .get('/:id/confirmation/pdf', pdfLimit, validate({ params: idParams }), async (req, res) =>
+    sendPdf(res, await confirmationService.pdf(req.params.id, { userId: req.auth.id })),
+  )
   .get('/:id/invoices/:vendorId/pdf', pdfLimit, validate({ params: invoiceParams }), async (req, res) =>
     sendPdf(res, await invoiceService.pdf(req.params.id, req.params.vendorId, { userId: req.auth.id })),
   )
@@ -145,6 +149,12 @@ export const adminOrderRoutes = Router()
   })
   .get('/:id', validate({ params: idParams }), async (req, res) => ok(res, await orderService.adminGet(req.params.id)))
   .get('/:id/invoices', validate({ params: idParams }), async (req, res) => ok(res, await invoiceService.forOrder(req.params.id)))
+  .get('/:id/confirmation/pdf', pdfLimit, validate({ params: idParams }), async (req, res) =>
+    sendPdf(res, await confirmationService.pdf(req.params.id)),
+  )
+  .post('/:id/confirmation/email', validate({ params: idParams }), async (req, res) =>
+    ok(res, await confirmationService.resend(req.params.id)),
+  )
   .post('/:id/cash-collected', validate({ params: idParams, body: z.object({ note: optionalText(300) }) }), async (req, res) => {
     await orderService.markCashCollected(req.params.id, req.body, actorOf(req));
     ok(res, await orderService.adminGet(req.params.id));

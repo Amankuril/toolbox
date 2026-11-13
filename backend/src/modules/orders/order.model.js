@@ -180,6 +180,13 @@ const orderSchema = new Schema(
     cancelledAt: Date,
     cancelReason: { type: String, trim: true, maxlength: 500 },
     idempotencyKey: { type: String },
+    // The buyer's "order confirmed" email (with the confirmation PDF), sent once the order is confirmed.
+    confirmationEmail: {
+      status: { type: String, enum: ['sending', 'sent', 'skipped', 'failed'] },
+      at: Date,
+      attempts: Number,
+      error: String,
+    },
   },
   baseOptions,
 );

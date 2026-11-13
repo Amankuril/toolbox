@@ -193,7 +193,18 @@ export default function MyOrderDetailPage() {
             </CardBody>
           </Card>
           {o.pickups?.length > 0 && <PickupCard pickups={o.pickups} />}
-          <InvoicesCard invoices={invoices} onDownload={(inv) => downloadPdf(() => userApi.invoicePdf(id, inv.vendor), `Invoice-${o.orderNumber}.pdf`)} />
+          <InvoicesCard
+            invoices={invoices}
+            onDownload={(inv) => downloadPdf(() => userApi.invoicePdf(id, inv.vendor), `Invoice-${o.orderNumber}.pdf`)}
+            confirmation={
+              o.status === 'pending_payment'
+                ? undefined
+                : {
+                    onDownload: () => downloadPdf(() => userApi.confirmationPdf(id), `Order-${o.orderNumber}.pdf`),
+                    note: o.confirmationEmail?.status === 'sent' ? 'Also sent to your email' : 'Not a tax invoice',
+                  }
+            }
+          />
           <Card>
             <CardHeader title="Delivery address" />
             <CardBody>

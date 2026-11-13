@@ -60,6 +60,9 @@ export function serializeOrder(o) {
     amounts: doc.amounts,
     coupon: doc.coupon?.code ? { code: doc.coupon.code, vendor: doc.coupon.vendor } : null,
     refunds: doc.refunds ?? [],
+    confirmationEmail: doc.confirmationEmail?.status
+      ? { status: doc.confirmationEmail.status, at: doc.confirmationEmail.at, error: doc.confirmationEmail.error }
+      : null,
   };
 }
 
