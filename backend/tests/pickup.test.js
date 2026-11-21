@@ -30,7 +30,7 @@ beforeAll(async () => {
       .send({ name: 'Buyer', phone: '9400000099', line1: 'Main Road', city: 'Muzaffarnagar', state: 'Uttar Pradesh', pincode: '251001' })
       .expect(201)
   ).body.data[0]._id;
-  await settingsService.update('shipping', { flatFee: 15_000 }, { kind: 'system' });
+  await settingsService.update('shipping', { deliverySlabs: [{ from: 0, to: 1_000_000_000, fee: 15000 }] }, { kind: 'system' });
 });
 afterAll(stopTestApp);
 

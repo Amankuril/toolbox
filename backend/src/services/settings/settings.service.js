@@ -3,6 +3,7 @@ import { cached } from '#core/cache/cached.js';
 import { ApiError } from '#core/errors/ApiError.js';
 import { Setting } from '#modules/settings/setting.model.js';
 import { SETTING_KEYS, SETTINGS } from '#modules/settings/settings.schema.js';
+import { normaliseSlabs } from '#modules/shipping/delivery.slabs.js';
 
 function isPlainObject(v) {
   return v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -25,10 +26,16 @@ function upgradeBranding(branding) {
   return { ...branding, modules: { user: shared, vendor: shared, admin: shared } };
 }
 
+/** Older documents had a flat fee and a free-above amount (or open-ended slabs) instead of from/to slabs. */
+function upgradeShipping(shipping) {
+  return shipping ? { ...shipping, deliverySlabs: normaliseSlabs(shipping) } : shipping;
+}
+
 const store = cached('settings', async () => {
   const docs = await Setting.find({ key: { $in: SETTING_KEYS } }).lean();
   const stored = Object.fromEntries(docs.map((d) => [d.key, d.value]));
   stored.branding = upgradeBranding(stored.branding);
+  stored.shipping = upgradeShipping(stored.shipping);
   return Object.fromEntries(SETTING_KEYS.map((key) => [key, mergeDefaults(SETTINGS[key].defaults, stored[key])]));
 });
 
@@ -113,7 +120,7 @@ export const settingsService = {
         emiPlans: values.payments.emiPlans,
         noCostMonths: values.payments.noCostMonths,
       },
-      shipping: { flatFee: values.shipping.flatFee, freeAbove: values.shipping.freeAbove },
+      shipping: { deliverySlabs: values.shipping.deliverySlabs },
       search: { imageSearch: env.imageSearchConfigured },
       storefront: {
         loginPopupEnabled: values.storefront.loginPopupEnabled,

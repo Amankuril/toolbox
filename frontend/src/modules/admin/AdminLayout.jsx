@@ -22,6 +22,7 @@ import {
   Star,
   Store,
   TicketPercent,
+  Truck,
   UserRoundSearch,
   Users,
 } from 'lucide-react'
@@ -93,6 +94,7 @@ export default function AdminLayout() {
       title: 'System',
       items: [
         allow('content', { to: '/admin/pages', label: 'Pages', icon: FileStack }),
+        allow('settings', { to: '/admin/delivery-charges', label: 'Delivery charges', icon: Truck }),
         allow('settings', { to: '/admin/seo', label: 'SEO settings', icon: Search }),
         allow('settings', { to: '/admin/settings', label: 'Settings', icon: Settings }),
       ],

@@ -98,7 +98,7 @@ export default function CartPage() {
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_380px]">
         <div className="flex min-w-0 flex-col gap-4">
-          <FreeShippingMeter subtotal={cart.summary.subtotal} />
+          <FreeShippingMeter orderValue={cart.summary.subtotal - (cart.summary.discount ?? 0)} />
 
           {issues > 0 && (
             <div role="alert" className="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 px-5 py-4 text-amber-950">

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { hexColor, imageRef } from '#core/validation/common.js';
+import { deliverySlabsSchema } from '#modules/shipping/delivery.slabs.js';
 
 /** Blocks the home page is built from (see the homepage group). */
 export const HOME_SECTION_KINDS = ['products', 'departmentRails', 'offers', 'strip', 'partsFinder', 'brands', 'stats', 'howItWorks', 'sellCta'];
@@ -118,10 +119,8 @@ export const SETTINGS = {
 
   shipping: {
     schema: z.object({
-      /** Flat shipping fee per order in paise. */
-      flatFee: z.number().int().min(0),
-      /** Orders at or above this subtotal (paise) ship free. 0 = never free unless flatFee is 0. */
-      freeAbove: z.number().int().min(0),
+      /** Delivery fee by order value (after coupon): from/to slabs with a flat fee each. Empty = free. See delivery.slabs.js. */
+      deliverySlabs: deliverySlabsSchema,
       /** Book shipments with Shipmozo. Needs SHIPMOZO_* on the server. */
       shipmozoEnabled: z.boolean(),
       /** Push confirmed orders to Shipmozo automatically (background job) instead of waiting for an admin. */
@@ -139,8 +138,7 @@ export const SETTINGS = {
       }),
     }),
     defaults: {
-      flatFee: 0,
-      freeAbove: 0,
+      deliverySlabs: [],
       shipmozoEnabled: false,
       autoCreateShipments: false,
       autoAssignCourier: false,

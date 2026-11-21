@@ -101,6 +101,7 @@ export const adminRoutes = {
               children: [
                 { path: 'settings', ...page(() => import('./pages/SettingsPage')) },
                 { path: 'seo', ...page(() => import('./pages/SeoSettingsPage')) },
+                { path: 'delivery-charges', ...page(() => import('./pages/DeliveryChargesPage')) },
               ],
             },
             { path: 'admins', ...page(() => import('./pages/AdminsPage')) },

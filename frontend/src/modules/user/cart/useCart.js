@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { create } from 'zustand'
 import { errorMessage } from '@/core/api/errors'
 import { useSession } from '@/core/auth/session'
+import { deliveryFee } from '@/core/lib/delivery'
 import { priceFor, usableTiers } from '@/core/lib/pricing'
 import { safeStorage } from '@/core/lib/storage'
 import { usePublicSettings } from '@/core/settings/usePublicSettings'
@@ -30,11 +31,7 @@ export const useGuestCart = create((set, get) => ({
   },
 }))
 
-function shippingFee(subtotal, shipping) {
-  if (!shipping?.flatFee || subtotal === 0) return 0
-  if (shipping.freeAbove > 0 && subtotal >= shipping.freeAbove) return 0
-  return shipping.flatFee
-}
+const shippingFee = (subtotal, shipping) => deliveryFee(subtotal, shipping?.deliverySlabs)
 
 /** Builds the same shape the API returns for the server cart, for guests. */
 function useGuestView(enabled) {

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { BadgeCheck, Banknote, Layers, Receipt, ShieldCheck, Store, Truck, Users, Package } from 'lucide-react'
 import { cn } from '@/core/lib/cn'
+import { freeDeliveryFrom } from '@/core/lib/delivery'
 import { formatINR, formatNumber } from '@/core/lib/format'
 import { usePublicSettings } from '@/core/settings/usePublicSettings'
 import { storeApi, storeKeys } from '../api'
@@ -14,8 +15,9 @@ function useServiceHighlights() {
   const pay = settings?.payments ?? {}
   const ship = settings?.shipping ?? {}
   const items = []
-  if (ship.flatFee === 0) items.push({ icon: Truck, title: 'Free shipping', text: 'On every order' })
-  else if (ship.freeAbove > 0) items.push({ icon: Truck, title: 'Free shipping', text: `On orders above ${formatINR(ship.freeAbove, { whole: true })}` })
+  const freeFrom = freeDeliveryFrom(ship.deliverySlabs)
+  if (freeFrom === 0) items.push({ icon: Truck, title: 'Free shipping', text: 'On every order' })
+  else if (freeFrom > 0) items.push({ icon: Truck, title: 'Free shipping', text: `On orders of ${formatINR(freeFrom, { whole: true })} and above` })
   items.push({ icon: BadgeCheck, title: 'Reviewed sellers', text: 'GST and bank details checked' })
   items.push({ icon: Receipt, title: 'GST invoice', text: 'Claim input tax credit' })
   if (pay.razorpayEnabled) items.push({ icon: ShieldCheck, title: 'Secure payments', text: 'UPI, cards & net banking' })

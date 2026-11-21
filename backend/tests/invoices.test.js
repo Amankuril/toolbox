@@ -89,7 +89,7 @@ beforeAll(async () => {
       .expect(201)
   ).body.data[0]._id;
   await settingsService.update('payments', { codEnabled: true }, { kind: 'system' });
-  await settingsService.update('shipping', { flatFee: 11_800, freeAbove: 0 }, { kind: 'system' });
+  await settingsService.update('shipping', { deliverySlabs: [{ from: 0, to: 1_000_000_000, fee: 11800 }] }, { kind: 'system' });
 });
 afterAll(stopTestApp);
 

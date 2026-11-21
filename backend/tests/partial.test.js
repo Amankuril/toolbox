@@ -76,7 +76,7 @@ beforeAll(async () => {
       return { refundId: `rfnd_p_${gateway.refunds.length}`, amount, status: 'processed' };
     },
   });
-  await settingsService.update('shipping', { flatFee: 0, freeAbove: 0 }, { kind: 'system' });
+  await settingsService.update('shipping', { deliverySlabs: [] }, { kind: 'system' });
   await payments({
     razorpayEnabled: true,
     codEnabled: true,

@@ -212,7 +212,7 @@ beforeAll(async () => {
     ...rzp,
     createOrder: async ({ amount, currency }) => ({ providerOrderId: `order_ship_${++n}`, amount, currency, status: 'created' }),
   });
-  await settingsService.update('shipping', { flatFee: 5_000, freeAbove: 0, shipmozoEnabled: true }, { kind: 'system' });
+  await settingsService.update('shipping', { deliverySlabs: [{ from: 0, to: 1_000_000_000, fee: 5000 }], shipmozoEnabled: true }, { kind: 'system' });
 });
 afterAll(stopTestApp);
 
@@ -700,7 +700,7 @@ describe('serviceability and access control', () => {
 
   it('exposes only the fee settings publicly, never Shipmozo keys or toggles', async () => {
     const pub = (await request(app).get(`${API}/public/settings`).expect(200)).body.data;
-    expect(pub.shipping).toEqual({ flatFee: 5_000, freeAbove: 0 });
+    expect(pub.shipping).toEqual({ deliverySlabs: [{ from: 0, to: 1_000_000_000, fee: 5000 }] });
     expect(JSON.stringify(pub)).not.toContain('smz_test');
   });
 });

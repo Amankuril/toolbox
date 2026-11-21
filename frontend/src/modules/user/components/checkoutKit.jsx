@@ -1,6 +1,7 @@
 import { BadgeCheck, Check, FileText, PackageCheck, ShieldCheck, Store, Truck } from 'lucide-react'
 import { Link } from 'react-router'
 import { cn } from '@/core/lib/cn'
+import { freeDeliveryFrom, nextCheaperSlab } from '@/core/lib/delivery'
 import { formatINR, formatNumber } from '@/core/lib/format'
 import { usePublicSettings } from '@/core/settings/usePublicSettings'
 import { dispatchOf } from '../cart/groups'
@@ -76,30 +77,44 @@ export function CheckoutHeader({ eyebrow, title, meta, steps, back }) {
   )
 }
 
-/* ─────────────── free shipping meter ─────────────── */
+/* ─────────────── delivery slab meter ─────────────── */
 
-/** How far the order is from free shipping, as a bar that fills up as items are added. */
-export function FreeShippingMeter({ subtotal, className }) {
+/**
+ * How far the order is from a cheaper delivery slab (or free delivery), as a bar that fills up as items are added.
+ * `orderValue` is the items total after coupon, the amount the slabs are matched against.
+ */
+export function FreeShippingMeter({ orderValue, className }) {
   const { data: settings } = usePublicSettings()
-  const { flatFee = 0, freeAbove = 0 } = settings?.shipping ?? {}
-  if (!flatFee || !freeAbove) return null
-  const left = Math.max(0, freeAbove - subtotal)
-  const pct = Math.min(100, Math.round((subtotal / freeAbove) * 100))
+  const slabs = settings?.shipping?.deliverySlabs
+  if (!slabs?.length || !(orderValue > 0)) return null
+  const next = nextCheaperSlab(orderValue, slabs)
+  const freeFrom = freeDeliveryFrom(slabs)
+  // Nothing cheaper ahead: celebrate only when this order actually ships free and a fee exists for smaller ones.
+  if (!next && !(freeFrom > 0 && orderValue >= freeFrom)) return null
+  const left = next ? Math.max(0, next.at - orderValue) : 0
+  const pct = next ? Math.min(100, Math.round((orderValue / next.at) * 100)) : 100
   return (
     <div className={cn('rounded-lg border border-slate-200 bg-white px-5 py-4', className)}>
       <p className="flex items-center gap-2 text-sm">
-        <Truck className={cn('size-5 shrink-0', left ? 'text-slate-600' : 'text-primary')} strokeWidth={1.8} />
-        {left ? (
+        <Truck className={cn('size-5 shrink-0', next ? 'text-slate-600' : 'text-primary')} strokeWidth={1.8} />
+        {next ? (
           <span className="text-slate-700">
-            Add <strong className="price text-slate-900">{formatINR(left, { whole: true })}</strong> more for{' '}
-            <strong className="text-slate-900">free shipping</strong>
+            Add <strong className="price text-slate-900">{formatINR(left)}</strong> more for{' '}
+            {next.fee === 0 ? (
+              <strong className="text-slate-900">free shipping</strong>
+            ) : (
+              <>
+                shipping at just <strong className="text-slate-900">{formatINR(next.fee, { whole: true })}</strong> (now{' '}
+                {formatINR(next.current, { whole: true })})
+              </>
+            )}
           </span>
         ) : (
           <span className="font-semibold text-primary">You&apos;ve unlocked free shipping on this order</span>
         )}
       </p>
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
-        <div className={cn('h-full rounded-full transition-[width] duration-500 ease-out', left ? 'bg-accent' : 'bg-primary')} style={{ width: `${pct}%` }} />
+        <div className={cn('h-full rounded-full transition-[width] duration-500 ease-out', next ? 'bg-accent' : 'bg-primary')} style={{ width: `${pct}%` }} />
       </div>
     </div>
   )

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, BarChart3, CheckCircle2, CloudUpload, CreditCard, HardDrive, Palette, ShieldCheck, Store, TrendingUp, Truck } from 'lucide-react'
 import { useState } from 'react'
+import { Link } from 'react-router'
 import { toast } from 'sonner'
 import { errorMessage } from '@/core/api/errors'
 import { publicSettingsKey } from '@/core/settings/usePublicSettings'
@@ -811,26 +812,20 @@ function PartialPaymentSettings({ payments, razorpayReady }) {
 /* ───────────────────────── Shipping ───────────────────────── */
 
 function ShippingSettings({ shipping, integrations }) {
-  const [v, setV] = useState({ flatFee: shipping.flatFee || undefined, freeAbove: shipping.freeAbove || undefined })
-  const save = useSaveSettings('shipping', 'Shipping settings saved')
   return (
     <div className="flex max-w-3xl flex-col gap-6">
-      <Card>
-        <CardHeader title="Shipping charges" description="Applied once per order at checkout." />
-        <CardBody className="grid gap-5 sm:grid-cols-2">
-          <Field label="Flat shipping fee" hint="Leave empty for free shipping on every order">
-            {(p) => <PriceInput {...p} value={v.flatFee} onChange={(flatFee) => setV({ ...v, flatFee })} placeholder="Free" />}
-          </Field>
-          <Field label="Free shipping on orders above" hint="Leave empty to always charge the fee">
-            {(p) => <PriceInput {...p} value={v.freeAbove} onChange={(freeAbove) => setV({ ...v, freeAbove })} placeholder="Never" />}
-          </Field>
-          <div className="flex justify-end border-t border-slate-100 pt-5 sm:col-span-2">
-            <Button loading={save.isPending} onClick={() => save.mutate({ flatFee: v.flatFee ?? 0, freeAbove: v.freeAbove ?? 0 })}>
-              Save shipping
-            </Button>
-          </div>
-        </CardBody>
-      </Card>
+      <Alert
+        tone="neutral"
+        icon={Truck}
+        title="Delivery charges have moved"
+        action={
+          <Button asChild variant="outline" size="sm">
+            <Link to="/admin/delivery-charges">Open delivery charges</Link>
+          </Button>
+        }
+      >
+        Set the delivery fee by order value (slabs) on its own page.
+      </Alert>
       <ShipmozoSettings shipping={shipping} configured={integrations.shipmozo?.configured} />
     </div>
   )

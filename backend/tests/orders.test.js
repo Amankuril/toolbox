@@ -76,7 +76,7 @@ beforeAll(async () => {
   addressId = addresses.body.data[0]._id;
 
   paymentService.useRazorpay(razorpay);
-  await settingsService.update('shipping', { flatFee: 10_000, freeAbove: 1_000_000 }, { kind: 'system' });
+  await settingsService.update('shipping', { deliverySlabs: [{ from: 0, to: 1000000, fee: 10000 }, { from: 1000000, to: 1_000_000_000, fee: 0 }] }, { kind: 'system' });
 });
 afterAll(stopTestApp);
 

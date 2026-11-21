@@ -12,6 +12,7 @@ import { Vendor } from '#modules/vendors/vendor.model.js';
 import { settingsService } from '#services/settings/settings.service.js';
 import { Coupon } from '#modules/coupons/coupon.model.js';
 import { Cart, MAX_CART_ITEMS } from './cart.model.js';
+import { deliveryFee } from '#modules/shipping/delivery.slabs.js';
 
 export const PRICING_FIELDS =
   'name slug type brand modelNumber condition images pricing inventory hsnCode sku vendor isFeatured status vendorApproved bulkPricing specifications shipping variantOptions variants';
@@ -27,10 +28,9 @@ function sellableOrNull(product, variantId) {
   }
 }
 
-export function shippingFee(subtotal, { flatFee, freeAbove }) {
-  if (!flatFee || subtotal === 0) return 0;
-  if (freeAbove > 0 && subtotal >= freeAbove) return 0;
-  return flatFee;
+/** Delivery fee for an order value (items after coupon) from Settings → Delivery charges. */
+export function shippingFee(subtotal, { deliverySlabs }) {
+  return deliveryFee(subtotal, deliverySlabs);
 }
 
 const MAX_QTY = 100_000;

@@ -84,7 +84,7 @@ beforeAll(async () => {
 
   paymentService.useRazorpay(razorpay);
   await settingsService.update('payments', { razorpayEnabled: true, codEnabled: true }, { kind: 'system' });
-  await settingsService.update('shipping', { flatFee: 5000, freeAbove: 1_000_000 }, { kind: 'system' });
+  await settingsService.update('shipping', { deliverySlabs: [{ from: 0, to: 1000000, fee: 5000 }, { from: 1000000, to: 1_000_000_000, fee: 0 }] }, { kind: 'system' });
 });
 
 afterAll(stopTestApp);
