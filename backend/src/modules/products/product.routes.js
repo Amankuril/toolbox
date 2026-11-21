@@ -6,6 +6,7 @@ import { validate } from '#core/middlewares/validate.js';
 import { created, noContent, ok } from '#core/utils/response.js';
 import { idParams } from '#core/validation/common.js';
 import { actorOf, requireApprovedVendor } from '#modules/auth/auth.middleware.js';
+import { renderCatalogPdf } from './catalog.pdf.js';
 import { productService } from './product.service.js';
 import {
   adminListProducts,
@@ -104,6 +105,21 @@ export const adminProductRoutes = Router()
     const { items, meta } = await productService.adminList(req.query);
     ok(res, items, meta);
   })
+  // Before /:id. Catalogue PDF of everything the list's filters match (photos are fetched, so it's rate limited).
+  .get(
+    '/catalog.pdf',
+    rateLimit({ keyPrefix: 'catalog-pdf', points: 6, duration: 60, key: (req) => String(req.auth.id) }),
+    validate(adminListProducts),
+    async (req, res) => {
+      const { filename, pdf } = await renderCatalogPdf(req.query);
+      res.set({
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Cache-Control': 'private, no-store',
+      });
+      res.send(pdf);
+    },
+  )
   // Before /:id. "Fits these machines" picker when an admin edits a spare part.
   .get('/compatibility-search', validate(suggestQuery), async (req, res) => {
     ok(res, await productService.compatibilityCandidates(req.query.q, null));

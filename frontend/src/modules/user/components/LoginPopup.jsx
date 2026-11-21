@@ -14,6 +14,8 @@ const CLOSED_KEY = 'login-popup-closed'
 const DAY = 24 * 60 * 60 * 1000
 // Pages that already ask for sign-in, or where an interruption costs a sale.
 const QUIET_PATHS = /^\/(checkout|pay\/|login|onboarding|account|cart)/
+// When sign-in is compulsory: the sign-in pages themselves, order links (paid without an account) and policy pages.
+const REQUIRED_QUIET_PATHS = /^\/(pay\/|login|onboarding|pages\/)/
 
 const PERKS = [
   { icon: Truck, text: 'Track every order and shipment' },
@@ -25,6 +27,8 @@ const PERKS = [
 /**
  * Sign-in prompt for visitors who aren't signed in, a few seconds after they arrive (admin: Settings →
  * Storefront). Closing it keeps them browsing and hides it for a few days on that browser.
+ * When the admin makes it compulsory it can't be closed: the page behind still scrolls, but nothing on it
+ * can be clicked or focused until the visitor signs in.
  */
 export function LoginPopup() {
   const { pathname } = useLocation()
@@ -38,11 +42,11 @@ export function LoginPopup() {
   const [due, setDue] = useState(false)
   const [closed, setClosed] = useState(false)
 
+  const required = Boolean(config?.loginPopupEnabled && config?.loginPopupRequired)
   const eligible =
     Boolean(config?.loginPopupEnabled) &&
     status === 'anonymous' &&
-    !QUIET_PATHS.test(pathname) &&
-    now - closedAt > (config?.loginPopupRepeatDays ?? 3) * DAY
+    (required ? !REQUIRED_QUIET_PATHS.test(pathname) : !QUIET_PATHS.test(pathname) && now - closedAt > (config?.loginPopupRepeatDays ?? 3) * DAY)
 
   useEffect(() => {
     if (!eligible || due) return
@@ -51,18 +55,36 @@ export function LoginPopup() {
   }, [eligible, due, config?.loginPopupDelaySeconds])
 
   const open = eligible && due && !closed
+  const forced = open && required
   const close = () => {
+    if (required) return
     safeStorage.set(CLOSED_KEY, Date.now())
     setClosed(true)
   }
+
+  // The dialog is portalled outside #root, so making the app inert blocks clicks and Tab focus behind it, not scrolling.
+  useEffect(() => {
+    const root = document.getElementById('root')
+    if (!forced || !root) return
+    root.inert = true
+    return () => {
+      root.inert = false
+    }
+  }, [forced])
 
   return (
     <Dialog
       open={open}
       onOpenChange={(v) => !v && close()}
       size="lg"
+      dismissible={!required}
+      lockScroll={!required}
       title={`Welcome to ${siteName}`}
-      description="Sign in or create an account in under a minute. You can also keep browsing as a guest."
+      description={
+        required
+          ? 'Please sign in or create an account to continue. It takes under a minute.'
+          : 'Sign in or create an account in under a minute. You can also keep browsing as a guest.'
+      }
     >
       <div className="grid gap-6 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
         <ul className="hidden flex-col gap-3 self-center rounded-md bg-slate-50 p-4 sm:flex">
@@ -85,9 +107,11 @@ export function LoginPopup() {
               navigate('/onboarding', { state: { ...state, next: pathname } })
             }}
           />
-          <button type="button" onClick={close} className="mt-4 w-full text-center text-sm font-medium text-slate-500 hover:text-slate-900 hover:underline">
-            Continue as guest
-          </button>
+          {!required && (
+            <button type="button" onClick={close} className="mt-4 w-full text-center text-sm font-medium text-slate-500 hover:text-slate-900 hover:underline">
+              Continue as guest
+            </button>
+          )}
         </div>
       </div>
     </Dialog>

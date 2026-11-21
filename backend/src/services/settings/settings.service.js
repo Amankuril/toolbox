@@ -126,6 +126,7 @@ export const settingsService = {
         loginPopupEnabled: values.storefront.loginPopupEnabled,
         loginPopupDelaySeconds: values.storefront.loginPopupDelaySeconds,
         loginPopupRepeatDays: values.storefront.loginPopupRepeatDays,
+        loginPopupRequired: values.storefront.loginPopupRequired,
       },
       analytics: { gaMeasurementId: values.analytics.gaMeasurementId || null },
       seo: values.seo,

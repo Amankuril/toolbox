@@ -1,5 +1,25 @@
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Copy, ExternalLink, Eye, EyeOff, Layers, MessageSquareWarning, Pencil, Plus, Share2, Sheet, Star, StarOff, Trash2, Upload, X } from 'lucide-react'
+import {
+  Check,
+  ChevronDown,
+  Copy,
+  Download,
+  ExternalLink,
+  FileText,
+  Eye,
+  EyeOff,
+  Layers,
+  MessageSquareWarning,
+  Pencil,
+  Plus,
+  Share2,
+  Sheet,
+  Star,
+  StarOff,
+  Trash2,
+  Upload,
+  X,
+} from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { toast } from 'sonner'
@@ -11,13 +31,14 @@ import { Badge, StatusBadge } from '@/ui/Badge'
 import { Thumb } from '@/ui/Brand'
 import { Button } from '@/ui/Button'
 import { Card } from '@/ui/Card'
-import { FilterTabs } from '@/ui/Controls'
+import { FilterTabs, Menu } from '@/ui/Controls'
 import { DataTable, Pagination, pageSize } from '@/ui/DataTable'
 import { Select } from '@/ui/Field'
 import { PageHeader } from '@/ui/PageHeader'
 import { ActionDialog, RowActions } from '@/ui/RowActions'
 import { SearchField } from '@/ui/SearchField'
 import { BulkActionBar } from '@/modules/shared/BulkActionBar'
+import { downloadPdf } from '@/modules/shared/download'
 import { BulkEditSheet } from '@/modules/shared/BulkEditSheet'
 import { productShareItem, useShare } from '@/modules/shared/share'
 import { useBranding } from '@/core/settings/usePublicSettings'
@@ -38,10 +59,10 @@ const BULK_ACTIONS = [
     icon: Trash2,
     danger: true,
     confirm: {
-        title: (n) => `Delete ${n} product${n === 1 ? '' : 's'}?`,
-        description: 'They are removed from the store and from this list. Orders that include them keep their full history.',
-        label: 'Delete',
-      },
+      title: (n) => `Delete ${n} product${n === 1 ? '' : 's'}?`,
+      description: 'They are removed from the store and from this list. Orders that include them keep their full history.',
+      label: 'Delete',
+    },
   },
 ]
 const BULK_DONE = { approve: 'approved', show: 'live', hide: 'hidden', feature: 'featured', unfeature: 'removed from featured', delete: 'deleted' }
@@ -108,6 +129,7 @@ export default function ProductsPage() {
         description="Moderate listings from every vendor."
         actions={
           <>
+            <CatalogPdfButton params={params} />
             <Button variant="outline" asChild>
               <Link to="/admin/products/import">
                 <Upload /> Bulk upload
@@ -221,7 +243,8 @@ export default function ProductsPage() {
                   label={`Actions for ${p.name}`}
                   items={[
                     { label: 'View details', icon: Eye, onSelect: () => navigate(`/admin/products/${p._id}`) },
-                    can('products', 'manage') && p.status !== 'archived' && { label: 'Edit product', icon: Pencil, onSelect: () => navigate(`/admin/products/${p._id}/edit`) },
+                    can('products', 'manage') &&
+                      p.status !== 'archived' && { label: 'Edit product', icon: Pencil, onSelect: () => navigate(`/admin/products/${p._id}/edit`) },
                     can('store', 'manage') && { label: 'Clone to our store', icon: Copy, onSelect: () => navigate(`/admin/store/products/new?clone=${p._id}`) },
                     p.status === 'active' &&
                       p.vendorApproved && { label: 'View on store', icon: ExternalLink, onSelect: () => window.open(`/p/${p.slug}`, '_blank', 'noopener') },
@@ -291,5 +314,35 @@ export default function ProductsPage() {
         }}
       />
     </>
+  )
+}
+
+/** Product catalogue PDF: what the current filters match, or every product. */
+function CatalogPdfButton({ params }) {
+  const [busy, setBusy] = useState(false)
+  const { page: _page, limit: _limit, ...filters } = params
+  const filtered = Object.values(filters).some((v) => v !== undefined)
+  const download = async (query) => {
+    setBusy(true)
+    const toastId = toast.loading('Preparing the PDF… large catalogues take a minute')
+    try {
+      await downloadPdf(() => adminApi.productCatalogPdf(query), 'Product-catalogue.pdf')
+    } finally {
+      toast.dismiss(toastId)
+      setBusy(false)
+    }
+  }
+  return (
+    <Menu
+      trigger={
+        <Button variant="outline" loading={busy}>
+          <Download /> Download PDF <ChevronDown />
+        </Button>
+      }
+      items={[
+        filtered && { label: 'Matching current filters', icon: FileText, onSelect: () => download(filters) },
+        { label: 'All products', icon: FileText, onSelect: () => download({}) },
+      ]}
+    />
   )
 }

@@ -150,8 +150,9 @@ async function applyTax(product, input, { creating = false } = {}) {
 /** Cross-field rules, derived fields and auto SKUs; runs before every product save. */
 function prepareForSave(product) {
   product.mediaOrder = mediaOrderOf(product);
-  assertValidVariants(product);
+  // Fills SKUs (and repairs repeated generated ones) first, so the check below only sees SKUs a seller typed twice.
   syncInventory(product);
+  assertValidVariants(product);
   assertValidBulkPricing(product);
   if (['pending', 'active'].includes(product.status) && !product.hsnCode) {
     throw ApiError.unprocessable('Add the HSN/SAC code (on the product or its category) before publishing', {
@@ -216,7 +217,7 @@ const STOCK_FILTERS = {
   },
 };
 
-function commonFilter({ q, type, category, status, stock }) {
+export function commonFilter({ q, type, category, status, stock }) {
   const filter = {};
   const and = [];
   if (q) {

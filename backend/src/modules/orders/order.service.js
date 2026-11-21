@@ -15,6 +15,7 @@ import { pickupService } from '#modules/pickup/pickup.service.js';
 import { Product } from '#modules/products/product.model.js';
 import { VISIBLE } from '#modules/products/product.service.js';
 import { quoteLifecycle } from '#modules/quotes/quote.lifecycle.js';
+import { Invoice } from '#modules/invoices/invoice.model.js';
 import { Shipment } from '#modules/shipping/shipment.model.js';
 import { shippingQuotes } from '#modules/shipping/shipping.quotes.js';
 import { userService } from '#modules/users/user.service.js';
@@ -23,7 +24,9 @@ import { walletService } from '#modules/wallet/wallet.service.js';
 import { paymentService } from '#services/payment/payment.service.js';
 import { settingsService } from '#services/settings/settings.service.js';
 import { ITEM_TRANSITIONS, Order, PaymentEvent } from './order.model.js';
-import { markLinkPaid } from './orderLink.model.js';
+import { markLinkPaid, OrderLink } from './orderLink.model.js';
+import { Payment } from './payment.model.js';
+import { Refund } from './refund.model.js';
 import { onlineAmount, PAID_ONLINE, splitPartial } from './partialPayment.js';
 import { serializeOrder, serializeVendorOrder } from './order.serializer.js';
 
@@ -96,7 +99,13 @@ export async function releaseStock(lines) {
 }
 
 /** What reserve/release need from an order item. */
-export const stockLine = (i) => ({ product: i.product, variant: i.variant, quantity: i.quantity, stockTracked: i.stockTracked, name: i.name });
+export const stockLine = (i) => ({
+  product: i.product,
+  variant: i.variant,
+  quantity: i.quantity,
+  stockTracked: i.stockTracked,
+  name: i.name,
+});
 
 function deriveStatus(order) {
   if (order.status === 'pending_payment') return order.status;
@@ -210,7 +219,8 @@ async function settleWalletCancellation(order, item, auto) {
   const remaining = order.items.filter((i) => i.status !== 'cancelled' && String(i._id) !== String(item._id));
   const stillOwed = remaining.length ? remaining.reduce((s, i) => s + i.lineTotal, 0) + order.amounts.shipping : 0;
   const walletLeft = order.amounts.wallet - (order.amounts.walletRefunded ?? 0);
-  const paidOnline = order.payment.method === 'razorpay' && PAID_ONLINE.includes(order.payment.status) ? onlineAmount(order) - order.amounts.refunded : 0;
+  const paidOnline =
+    order.payment.method === 'razorpay' && PAID_ONLINE.includes(order.payment.status) ? onlineAmount(order) - order.amounts.refunded : 0;
   // Manual refunds: nothing goes back now (an admin refunds it from the order page).
   const excess = auto ? Math.max(0, walletLeft + paidOnline - stillOwed) : 0;
   const walletBack = Math.min(excess, walletLeft);
@@ -228,7 +238,12 @@ async function settleWalletCancellation(order, item, auto) {
     online = { amount: refund.amount, refundId: refund.providerRefundId, status: refund.status };
   }
   if (walletBack > 0) {
-    await walletService.credit(order.user, walletBack, { reason: 'order_refund', order, note: `Cancelled ${item.name}`, ref: `order:${order._id}:item:${item._id}` });
+    await walletService.credit(order.user, walletBack, {
+      reason: 'order_refund',
+      order,
+      note: `Cancelled ${item.name}`,
+      ref: `order:${order._id}:item:${item._id}`,
+    });
   }
   const balanceDue = order.payment.method === 'cod' ? Math.max(0, stillOwed - (walletLeft - walletBack)) : undefined;
   return { kind: 'wallet', walletBack, online, balanceDue };
@@ -272,7 +287,10 @@ export const orderService = {
     });
   },
 
-  async placeOrder(user, { addressId, paymentMethod: requestedMethod, notes, gstin, businessName, idempotencyKey, pickups: pickupChoices, useWallet }) {
+  async placeOrder(
+    user,
+    { addressId, paymentMethod: requestedMethod, notes, gstin, businessName, idempotencyKey, pickups: pickupChoices, useWallet },
+  ) {
     let paymentMethod = requestedMethod;
     if (idempotencyKey) {
       const existing = await Order.findOne({ user: user._id, idempotencyKey });
@@ -305,7 +323,9 @@ export const orderService = {
     const cartVendors = [...new Set(cart.items.map((i) => String(i._product.vendor)))];
     const pickups = await pickupService.resolve(pickupChoices, cartVendors);
     if (pickups.size && paymentMethod === 'partial') {
-      throw ApiError.unprocessable('Part payment is for delivered orders. Pay online or at pickup instead.', { code: 'PARTIAL_WITH_PICKUP' });
+      throw ApiError.unprocessable('Part payment is for delivered orders. Pay online or at pickup instead.', {
+        code: 'PARTIAL_WITH_PICKUP',
+      });
     }
     await shippingQuotes.assertCheckoutServiceable(
       cartVendors.filter((v) => !pickups.has(v)),
@@ -442,7 +462,12 @@ export const orderService = {
           ...(walletUse && paymentMethod === 'cod' ? { balanceDue: due } : {}),
         },
         ...(coupon ? { coupon: { id: coupon._coupon._id, code: coupon.code, vendor: coupon.vendor } } : {}),
-        payment: { method: paymentMethod, status: paidNow ? 'paid' : 'pending', provider: provider?.name, ...(paidNow ? { paidAt: new Date() } : {}) },
+        payment: {
+          method: paymentMethod,
+          status: paidNow ? 'paid' : 'pending',
+          provider: provider?.name,
+          ...(paidNow ? { paidAt: new Date() } : {}),
+        },
         status: paymentMethod === 'cod' || paidNow ? 'placed' : 'pending_payment',
         expiresAt: paymentMethod === 'cod' || paidNow ? undefined : new Date(Date.now() + env.ORDER_PAYMENT_WINDOW_MINUTES * 60_000),
         idempotencyKey,
@@ -601,7 +626,10 @@ export const orderService = {
     if (changingStatus) {
       // Collected in person: there's no courier leg, so a confirmed or packed item can go straight to delivered.
       const pickedUp = order.pickups?.some((p) => String(p.vendor) === String(item.vendor));
-      const allowed = pickedUp && ['confirmed', 'packed'].includes(item.status) ? [...ITEM_TRANSITIONS[item.status], 'delivered'] : ITEM_TRANSITIONS[item.status];
+      const allowed =
+        pickedUp && ['confirmed', 'packed'].includes(item.status)
+          ? [...ITEM_TRANSITIONS[item.status], 'delivered']
+          : ITEM_TRANSITIONS[item.status];
       if (!allowed.includes(status)) {
         throw ApiError.conflict(`An item that is ${item.status} cannot be marked ${status}`, { code: 'INVALID_TRANSITION' });
       }
@@ -641,12 +669,18 @@ export const orderService = {
       order.amounts.walletRefunded = (order.amounts.walletRefunded ?? 0) + refund.walletBack;
       if (refund.online) {
         order.amounts.refunded += refund.online.amount;
-        order.refunds.push({ itemId: item._id, amount: refund.online.amount, providerRefundId: refund.online.refundId, status: refund.online.status });
+        order.refunds.push({
+          itemId: item._id,
+          amount: refund.online.amount,
+          providerRefundId: refund.online.refundId,
+          status: refund.online.status,
+        });
       }
       if (refund.balanceDue !== undefined) order.amounts.balanceDue = refund.balanceDue;
       const anyLeft = order.items.some((i) => i.status !== 'cancelled' && String(i._id) !== String(item._id));
       if (!anyLeft && (refund.walletBack || refund.online)) order.payment.status = 'refunded';
-      else if (refund.walletBack || refund.online) order.payment.status = order.payment.status === 'pending' ? 'pending' : 'partially_refunded';
+      else if (refund.walletBack || refund.online)
+        order.payment.status = order.payment.status === 'pending' ? 'pending' : 'partially_refunded';
     } else if (refund && order.payment.method === 'partial') {
       item.refunded = auto || refund.amount > 0;
       order.amounts.balanceDue = refund.balanceDue;
@@ -689,6 +723,35 @@ export const orderService = {
     return order;
   },
 
+  /**
+   * Ships several lines at once, each with its own tracking (the same details repeated when the admin chose
+   * one tracking number for all). Lines already shipped just get their tracking updated. Every line is checked
+   * before any is changed, so a bad pick doesn't leave the order half shipped.
+   * @param {{ orderId: string, vendorId?: any }} scope
+   * @param {{ itemId: string, tracking?: object }[]} entries
+   */
+  async shipItems(scope, entries, actor) {
+    const filter = { _id: scope.orderId };
+    if (scope.vendorId) filter.vendors = scope.vendorId;
+    const order = await Order.findOne(filter).lean();
+    if (!order) throw ApiError.notFound('Order not found');
+    for (const { itemId } of entries) {
+      const item = order.items.find((i) => String(i._id) === String(itemId));
+      if (!item || (scope.vendorId && String(item.vendor) !== String(scope.vendorId))) throw ApiError.notFound('Order item not found');
+      if (!['confirmed', 'packed', 'shipped'].includes(item.status)) {
+        throw ApiError.conflict(`${item.name} is ${item.status} and cannot be shipped`, { code: 'INVALID_TRANSITION' });
+      }
+      if (order.pickups?.some((p) => String(p.vendor) === String(item.vendor))) {
+        throw ApiError.conflict(`${item.name} is collected in person, so it isn't shipped`, { code: 'PICKUP_ORDER' });
+      }
+    }
+    let updated;
+    for (const { itemId, tracking } of entries) {
+      updated = await this.updateItem({ ...scope, itemId }, { status: 'shipped', tracking }, actor);
+    }
+    return updated;
+  },
+
   /** The courier or the seller handed over the cash: the order is paid, whatever its delivery status. */
   markCashCollected(orderId, { note } = {}, actor) {
     return withLock(
@@ -701,7 +764,8 @@ export const orderService = {
         if (!owed || ['pending_payment', 'cancelled'].includes(order.status)) {
           throw ApiError.conflict('This order has no cash left to collect', { code: 'NO_CASH_DUE' });
         }
-        const amount = method === 'partial' || order.amounts.wallet ? (order.amounts.balanceDue ?? 0) : order.amounts.total - order.amounts.refunded;
+        const amount =
+          method === 'partial' || order.amounts.wallet ? (order.amounts.balanceDue ?? 0) : order.amounts.total - order.amounts.refunded;
         order.payment.status = 'paid';
         order.payment.paidAt ??= new Date();
         order.payment.cashCollected = { at: new Date(), by: actor, amount, note };
@@ -793,6 +857,32 @@ export const orderService = {
     if (!order) throw ApiError.notFound('Order not found');
     // user and items.vendor are populated, and the serializer passes them through.
     return { ...serializeOrder(order), refunds: order.refunds ?? [], refundSummary: refundSummary(order) };
+  },
+
+  /**
+   * Removes an order outright with its invoices, shipments and payment/refund records. Nothing is undone:
+   * reserved stock, money paid or refunded, coupon use and wallet entries stay as they are (the admin asked
+   * for a plain removal). Reviews the buyer left stay on the product.
+   */
+  deleteOrder(id) {
+    return withLock(
+      `order:${id}`,
+      async () => {
+        const order = await Order.findById(id).select('_id orderNumber').lean();
+        if (!order) throw ApiError.notFound('Order not found');
+        await Promise.all([
+          Invoice.deleteMany({ order: order._id }),
+          Shipment.deleteMany({ order: order._id }),
+          Payment.deleteMany({ orderId: order._id }),
+          Refund.deleteMany({ orderId: order._id }),
+          OrderLink.updateMany({ order: order._id }, { $unset: { order: 1 } }),
+        ]);
+        await Order.deleteOne({ _id: order._id });
+        logger.info({ orderId: String(order._id), orderNumber: order.orderNumber }, 'order deleted by admin');
+        return { deleted: true, orderNumber: order.orderNumber };
+      },
+      { waitMs: 10_000 },
+    );
   },
 
   serializeOrder,

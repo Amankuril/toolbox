@@ -531,7 +531,7 @@ function LoginPopupSettings({ storefront }) {
     <Card>
       <CardHeader
         title="Sign-in pop-up"
-        description="Asks visitors who aren’t signed in to sign in or create an account. They can close it and keep browsing. Never shown during checkout or payment."
+        description="Asks visitors who aren’t signed in to sign in or create an account. Unless sign-in is compulsory, they can close it and keep browsing. Never shown during checkout or payment."
       />
       <CardBody className="flex flex-col gap-5">
         <Switch
@@ -542,15 +542,38 @@ function LoginPopupSettings({ storefront }) {
         />
         {storefront.loginPopupEnabled && (
           <>
+            <Switch
+              checked={Boolean(storefront.loginPopupRequired)}
+              disabled={save.isPending}
+              onCheckedChange={(loginPopupRequired) => save.mutate({ loginPopupRequired })}
+              label="Make sign-in compulsory"
+              description="Hides the close button and “Continue as guest”. Visitors can still scroll the page behind, but must sign in to use the store. Policy pages and payment links stay open to everyone."
+            />
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Open after" hint="Seconds on the site (0 = straight away)">
                 {(p) => (
-                  <Input {...p} type="number" min={0} max={120} value={v.delay} onChange={(e) => setV({ ...v, delay: Number(e.target.value) })} suffix="seconds" />
+                  <Input
+                    {...p}
+                    type="number"
+                    min={0}
+                    max={120}
+                    value={v.delay}
+                    onChange={(e) => setV({ ...v, delay: Number(e.target.value) })}
+                    suffix="seconds"
+                  />
                 )}
               </Field>
-              <Field label="Once closed, show again after" hint="Per browser">
+              <Field label="Once closed, show again after" hint={storefront.loginPopupRequired ? 'Not used while sign-in is compulsory' : 'Per browser'}>
                 {(p) => (
-                  <Input {...p} type="number" min={1} max={365} value={v.repeat} onChange={(e) => setV({ ...v, repeat: Number(e.target.value) })} suffix="days" />
+                  <Input
+                    {...p}
+                    type="number"
+                    min={1}
+                    max={365}
+                    value={v.repeat}
+                    onChange={(e) => setV({ ...v, repeat: Number(e.target.value) })}
+                    suffix="days"
+                  />
                 )}
               </Field>
             </div>

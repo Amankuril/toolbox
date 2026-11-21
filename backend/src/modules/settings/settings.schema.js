@@ -212,6 +212,8 @@ export const SETTINGS = {
       loginPopupDelaySeconds: z.number().int().min(0).max(120),
       /** After it's closed, days before it's shown again to that browser. */
       loginPopupRepeatDays: z.number().int().min(1).max(365),
+      /** Compulsory: no close button or "Continue as guest"; visitors must sign in to use the store. */
+      loginPopupRequired: z.boolean(),
     }),
     defaults: {
       recentBuyersEnabled: true,
@@ -220,6 +222,7 @@ export const SETTINGS = {
       loginPopupEnabled: true,
       loginPopupDelaySeconds: 4,
       loginPopupRepeatDays: 3,
+      loginPopupRequired: false,
     },
   },
 

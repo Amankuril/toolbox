@@ -52,26 +52,36 @@ export const addressLines = (a) =>
 
 const logoCache = new Map();
 
-/** The uploaded storefront logo as PNG (pdfkit reads only PNG/JPEG), or the built-in one. Never throws. */
+/**
+ * Reads an image from the upload folder or a URL and converts it for pdfkit (which reads only PNG/JPEG).
+ * `resize` goes to sharp; `format` is 'png' (keeps transparency) or 'jpeg' (smaller, for photos).
+ * Throws when it can't be loaded.
+ */
+export async function loadPdfImage(url, { resize, format = 'png' } = {}) {
+  let source;
+  const publicPrefix = `${env.LOCAL_UPLOAD_PUBLIC_PATH}/`;
+  if (url?.startsWith(publicPrefix)) {
+    const file = path.resolve(env.LOCAL_UPLOAD_DIR, decodeURIComponent(url.slice(publicPrefix.length).split('?')[0]));
+    if (!file.startsWith(env.LOCAL_UPLOAD_DIR + path.sep)) throw new Error('Image path outside the upload folder');
+    source = await readFile(file);
+  } else if (/^https?:\/\//i.test(url ?? '')) {
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) throw new Error(`Image download failed (${res.status})`);
+    source = Buffer.from(await res.arrayBuffer());
+  } else {
+    throw new Error('Unsupported image URL');
+  }
+  const img = sharp(source).rotate().resize(resize);
+  return format === 'jpeg' ? img.flatten({ background: '#ffffff' }).jpeg({ quality: 78 }).toBuffer() : img.png().toBuffer();
+}
+
+/** The uploaded storefront logo as PNG, or the built-in one. Never throws. */
 async function loadLogo(url) {
   if (!url || BUILT_IN_LOGO_URLS.has(url)) return DEFAULT_LOGO;
   if (logoCache.has(url)) return logoCache.get(url);
   let logo = DEFAULT_LOGO;
   try {
-    let source;
-    const publicPrefix = `${env.LOCAL_UPLOAD_PUBLIC_PATH}/`;
-    if (url.startsWith(publicPrefix)) {
-      const file = path.resolve(env.LOCAL_UPLOAD_DIR, decodeURIComponent(url.slice(publicPrefix.length).split('?')[0]));
-      if (!file.startsWith(env.LOCAL_UPLOAD_DIR + path.sep)) throw new Error('Logo path outside the upload folder');
-      source = await readFile(file);
-    } else if (/^https?:\/\//i.test(url)) {
-      const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
-      if (!res.ok) throw new Error(`Logo download failed (${res.status})`);
-      source = Buffer.from(await res.arrayBuffer());
-    } else {
-      throw new Error('Unsupported logo URL');
-    }
-    logo = await sharp(source).resize({ width: 900, height: 480, fit: 'inside', withoutEnlargement: true }).png().toBuffer();
+    logo = await loadPdfImage(url, { resize: { width: 900, height: 480, fit: 'inside', withoutEnlargement: true } });
   } catch (err) {
     logger.warn({ err, url }, 'PDF logo could not be loaded; using the default');
   }
@@ -164,10 +174,10 @@ export function createPdf({ info, brand, runningTitle }) {
     },
 
     /** Logo on the left; title, subtitle and a two-value chip (e.g. number + date) on the right. */
-    header({ title, subtitle, chip }) {
+    header({ title, subtitle, chip, eyebrow = 'Ordered via' }) {
       kit.brandStripe();
       const y = 26;
-      kit.label('Ordered via', left, y);
+      if (eyebrow) kit.label(eyebrow, left, y);
       doc.image(doc.openImage(brand.logo), left, y + 11, { fit: [240, 58], align: 'left', valign: 'center' });
       if (brand.contact) kit.text(brand.contact, left, y + 74, { size: 7.5, color: C.PRIMARY, width: width * 0.55, lineBreak: false });
 

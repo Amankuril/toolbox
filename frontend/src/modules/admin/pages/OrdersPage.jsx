@@ -1,5 +1,6 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { Eye } from 'lucide-react'
+import { Eye, Trash2 } from 'lucide-react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useSearchParamsState } from '@/core/hooks/useSearchParamsState'
 import { useBranding } from '@/core/settings/usePublicSettings'
@@ -17,6 +18,7 @@ import { WhatsAppButton } from '@/modules/shared/whatsapp'
 import { useAdminAccess } from '../access'
 import { adminApi, adminKeys } from '../api'
 import { CashCollectedButton } from '../CashCollected'
+import { DeleteOrderDialog } from '../DeleteOrder'
 import { DateRangeFilter, dateBounds } from '@/ui/Filters'
 
 const PAYMENT_SHORT = { cod: 'COD', razorpay: 'Online', partial: 'Part paid', offline: 'Offline', wallet: 'Wallet' }
@@ -35,6 +37,7 @@ export default function OrdersPage() {
   const { siteName } = useBranding()
   const { can } = useAdminAccess()
   const [filters, setFilters] = useSearchParamsState()
+  const [deleting, setDeleting] = useState(null)
   const params = {
     page: Number(filters.page ?? 1),
     limit: pageSize(filters.limit),
@@ -46,7 +49,11 @@ export default function OrdersPage() {
     source: filters.source || undefined,
     ...dateBounds(filters),
   }
-  const { data: sellers } = useQuery({ queryKey: adminKeys.vendors({ status: 'approved', limit: 100 }), queryFn: () => adminApi.vendors({ status: 'approved', limit: 100 }), staleTime: 5 * 60_000 })
+  const { data: sellers } = useQuery({
+    queryKey: adminKeys.vendors({ status: 'approved', limit: 100 }),
+    queryFn: () => adminApi.vendors({ status: 'approved', limit: 100 }),
+    staleTime: 5 * 60_000,
+  })
   const { data, isLoading } = useQuery({ queryKey: adminKeys.orders(params), queryFn: () => adminApi.orders(params), placeholderData: keepPreviousData })
 
   return (
@@ -149,7 +156,11 @@ export default function OrdersPage() {
               cell: (o) => (
                 <RowActions
                   label={`Actions for order ${o.orderNumber}`}
-                  items={[{ label: 'View order', icon: Eye, onSelect: () => navigate(`/admin/orders/${o._id}`) }]}
+                  items={[
+                    { label: 'View order', icon: Eye, onSelect: () => navigate(`/admin/orders/${o._id}`) },
+                    can('orders', 'manage') && 'separator',
+                    can('orders', 'manage') && { label: 'Delete order', icon: Trash2, danger: true, onSelect: () => setDeleting(o) },
+                  ]}
                 />
               ),
             },
@@ -157,6 +168,7 @@ export default function OrdersPage() {
         />
         <Pagination meta={data?.meta} onPageChange={(page) => setFilters({ page })} onLimitChange={(limit) => setFilters({ limit })} />
       </Card>
+      <DeleteOrderDialog order={deleting} onClose={() => setDeleting(null)} />
     </>
   )
 }

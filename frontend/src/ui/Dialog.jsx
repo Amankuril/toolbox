@@ -10,16 +10,22 @@ const panel =
 
 const widths = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' }
 
+const block = (e) => e.preventDefault()
+
 /**
  * Controlled or uncontrolled modal. `footer` is pinned; the body scrolls.
+ * `dismissible={false}`: no close button, and Escape / clicking outside don't close it.
+ * `lockScroll={false}`: the page behind can still be scrolled (but not clicked) while it's open.
  */
-export function Dialog({ open, onOpenChange, trigger, title, description, children, footer, size = 'md', className }) {
+export function Dialog({ open, onOpenChange, trigger, title, description, children, footer, size = 'md', className, dismissible = true, lockScroll = true }) {
+  const guard = dismissible ? {} : { onEscapeKeyDown: block, onPointerDownOutside: block, onInteractOutside: block }
   return (
-    <RDialog.Root open={open} onOpenChange={onOpenChange}>
+    <RDialog.Root open={open} onOpenChange={onOpenChange} modal={lockScroll}>
       {trigger && <RDialog.Trigger asChild>{trigger}</RDialog.Trigger>}
       <RDialog.Portal>
-        <RDialog.Overlay className={overlay} />
-        <RDialog.Content className={cn(panel, widths[size], className)}>
+        {/* Non-modal Radix renders no overlay: a plain one still dims and swallows clicks, while wheel and touch scrolling pass to the page. */}
+        {lockScroll ? <RDialog.Overlay className={overlay} /> : open && <div aria-hidden className={overlay} />}
+        <RDialog.Content className={cn(panel, widths[size], className)} {...guard}>
           <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
             <div>
               <RDialog.Title className="font-display text-lg font-bold text-slate-900">{title}</RDialog.Title>
@@ -29,11 +35,13 @@ export function Dialog({ open, onOpenChange, trigger, title, description, childr
                 <RDialog.Description className="sr-only">{title}</RDialog.Description>
               )}
             </div>
-            <RDialog.Close asChild>
-              <Button variant="ghost" size="icon-sm" aria-label="Close" className="-mr-2 -mt-1">
-                <X />
-              </Button>
-            </RDialog.Close>
+            {dismissible && (
+              <RDialog.Close asChild>
+                <Button variant="ghost" size="icon-sm" aria-label="Close" className="-mr-2 -mt-1">
+                  <X />
+                </Button>
+              </RDialog.Close>
+            )}
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
           {footer && <div className="flex flex-wrap justify-end gap-2 border-t border-slate-100 px-5 py-3">{footer}</div>}

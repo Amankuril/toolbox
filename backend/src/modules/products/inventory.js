@@ -90,6 +90,31 @@ const optionCode = (value) =>
     .slice(0, 6);
 
 /**
+ * Generated variant SKUs are `<product SKU>-<option codes>`. Option codes can collide ("Pack of 10" and
+ * "Pack of 12" both shorten to PACKOF; non-Latin values shorten to nothing), so each one is made unique
+ * with a number. Older products may already have such duplicates stored; those are generated (they carry the
+ * product's SKU as a prefix), so the repeats are dropped here and regenerated instead of failing the save.
+ */
+function fillVariantSkus(product) {
+  const prefix = `${product.sku}-`;
+  const generated = (sku) => sku === product.sku || sku.startsWith(prefix);
+  const used = new Set();
+  for (const v of product.variants) {
+    if (!v.sku) continue;
+    if (used.has(v.sku) && generated(v.sku)) v.sku = undefined;
+    else used.add(v.sku);
+  }
+  for (const v of product.variants) {
+    if (v.sku) continue;
+    const base = `${product.sku}-${v.options.map(optionCode).filter(Boolean).join('-') || 'V'}`.slice(0, 60);
+    let sku = base;
+    for (let n = 2; used.has(sku); n += 1) sku = `${base}-${n}`;
+    v.sku = sku;
+    used.add(sku);
+  }
+}
+
+/**
  * Keeps product-level fields consistent with variants (listing price = cheapest variant,
  * stock = sum) and fills any missing SKUs. Call before every save.
  */
@@ -97,9 +122,7 @@ export function syncInventory(product) {
   if (!product.sku) product.sku = generateSku(product.name);
   if (!hasVariants(product)) return;
 
-  for (const v of product.variants) {
-    if (!v.sku) v.sku = `${product.sku}-${v.options.map(optionCode).filter(Boolean).join('-')}`.slice(0, 64);
-  }
+  fillVariantSkus(product);
   const cheapest = [...product.variants].sort((a, b) => a.price - b.price)[0];
   product.set('pricing.price', cheapest.price);
   product.set('pricing.mrp', cheapest.mrp);

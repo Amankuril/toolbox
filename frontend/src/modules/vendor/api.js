@@ -76,6 +76,7 @@ export function createSellerApi(v) {
     invoice: (id) => one(v.get(`/orders/${id}/invoice`)),
     invoicePdf: (id) => v.get(`/orders/${id}/invoice/pdf`, { responseType: 'blob' }),
     updateOrderItem: (id, itemId, body) => one(v.patch(`/orders/${id}/items/${itemId}`, body)),
+    shipOrderItems: (id, items) => one(v.post(`/orders/${id}/ship`, { items })),
     shipments: (orderId) => one(v.get(`/orders/${orderId}/shipments`)),
     shipmentLabel: (id) => v.get(`/shipments/${id}/label`, { responseType: 'blob' }).then((r) => r.data),
 

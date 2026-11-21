@@ -180,6 +180,53 @@ describe('variants', () => {
     await create(variantBody({ name: 'Tier gloves', bulkPricing: { tiers: [{ minQty: 10, price: 20_000 }] } }), 422);
   });
 
+  it('gives look-alike option values distinct SKUs, so the product can be saved again', async () => {
+    // Values that shorten to the same code ("PACKOF") or to nothing (non-Latin script).
+    const body = variantBody({
+      name: 'Cable ties',
+      variantOptions: [
+        { name: 'Pack', values: ['Pack of 10', 'Pack of 12'] },
+        { name: 'Colour', values: ['काला', 'सफ़ेद'] },
+      ],
+      variants: [
+        { options: ['Pack of 10', 'काला'], price: 10_000, mrp: 12_000, stock: 5 },
+        { options: ['Pack of 10', 'सफ़ेद'], price: 10_000, mrp: 12_000, stock: 5 },
+        { options: ['Pack of 12', 'काला'], price: 11_000, mrp: 13_000, stock: 5 },
+        { options: ['Pack of 12', 'सफ़ेद'], price: 11_000, mrp: 13_000, stock: 5 },
+      ],
+    });
+    const { data: p } = await create(body);
+    expect(new Set(p.variants.map((v) => v.sku)).size).toBe(4);
+
+    // The edit form sends every variant back with its id and SKU.
+    const variants = p.variants.map(({ _id, options, price, mrp, sku, stock }) => ({ _id, options, price, mrp, sku, stock }));
+    await request(app)
+      .patch(`${API}/vendor/products/${p._id}`)
+      .set(V())
+      .send({ variants, variantOptions: body.variantOptions })
+      .expect(200);
+
+    // Saved before the fix: every variant carries the same generated SKU. The next save repairs it.
+    await Product.updateOne({ _id: p._id }, { $set: { 'variants.$[].sku': `${p.sku}-PACKOF` } });
+    const stale = variants.map((v) => ({ ...v, sku: `${p.sku}-PACKOF` }));
+    const { data: fixed } = (
+      await request(app)
+        .patch(`${API}/vendor/products/${p._id}`)
+        .set(V())
+        .send({ variants: stale, variantOptions: body.variantOptions })
+        .expect(200)
+    ).body;
+    expect(new Set(fixed.variants.map((v) => v.sku)).size).toBe(4);
+
+    // A SKU the seller typed twice is still an error.
+    const typed = variants.map((v, i) => ({ ...v, sku: i < 2 ? 'MY-SKU' : v.sku }));
+    await request(app)
+      .patch(`${API}/vendor/products/${p._id}`)
+      .set(V())
+      .send({ variants: typed, variantOptions: body.variantOptions })
+      .expect(422);
+  });
+
   it('prices and reserves stock per variant through cart and checkout', async () => {
     const { data: p } = await create(variantBody());
     expect(p.variants.map((v) => v.sku)).toEqual([`${p.sku}-M-GREEN`, `${p.sku}-L-BLACK`]);

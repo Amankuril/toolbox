@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Truck } from 'lucide-react'
 import { useParams } from 'react-router'
 import { toast } from 'sonner'
 import { errorMessage } from '@/core/api/errors'
@@ -16,7 +17,8 @@ import {
   PickupCard,
   ShipToCard,
 } from '@/modules/shared/orderDetail'
-import { ItemStatusActions, OrderItemRow } from '@/modules/shared/orders'
+import { ItemStatusActions, OrderItemRow, ShipItemsDialog, shippableItems } from '@/modules/shared/orders'
+import { Button } from '@/ui/Button'
 import { LabelButton, ScanList, ShipmentFacts, ShipmentStatusBadge } from '@/modules/shared/shipments'
 import { Card, CardBody, CardHeader, Skeleton } from '@/ui/Card'
 import { useSeller } from '../seller'
@@ -44,13 +46,46 @@ export default function VendorOrderDetailPage() {
     }
   }
 
+  const shipItems = async (entries) => {
+    try {
+      const updated = await seller.api.shipOrderItems(id, entries)
+      qc.setQueryData(seller.keys.order(id), updated)
+      qc.invalidateQueries({ queryKey: [...seller.keys.all, 'orders'] })
+      qc.invalidateQueries({ queryKey: seller.keys.dashboard })
+      qc.invalidateQueries({ queryKey: seller.keys.invoice(id) })
+      toast.success(entries.length === 1 ? 'Item shipped' : `${entries.length} items updated`)
+    } catch (err) {
+      toast.error(errorMessage(err))
+      throw err
+    }
+  }
+
   if (isLoading || !o) return <Skeleton className="h-96" />
+
+  // A seller's lines are either all collected in person or all shipped.
+  const shippable = o.status === 'pending_payment' || o.pickups?.length > 0 ? [] : shippableItems(o.items)
 
   const cod = ['cod', 'partial'].includes(o.payment.method)
 
   return (
     <>
-      <OrderHeader order={o} back={{ to: `${seller.base}/orders`, label: 'Orders' }} />
+      <OrderHeader
+        order={o}
+        back={{ to: `${seller.base}/orders`, label: 'Orders' }}
+        actions={
+          shippable.length > 0 && (
+            <ShipItemsDialog
+              items={shippable}
+              onSubmit={shipItems}
+              trigger={
+                <Button variant="outline">
+                  <Truck /> Ship items / tracking
+                </Button>
+              }
+            />
+          )
+        }
+      />
       <OrderProgress order={o} />
       <OrderFacts order={o} total={o.amounts.subtotal} label="Your items" />
 

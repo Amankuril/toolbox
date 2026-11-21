@@ -37,6 +37,15 @@ const tracking = z
   })
   .optional();
 
+const shipBody = z
+  .object({
+    items: z
+      .array(z.object({ itemId: objectId, tracking }))
+      .min(1)
+      .max(100),
+  })
+  .refine((v) => new Set(v.items.map((i) => i.itemId)).size === v.items.length, { message: 'Each item appears once', path: ['items'] });
+
 const checkoutBody = z.object({
   addressId: objectId,
   paymentMethod: z.enum(PAYMENT_METHODS),
@@ -121,6 +130,10 @@ export const vendorOrderRoutes = Router()
   .get('/:id/invoice/pdf', pdfLimit, validate({ params: idParams }), async (req, res) =>
     sendPdf(res, await invoiceService.pdf(req.params.id, req.auth.id)),
   )
+  .post('/:id/ship', validate({ params: idParams, body: shipBody }), async (req, res) => {
+    const order = await orderService.shipItems({ orderId: req.params.id, vendorId: req.auth.id }, req.body.items, actorOf(req));
+    ok(res, orderService.serializeVendorOrder(order, req.auth.id));
+  })
   .patch('/:id/items/:itemId', validate({ params: itemParams, body: itemUpdateBody }), async (req, res) => {
     const order = await orderService.updateItem(
       { orderId: req.params.id, itemId: req.params.itemId, vendorId: req.auth.id },
@@ -174,6 +187,11 @@ export const adminOrderRoutes = Router()
   .get('/:id/invoices/:vendorId/pdf', pdfLimit, validate({ params: invoiceParams }), async (req, res) =>
     sendPdf(res, await invoiceService.pdf(req.params.id, req.params.vendorId)),
   )
+  .post('/:id/ship', validate({ params: idParams, body: shipBody }), async (req, res) => {
+    await orderService.shipItems({ orderId: req.params.id }, req.body.items, actorOf(req));
+    ok(res, await orderService.adminGet(req.params.id));
+  })
+  .delete('/:id', validate({ params: idParams }), async (req, res) => ok(res, await orderService.deleteOrder(req.params.id)))
   .patch('/:id/items/:itemId', validate({ params: itemParams, body: itemUpdateBody }), async (req, res) => {
     await orderService.updateItem({ orderId: req.params.id, itemId: req.params.itemId }, req.body, actorOf(req));
     ok(res, await orderService.adminGet(req.params.id));

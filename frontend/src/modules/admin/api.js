@@ -84,6 +84,7 @@ export const adminApi = {
 
   products: (params) => list(a.get('/products', { params })),
   product: (id) => one(a.get(`/products/${id}`)),
+  productCatalogPdf: (params) => a.get('/products/catalog.pdf', { params, responseType: 'blob', timeout: 180_000 }),
   updateProduct: (id, body) => one(a.patch(`/products/${id}`, body)),
   bulkUpdateProducts: (items) => one(a.patch('/products/bulk', { items })),
   productBulkAction: (action, ids) => one(a.post('/products/bulk-action', { action, ids })),
@@ -104,6 +105,8 @@ export const adminApi = {
   orderConfirmationPdf: (id) => a.get(`/orders/${id}/confirmation/pdf`, { responseType: 'blob' }),
   resendOrderConfirmation: (id) => one(a.post(`/orders/${id}/confirmation/email`)),
   updateOrderItem: (id, itemId, body) => one(a.patch(`/orders/${id}/items/${itemId}`, body)),
+  shipOrderItems: (id, items) => one(a.post(`/orders/${id}/ship`, { items })),
+  deleteOrder: (id) => one(a.delete(`/orders/${id}`)),
 
   shipments: (orderId) => one(a.get(`/orders/${orderId}/shipments`)),
   createShipments: (orderId) => one(a.post(`/orders/${orderId}/shipments`)),

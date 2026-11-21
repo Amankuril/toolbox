@@ -1,10 +1,10 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { downloadPdf } from '@/modules/shared/download'
 import { InvoicesCard } from '@/modules/shared/invoices'
-import { BadgeCheck } from 'lucide-react'
+import { BadgeCheck, Trash2, Truck } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/ui/Button'
-import { Link, useParams } from 'react-router'
+import { Link, useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
 import { errorMessage } from '@/core/api/errors'
 import { formatDateTime } from '@/core/lib/format'
@@ -20,10 +20,11 @@ import {
   PickupCard,
   ShipToCard,
 } from '@/modules/shared/orderDetail'
-import { ItemStatusActions, OrderItemRow } from '@/modules/shared/orders'
+import { ItemStatusActions, OrderItemRow, ShipItemsDialog, shippableItems } from '@/modules/shared/orders'
 import { Alert, Skeleton } from '@/ui/Card'
 import { useAdminAccess } from '../access'
 import { CashCollectedButton, cashDue } from '../CashCollected'
+import { DeleteOrderDialog } from '../DeleteOrder'
 import { RefundsPanel } from '../ManualRefund'
 import { adminApi, adminKeys } from '../api'
 import { VendorShipments } from '../shipping'
@@ -39,6 +40,21 @@ export default function OrderDetailPage() {
   const shippingOn = Boolean(shipping?.enabled)
   const { data: shipments = [] } = useQuery({ queryKey: adminKeys.shipments(id), queryFn: () => adminApi.shipments(id), enabled: shippingOn })
   const runShipment = useShipmentRunner(id, qc)
+  const navigate = useNavigate()
+  const [deleting, setDeleting] = useState(null)
+
+  const shipItems = async (entries) => {
+    try {
+      const updated = await adminApi.shipOrderItems(id, entries)
+      qc.setQueryData(adminKeys.order(id), updated)
+      qc.invalidateQueries({ queryKey: ['admin', 'orders'] })
+      qc.invalidateQueries({ queryKey: adminKeys.orderInvoices(id) })
+      toast.success(entries.length === 1 ? 'Item shipped' : `${entries.length} items updated`)
+    } catch (err) {
+      toast.error(errorMessage(err))
+      throw err
+    }
+  }
 
   const updateItem = (itemId) => async (body) => {
     try {
@@ -55,6 +71,10 @@ export default function OrderDetailPage() {
 
   if (isLoading || !o) return <Skeleton className="h-96" />
 
+  const isPickup = (item) => o.pickups?.some((p) => String(p.vendor) === String(item.vendor?._id ?? item.vendor))
+  const shippable = o.status === 'pending_payment' ? [] : shippableItems(o.items, isPickup)
+  const canManage = can('orders', 'manage')
+
   // Group lines by vendor: each vendor fulfils their own items.
   const groups = Object.values(
     o.items.reduce((acc, item) => {
@@ -66,7 +86,31 @@ export default function OrderDetailPage() {
 
   return (
     <>
-      <OrderHeader order={o} back={{ to: '/admin/orders', label: 'Orders' }} />
+      <OrderHeader
+        order={o}
+        back={{ to: '/admin/orders', label: 'Orders' }}
+        actions={
+          canManage && (
+            <>
+              {shippable.length > 0 && (
+                <ShipItemsDialog
+                  items={shippable}
+                  onSubmit={shipItems}
+                  trigger={
+                    <Button variant="outline">
+                      <Truck /> Ship items / tracking
+                    </Button>
+                  }
+                />
+              )}
+              <Button variant="outline" className="text-red-600 hover:bg-red-50" onClick={() => setDeleting(o)}>
+                <Trash2 /> Delete
+              </Button>
+            </>
+          )
+        }
+      />
+      <DeleteOrderDialog order={deleting} onClose={() => setDeleting(null)} onDeleted={() => navigate('/admin/orders', { replace: true })} />
 
       {o.status === 'pending_payment' && (
         <Alert tone="warning" title="Awaiting payment" className="mb-6">
