@@ -4,11 +4,15 @@ import { useBranding } from '@/core/settings/usePublicSettings'
 import { cn } from '@/core/lib/cn'
 import { formatINR } from '@/core/lib/format'
 
+// The built-in ToolsHub wordmark. Old settings may still point at the retired default file.
+export const DEFAULT_LOGO = '/toolshub-logo.png'
+const BUILT_IN_LOGOS = new Set([DEFAULT_LOGO, '/toolboxlogo.jpeg'])
+
 // Each module's logo is designed for its main surface: the white storefront header, or the dark panel sidebar.
 const DARK_SURFACE = { user: false, vendor: true, admin: true }
 
 /**
- * The current module's logo (set in Admin → Settings → Branding), or the name with the default mark.
+ * The current module's logo (set in Admin → Settings → Branding), or the built-in ToolsHub logo.
  * `inverted` marks a dark background. On the opposite surface (e.g. the storefront's dark footer) an
  * uploaded logo sits on a plate of its own background colour, so it always looks like the admin preview.
  */
@@ -18,7 +22,7 @@ export function Logo({ to = '/', className, inverted = false, suffix }) {
   const logo = modules?.[module]?.logo
   const darkLogo = DARK_SURFACE[module] ?? false
   const plate = inverted !== darkLogo
-  const isCustomUploaded = Boolean(logo?.url && logo.url !== '/toolboxlogo.jpeg')
+  const isCustomUploaded = Boolean(logo?.url && !BUILT_IN_LOGOS.has(logo.url))
 
   return (
     <Link to={to} className={cn('flex shrink-0 items-center gap-2.5', className)} aria-label={`${siteName} home`}>
@@ -27,12 +31,9 @@ export function Logo({ to = '/', className, inverted = false, suffix }) {
           <img src={logo.url} alt={siteName} className="block h-8 w-auto max-w-40 object-contain" />
         </span>
       ) : (
-        <>
-          <span className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-md bg-white p-0.5 ring-1 ring-black/10">
-            <img src="/toolboxlogo.jpeg" alt={siteName} className="size-full object-contain" />
-          </span>
-          <span className={cn('font-display text-[1.375rem] font-extrabold tracking-tight', inverted ? 'text-white' : 'text-slate-900')}>{siteName}</span>
-        </>
+        <span className={cn('block', inverted && 'rounded-md bg-white px-2 py-1')}>
+          <img src={DEFAULT_LOGO} alt={siteName} className="block h-9 w-auto max-w-44 object-contain" />
+        </span>
       )}
       {suffix && (
         <span

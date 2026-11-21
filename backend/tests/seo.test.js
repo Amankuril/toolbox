@@ -88,13 +88,13 @@ describe('crawlable storefront pages', () => {
   });
 
   it("uses the storefront's uploaded tab icon, or keeps the default", async () => {
-    expect((await request(app).get('/').expect(200)).text).toContain('href="/toolboxlogo.jpeg"');
+    expect((await request(app).get('/').expect(200)).text).toContain('href="/toolshub-icon.png"');
 
     const favicon = { media: '64b000000000000000000001', url: '/uploads/favicons/shop.png' };
     await settingsService.update('branding', { modules: { user: { logo: null, favicon } } }, { kind: 'system' });
     const home = (await request(app).get('/').expect(200)).text;
     expect(home).toContain('<link id="app-favicon" rel="icon" type="image/png" href="/uploads/favicons/shop.png" />');
-    expect(home).not.toContain('href="/toolboxlogo.jpeg"');
+    expect(home).not.toContain('<link id="app-favicon" rel="icon" type="image/png" href="/toolshub-icon.png" />');
     await settingsService.update('branding', { modules: { user: { logo: null, favicon: null } } }, { kind: 'system' });
   });
 

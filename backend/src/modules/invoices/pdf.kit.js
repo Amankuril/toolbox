@@ -22,7 +22,7 @@ const FONT_BOLD = path.join(FONT_DIR, 'DejaVuSans-Bold.ttf');
 
 // The storefront's default logo, trimmed for print. An admin-uploaded storefront logo replaces it.
 export const DEFAULT_LOGO = readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'assets/logo.jpg'));
-const BUILT_IN_LOGO_URL = '/toolboxlogo.jpeg';
+const BUILT_IN_LOGO_URLS = new Set(['/toolshub-logo.png', '/toolboxlogo.jpeg']);
 
 // Brand palette (matches the storefront theme).
 export const C = {
@@ -54,7 +54,7 @@ const logoCache = new Map();
 
 /** The uploaded storefront logo as PNG (pdfkit reads only PNG/JPEG), or the built-in one. Never throws. */
 async function loadLogo(url) {
-  if (!url || url === BUILT_IN_LOGO_URL) return DEFAULT_LOGO;
+  if (!url || BUILT_IN_LOGO_URLS.has(url)) return DEFAULT_LOGO;
   if (logoCache.has(url)) return logoCache.get(url);
   let logo = DEFAULT_LOGO;
   try {

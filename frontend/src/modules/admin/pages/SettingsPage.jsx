@@ -337,7 +337,7 @@ function BrandingSettings({ branding, theme }) {
                       {brand.favicon[0] ? (
                         <img src={brand.favicon[0].url} alt="" className="size-3.5" />
                       ) : (
-                        <img src="/toolboxlogo.jpeg" alt="" className="size-3.5 rounded-xs object-contain" />
+                        <img src="/toolshub-icon.png" alt="" className="size-3.5 rounded-xs object-contain" />
                       )}
                       <span className="truncate">{v.siteName || 'ToolsHubs'}</span>
                     </span>
@@ -346,12 +346,9 @@ function BrandingSettings({ branding, theme }) {
                     {brand.logo[0] ? (
                       <img src={brand.logo[0].url} alt="" className="h-8 w-auto max-w-40 object-contain" />
                     ) : (
-                      <div className="flex items-center gap-2">
-                        <img src="/toolboxlogo.jpeg" alt="" className="size-7 rounded-sm object-contain bg-white shadow-xs" />
-                        <span className="text-sm font-bold" style={{ color: m.value === 'user' ? '#0f172a' : '#ffffff' }}>
-                          {v.siteName || 'ToolsHubs'}
-                        </span>
-                      </div>
+                      <span className={m.value === 'user' ? '' : 'rounded-md bg-white px-2 py-1'}>
+                        <img src="/toolshub-logo.png" alt="" className="block h-8 w-auto max-w-40 object-contain" />
+                      </span>
                     )}
                   </div>
                 </div>

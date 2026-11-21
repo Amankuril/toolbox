@@ -52,9 +52,16 @@ function breadcrumbList(items) {
   };
 }
 
+// The built-in ToolsHub logo (frontend/public): the wordmark, and the same on a 1200×630 card for link previews.
+const DEFAULT_LOGO = '/toolshub-logo.png';
+const DEFAULT_SHARE_IMAGE = '/toolshub-og.png';
+const RETIRED_LOGOS = new Set(['/toolboxlogo.jpeg']);
+
+/** Site name, logo for structured data, and the image shared links fall back to when a page has none of its own. */
 async function branding() {
   const { siteName, modules } = await settingsService.get('branding');
-  return { siteName, logo: modules.user.logo?.url ? absoluteUrl(modules.user.logo.url) : absoluteUrl('/toolboxlogo.jpeg') };
+  const uploaded = modules.user.logo?.url && !RETIRED_LOGOS.has(modules.user.logo.url) ? absoluteUrl(modules.user.logo.url) : null;
+  return { siteName, logo: uploaded ?? absoluteUrl(DEFAULT_LOGO), shareImage: uploaded ?? absoluteUrl(DEFAULT_SHARE_IMAGE) };
 }
 
 /** Breadcrumb trail for a category path, or null when any category on it is hidden. */
@@ -75,7 +82,7 @@ const productLinks = (products) => products.map((p) => ({ name: p.name, path: `/
  */
 export const seoService = {
   async home() {
-    const { siteName, logo } = await branding();
+    const { siteName, logo, shareImage } = await branding();
     const [categories, featured] = await Promise.all([
       Category.find({ status: 'active', level: 0 }).sort({ sortOrder: 1, name: 1 }).select('name slug').lean(),
       Product.find({ ...VISIBLE })
@@ -95,7 +102,7 @@ export const seoService = {
       ogTitle: home.ogTitle || undefined,
       ogDescription: home.ogDescription || undefined,
       path: '/',
-      image: home.ogImage?.url ? absoluteUrl(home.ogImage.url) : logo,
+      image: home.ogImage?.url ? absoluteUrl(home.ogImage.url) : shareImage,
       jsonLd: [
         {
           '@context': 'https://schema.org',
@@ -128,7 +135,7 @@ export const seoService = {
   },
 
   async product(slug) {
-    const { siteName } = await branding();
+    const { siteName, shareImage } = await branding();
     const p = await Product.findOne({ slug, ...VISIBLE })
       .populate('vendor', 'store.name store.slug')
       .lean();
@@ -194,8 +201,8 @@ export const seoService = {
       ogDescription: p.seo?.ogDescription || undefined,
       keywords: [...new Set([...(p.searchKeywords ?? []), ...(p.tags ?? [])])].join(', ') || undefined,
       path,
-      image: images[0],
-      imageAlt: p.images[0]?.alt || p.name,
+      image: images[0] ?? shareImage,
+      imageAlt: images[0] ? p.images[0]?.alt || p.name : siteName,
       ogType: 'product',
       price: { amount: rupees(low), currency: 'INR' },
       jsonLd: [product, breadcrumbList([{ name: 'Home', path: '/' }, ...crumbs, { name: p.name, path }])],
@@ -218,7 +225,7 @@ export const seoService = {
   },
 
   async category(slug) {
-    const { siteName } = await branding();
+    const { siteName, shareImage } = await branding();
     const category = await Category.findOne({ slug, status: 'active' }).select('name slug description image ancestors seo').lean();
     const crumbs = category && (await trail(category.ancestors));
     if (!category || !crumbs) return { status: 404, title: `Department not found | ${siteName}` };
@@ -241,7 +248,7 @@ export const seoService = {
       title: category.seo?.title || fillTemplate(templates.title, vars) || category.name,
       description: snippet(description),
       path,
-      image: category.image?.url && absoluteUrl(category.image.url),
+      image: category.image?.url ? absoluteUrl(category.image.url) : shareImage,
       jsonLd: [
         breadcrumbList([{ name: 'Home', path: '/' }, ...crumbs, { name: category.name, path }]),
         {
@@ -268,7 +275,7 @@ export const seoService = {
   },
 
   async store(slug) {
-    const { siteName } = await branding();
+    const { siteName, shareImage } = await branding();
     const vendor = await Vendor.findOne({ 'store.slug': slug, status: 'approved' }).select('store address.city address.state').lean();
     if (!vendor) return { status: 404, title: `Store not found | ${siteName}` };
 
@@ -288,7 +295,7 @@ export const seoService = {
       title: fillTemplate(templates.title, vars) || vendor.store.name,
       description: snippet(description),
       path,
-      image: vendor.store.logo?.url && absoluteUrl(vendor.store.logo.url),
+      image: vendor.store.logo?.url ? absoluteUrl(vendor.store.logo.url) : shareImage,
       jsonLd: [
         {
           '@context': 'https://schema.org',
@@ -311,7 +318,7 @@ export const seoService = {
 
   /** An information page (terms, privacy…): its text as plain paragraphs. */
   async page(slug) {
-    const { siteName } = await branding();
+    const { siteName, shareImage } = await branding();
     let page;
     try {
       page = await pageService.publicGet(slug);
@@ -324,6 +331,7 @@ export const seoService = {
       title: `${page.seo.title || page.title} | ${siteName}`,
       description: snippet(page.seo.description || plain),
       path: `/pages/${page.slug}`,
+      image: shareImage,
       content: { heading: page.title, body: plain },
     };
   },

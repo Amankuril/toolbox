@@ -4,10 +4,10 @@ import { ModuleContext } from '@/core/module'
 import { useModuleIsolation } from '@/core/navigation/moduleIsolation'
 import { useModuleTheme } from '@/core/settings/usePublicSettings'
 
-const DEFAULT_FAVICON = '/toolboxlogo.jpeg'
+const DEFAULT_FAVICON = '/toolshub-icon.png'
 
 function getMimeType(url) {
-  if (!url) return 'image/jpeg'
+  if (!url) return 'image/png'
   const clean = url.split('?')[0].toLowerCase()
   if (clean.endsWith('.svg')) return 'image/svg+xml'
   if (clean.endsWith('.png')) return 'image/png'
