@@ -2,13 +2,14 @@ import { logger } from '#config/logger.js';
 import { Category } from '#modules/categories/category.model.js';
 import { brandForPdf, C, createPdf, date, loadPdfImage, money } from '#modules/invoices/pdf.kit.js';
 import { Vendor } from '#modules/vendors/vendor.model.js';
-import { availableQty, hasVariants, isTracked } from './inventory.js';
+import { availableQty, hasVariants, isTracked, variantTitle } from './inventory.js';
 import { Product } from './product.model.js';
-import { commonFilter } from './product.service.js';
+import { ADMIN_SORT, adminFilter, adminSortCollation } from './product.service.js';
 
 /**
  * Product catalogue PDF for admins: one card per product (photo, name, codes, category, seller, description,
- * price, GST, stock, order quantities, variants, key specs), filtered like the admin product list.
+ * price, GST, stock, order quantities, variants, key specs), filtered and sorted like the admin product list.
+ * Products with variants get a table of every variant (options, SKU, price, MRP, stock) under their card.
  */
 
 /** Photos are fetched over the network; past this the download would take minutes. */
@@ -19,6 +20,20 @@ const STATUS_LABEL = { draft: 'Draft', pending: 'Pending review', active: 'Live'
 const STATUS_COLOR = { active: C.PRIMARY, pending: '#b45309', rejected: '#b91c1c', draft: C.MUTED, inactive: C.MUTED, archived: C.MUTED };
 const TYPE_LABEL = { tool: 'Tools', machinery: 'Machinery', part: 'Spare parts' };
 const STOCK_LABEL = { in: 'In stock', out: 'Out of stock', low: 'Low stock' };
+const VARIANTS_LABEL = { with: 'With variants', without: 'Without variants' };
+const SORT_LABEL = {
+  updated: 'Status, recently updated',
+  newest: 'Newest first',
+  oldest: 'Oldest first',
+  price_asc: 'Price: low to high',
+  price_desc: 'Price: high to low',
+  name_asc: 'Name: A to Z',
+  name_desc: 'Name: Z to A',
+  stock_asc: 'Stock: low to high',
+  stock_desc: 'Stock: high to low',
+};
+/** The catalogue reads like a book by default: A to Z. */
+const DEFAULT_SORT = 'name_asc';
 
 const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'", apos: "'", nbsp: ' ' };
 /** Rich-text description → plain text. */
@@ -73,7 +88,7 @@ function variantSummary(p) {
 }
 
 /** What the filters say, in words, for the cover line. */
-async function describeFilters({ q, type, category, status, stock, vendor, featured }) {
+async function describeFilters({ q, type, category, status, stock, vendor, featured, minPrice, maxPrice, variants }) {
   const parts = [];
   if (q) parts.push(`Search “${q}”`);
   if (status) parts.push(STATUS_LABEL[status]);
@@ -82,19 +97,106 @@ async function describeFilters({ q, type, category, status, stock, vendor, featu
   if (vendor) parts.push((await Vendor.findById(vendor).select('store.name').lean())?.store?.name ?? 'Seller');
   if (stock) parts.push(STOCK_LABEL[stock]);
   if (featured !== undefined) parts.push(featured ? 'Featured' : 'Not featured');
+  if (minPrice !== undefined && maxPrice !== undefined) parts.push(`${money(minPrice)} – ${money(maxPrice)}`);
+  else if (minPrice !== undefined) parts.push(`From ${money(minPrice)}`);
+  else if (maxPrice !== undefined) parts.push(`Up to ${money(maxPrice)}`);
+  if (variants) parts.push(VARIANTS_LABEL[variants]);
   return parts.join('  ·  ');
+}
+
+/** Stock and status cells for one variant row. */
+function variantStock(p, v) {
+  if (p.inventory?.available === false || v.available === false) return { text: 'Unavailable', color: '#b91c1c' };
+  if (!isTracked(p)) return { text: 'Available', color: C.PRIMARY };
+  const qty = availableQty(p, v);
+  return qty > 0 ? { text: qty.toLocaleString('en-IN'), color: C.INK } : { text: 'Out of stock', color: '#b91c1c' };
+}
+
+/**
+ * Every variant of `p` as a compact table starting at kit.y (full width, tinted header, zebra rows).
+ * Breaks across pages, repeating the header with the product name. Leaves kit.y below the table.
+ */
+function drawVariantTable(kit, p) {
+  const { doc, left, width } = kit;
+  const optionNames = (p.variantOptions ?? []).map((o) => o.name).filter(Boolean);
+  const fixed = [
+    { key: 'sku', label: 'SKU', w: 92 },
+    { key: 'price', label: 'Price', w: 62, align: 'right' },
+    { key: 'mrp', label: 'MRP', w: 62, align: 'right' },
+    { key: 'off', label: 'Off', w: 34, align: 'right' },
+    { key: 'stock', label: 'Stock', w: 66, align: 'right' },
+  ];
+  const numW = 20;
+  const optW = (width - numW - fixed.reduce((n, c) => n + c.w, 0)) / Math.max(optionNames.length, 1);
+  const cols = [
+    { key: 'n', label: '#', w: numW },
+    ...(optionNames.length ? optionNames.map((name, k) => ({ key: `o${k}`, label: name, w: optW })) : [{ key: 'o0', label: 'Variant', w: optW }]),
+    ...fixed,
+  ];
+  const cellPad = 4;
+  const headH = 16;
+  const rowH = 14;
+
+  const drawHeader = (cont) => {
+    doc.roundedRect(left, kit.y, width, headH, 3).fill(C.TINT);
+    let x = left;
+    for (const c of cols) {
+      kit.label(c.label, x + cellPad, kit.y + 5, { width: c.w - cellPad * 2, align: c.align, color: C.PRIMARY, lineBreak: false, ellipsis: true, height: 8 });
+      x += c.w;
+    }
+    if (cont) {
+      kit.text(`${p.name} · variants (continued)`, left, kit.y - 11, { font: 'bold', size: 7, color: C.MUTED, width, lineBreak: false, ellipsis: true, height: 9 });
+    }
+    kit.y += headH;
+  };
+
+  drawHeader(false);
+  p.variants.forEach((v, k) => {
+    if (kit.ensure(rowH, () => (kit.y += 12))) drawHeader(true);
+    const stock = variantStock(p, v);
+    const off = v.mrp > v.price ? `${Math.round(((v.mrp - v.price) / v.mrp) * 100)}%` : '—';
+    const cells = {
+      n: { text: String(k + 1), color: C.MUTED },
+      ...(optionNames.length
+        ? Object.fromEntries(optionNames.map((_, i) => [`o${i}`, { text: v.options?.[i] || '—', font: 'bold', color: C.INK }]))
+        : { o0: { text: variantTitle(p, v) || (v.options ?? []).join(' / ') || '—', font: 'bold', color: C.INK } }),
+      sku: { text: v.sku || '—', color: C.BODY },
+      price: { text: money(v.price), font: 'bold', color: C.PRIMARY },
+      mrp: { text: v.mrp > v.price ? money(v.mrp) : '—', color: C.MUTED },
+      off: { text: off, color: C.BODY },
+      stock: { text: stock.text, font: 'bold', color: stock.color },
+    };
+    if (k % 2) doc.rect(left, kit.y, width, rowH).fill(C.ZEBRA);
+    let x = left;
+    for (const c of cols) {
+      const cell = cells[c.key];
+      kit.text(cell.text, x + cellPad, kit.y + 3.6, {
+        font: cell.font,
+        size: 7.2,
+        color: cell.color,
+        width: c.w - cellPad * 2,
+        align: c.align,
+        height: 9,
+        ellipsis: true,
+        lineBreak: false,
+      });
+      x += c.w;
+    }
+    kit.y += rowH;
+    kit.hline(kit.y, left, left + width, C.SOFT_RULE, 0.5);
+  });
 }
 
 /** @returns {Promise<{ filename: string, pdf: Buffer }>} */
 export async function renderCatalogPdf(query = {}) {
-  const { vendor, featured } = query;
-  const filter = commonFilter(query);
-  if (vendor) filter.vendor = vendor;
-  if (featured !== undefined) filter.isFeatured = featured;
+  const { sort: requestedSort, page: _page, limit: _limit, ...filters } = query;
+  const sort = ADMIN_SORT[requestedSort] ? requestedSort : DEFAULT_SORT;
+  const filter = adminFilter(filters);
+  const collation = adminSortCollation(sort);
 
   const [products, total, brand, filterText] = await Promise.all([
-    Product.find(filter)
-      .sort({ name: 1, _id: 1 })
+    Product.find(filter, null, collation && { collation })
+      .sort(ADMIN_SORT[sort])
       .limit(CATALOG_MAX_PRODUCTS)
       .select(
         'name sku brand modelNumber type status shortDescription description images variants variantOptions pricing inventory specifications warranty condition category vendor isFeatured',
@@ -104,7 +206,7 @@ export async function renderCatalogPdf(query = {}) {
       .lean(),
     Product.countDocuments(filter),
     brandForPdf(),
-    describeFilters(query),
+    describeFilters(filters),
   ]);
   const photos = await mapPool(products, IMAGE_CONCURRENCY, photo);
 
@@ -123,11 +225,12 @@ export async function renderCatalogPdf(query = {}) {
   });
   kit.facts([
     ['Filters', filterText || 'None: every product'],
+    ['Sorted by', SORT_LABEL[sort]],
     ['Products', products.length.toLocaleString('en-IN')],
     ['Prices', 'In ₹, including GST'],
   ]);
   if (total > products.length) {
-    kit.text(`Only the first ${products.length} products (by name) are included. Narrow the filters to see the rest.`, left, kit.y - 6, {
+    kit.text(`Only the first ${products.length} products (${SORT_LABEL[sort].toLowerCase()}) are included. Narrow the filters to see the rest.`, left, kit.y - 6, {
       size: 7.5,
       color: '#b45309',
       width,
@@ -174,7 +277,9 @@ export async function renderCatalogPdf(query = {}) {
       24;
     const h = Math.max(imgBox + pad * 2, midH + pad, panelH + 16, 128);
 
-    kit.ensure(h + 10);
+    // Keep the variant table's header and first rows on the same page as the card.
+    const variantLead = variants ? 4 + 16 + 14 * Math.min(p.variants.length, 3) : 0;
+    kit.ensure(h + 10 + variantLead);
     const y = kit.y;
     if (i % 2) doc.roundedRect(left, y, width, h, 6).fill(C.ZEBRA);
     doc.roundedRect(left, y, width, h, 6).lineWidth(0.7).strokeColor(C.RULE).stroke();
@@ -255,6 +360,11 @@ export async function renderCatalogPdf(query = {}) {
     });
 
     kit.y = y + h + 10;
+    if (variants) {
+      kit.y = y + h + 4;
+      drawVariantTable(kit, p);
+      kit.y += 12;
+    }
   });
 
   const stamp = now.toISOString().slice(0, 10);

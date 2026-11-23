@@ -273,8 +273,26 @@ export const vendorListProducts = {
   query: z.object({ ...listBase, status: z.enum(PRODUCT_STATUSES).optional() }),
 };
 
+/** Admin list / catalogue PDF orderings (see ADMIN_SORT in product.service.js). */
+export const ADMIN_SORTS = ['updated', 'newest', 'oldest', 'price_asc', 'price_desc', 'name_asc', 'name_desc', 'stock_asc', 'stock_desc'];
+
 export const adminListProducts = {
-  query: z.object({ ...listBase, status: z.enum(PRODUCT_STATUSES).optional(), vendor: objectId.optional(), featured: queryBool }),
+  query: z
+    .object({
+      ...listBase,
+      status: z.enum(PRODUCT_STATUSES).optional(),
+      vendor: objectId.optional(),
+      featured: queryBool,
+      sort: z.enum(ADMIN_SORTS).optional(),
+      // Paise, matched against the listed ("from") price.
+      minPrice: z.coerce.number().int().min(0).optional(),
+      maxPrice: z.coerce.number().int().min(0).optional(),
+      variants: z.enum(['with', 'without']).optional(),
+    })
+    .refine((v) => v.minPrice === undefined || v.maxPrice === undefined || v.minPrice <= v.maxPrice, {
+      message: 'Minimum price must not be above the maximum',
+      path: ['maxPrice'],
+    }),
 };
 
 const csvList = z

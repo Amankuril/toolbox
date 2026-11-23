@@ -26,14 +26,14 @@ import { toast } from 'sonner'
 import { errorMessage } from '@/core/api/errors'
 import { useSearchParamsState } from '@/core/hooks/useSearchParamsState'
 import { PRODUCT_TYPE_LABEL, PRODUCT_TYPES } from '@/core/lib/constants'
-import { formatINR, formatNumber } from '@/core/lib/format'
+import { formatINR, formatNumber, toPaise } from '@/core/lib/format'
 import { Badge, StatusBadge } from '@/ui/Badge'
 import { Thumb } from '@/ui/Brand'
 import { Button } from '@/ui/Button'
 import { Card } from '@/ui/Card'
 import { FilterTabs, Menu } from '@/ui/Controls'
 import { DataTable, Pagination, pageSize } from '@/ui/DataTable'
-import { Select } from '@/ui/Field'
+import { Input, Select } from '@/ui/Field'
 import { PageHeader } from '@/ui/PageHeader'
 import { ActionDialog, RowActions } from '@/ui/RowActions'
 import { SearchField } from '@/ui/SearchField'
@@ -66,6 +66,21 @@ const BULK_ACTIONS = [
   },
 ]
 const BULK_DONE = { approve: 'approved', show: 'live', hide: 'hidden', feature: 'featured', unfeature: 'removed from featured', delete: 'deleted' }
+
+const SORTS = [
+  { value: '', label: 'Sort: recently updated' },
+  { value: 'price_asc', label: 'Price: low to high' },
+  { value: 'price_desc', label: 'Price: high to low' },
+  { value: 'name_asc', label: 'Name: A to Z' },
+  { value: 'name_desc', label: 'Name: Z to A' },
+  { value: 'newest', label: 'Newest first' },
+  { value: 'oldest', label: 'Oldest first' },
+  { value: 'stock_asc', label: 'Stock: low to high' },
+  { value: 'stock_desc', label: 'Stock: high to low' },
+]
+
+/** URL keeps whole rupees; the API takes paise. */
+const rupeesToPaise = (v) => (v && Number(v) >= 0 ? toPaise(v) : undefined)
 
 const TABS = [
   { value: '', label: 'All' },
@@ -102,6 +117,10 @@ export default function ProductsPage() {
     featured: filters.featured || undefined,
     category: filters.category || undefined,
     stock: filters.stock || undefined,
+    variants: filters.variants || undefined,
+    minPrice: rupeesToPaise(filters.minPrice),
+    maxPrice: rupeesToPaise(filters.maxPrice),
+    sort: filters.sort || undefined,
   }
   const { data: tree } = useQuery({ queryKey: adminKeys.categoryTree, queryFn: adminApi.categoryTree, staleTime: 5 * 60_000 })
   const categoryOptions = useMemo(() => flattenTree(tree ?? []), [tree])
@@ -169,6 +188,24 @@ export default function ProductsPage() {
           <Select value={filters.featured ?? ''} onChange={(e) => setFiltersAndClear({ featured: e.target.value })} className="w-auto">
             <option value="">Featured: any</option>
             <option value="true">Featured only</option>
+          </Select>
+          <Select value={filters.variants ?? ''} onChange={(e) => setFiltersAndClear({ variants: e.target.value })} className="w-auto">
+            <option value="">Variants: any</option>
+            <option value="with">With variants</option>
+            <option value="without">Without variants</option>
+          </Select>
+          <PriceRangeFilter
+            key={`${filters.minPrice ?? ''}-${filters.maxPrice ?? ''}`}
+            min={filters.minPrice}
+            max={filters.maxPrice}
+            onChange={(minPrice, maxPrice) => setFiltersAndClear({ minPrice, maxPrice })}
+          />
+          <Select value={filters.sort ?? ''} onChange={(e) => setFiltersAndClear({ sort: e.target.value })} className="w-auto" aria-label="Sort products">
+            {SORTS.map((s) => (
+              <option key={s.value} value={s.value}>
+                {s.label}
+              </option>
+            ))}
           </Select>
           {filters.vendor && (
             <Button variant="soft" size="sm" onClick={() => setFiltersAndClear({ vendor: '' })}>
@@ -317,10 +354,47 @@ export default function ProductsPage() {
   )
 }
 
-/** Product catalogue PDF: what the current filters match, or every product. */
+/** "₹ min – ₹ max" in whole rupees; applies on Enter or when a box loses focus. */
+function PriceRangeFilter({ min, max, onChange }) {
+  const [lo, setLo] = useState(min ?? '')
+  const [hi, setHi] = useState(max ?? '')
+  const apply = () => {
+    let [a, b] = [lo, hi]
+    // Typed the wrong way round: swap rather than show nothing.
+    if (a && b && Number(a) > Number(b)) [a, b] = [b, a]
+    if (a !== (min ?? '') || b !== (max ?? '')) onChange(a, b)
+  }
+  const field = (value, set, label) => (
+    <Input
+      prefix="₹"
+      inputMode="numeric"
+      value={value}
+      onChange={(e) => set(e.target.value.replace(/\D/g, ''))}
+      onBlur={apply}
+      onKeyDown={(e) => e.key === 'Enter' && apply()}
+      placeholder={label}
+      aria-label={`${label} price`}
+      className="w-28"
+    />
+  )
+  return (
+    <div className="flex items-center gap-1.5 text-sm text-slate-600">
+      {field(lo, setLo, 'Min')}
+      <span aria-hidden>–</span>
+      {field(hi, setHi, 'Max')}
+      {(min || max) && (
+        <Button variant="ghost" size="icon-sm" aria-label="Clear price range" onClick={() => onChange('', '')}>
+          <X />
+        </Button>
+      )}
+    </div>
+  )
+}
+
+/** Product catalogue PDF: what the current filters match, or every product. Both follow the chosen sort. */
 function CatalogPdfButton({ params }) {
   const [busy, setBusy] = useState(false)
-  const { page: _page, limit: _limit, ...filters } = params
+  const { page: _page, limit: _limit, sort, ...filters } = params
   const filtered = Object.values(filters).some((v) => v !== undefined)
   const download = async (query) => {
     setBusy(true)
@@ -340,8 +414,8 @@ function CatalogPdfButton({ params }) {
         </Button>
       }
       items={[
-        filtered && { label: 'Matching current filters', icon: FileText, onSelect: () => download(filters) },
-        { label: 'All products', icon: FileText, onSelect: () => download({}) },
+        filtered && { label: 'Matching current filters', icon: FileText, onSelect: () => download({ ...filters, sort }) },
+        { label: 'All products', icon: FileText, onSelect: () => download({ sort }) },
       ]}
     />
   )

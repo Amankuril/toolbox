@@ -95,6 +95,24 @@ describe('product catalogue PDF', () => {
     expect(none.body.subarray(0, 5).toString()).toBe('%PDF-');
   });
 
+  it('sorts and filters by price and variants, in the list and the PDF', async () => {
+    const names = async (query) =>
+      (await request(app).get(`${API}/admin/products`).query(query).set(A()).expect(200)).body.data.map((p) => p.name);
+
+    expect(await names({ sort: 'price_asc' })).toEqual(['Safety Gloves', 'Bosch GSB 500W Impact Drill', 'Monoblock Pump 1HP']);
+    expect(await names({ sort: 'price_desc' })).toEqual(['Monoblock Pump 1HP', 'Bosch GSB 500W Impact Drill', 'Safety Gloves']);
+    expect(await names({ sort: 'name_desc' })).toEqual(['Safety Gloves', 'Monoblock Pump 1HP', 'Bosch GSB 500W Impact Drill']);
+    expect(await names({ minPrice: 100_000, maxPrice: 500_000 })).toEqual(['Bosch GSB 500W Impact Drill']);
+    expect(await names({ variants: 'with' })).toEqual(['Safety Gloves']);
+    expect((await names({ variants: 'without' })).sort()).toEqual(['Bosch GSB 500W Impact Drill', 'Monoblock Pump 1HP']);
+    await request(app).get(`${API}/admin/products`).query({ minPrice: 5, maxPrice: 1 }).set(A()).expect(422);
+    await request(app).get(`${API}/admin/products`).query({ sort: 'bogus' }).set(A()).expect(422);
+
+    const sorted = await pdf({ sort: 'price_desc', variants: 'with', minPrice: 10_000 }).expect(200);
+    expect(sorted.body.subarray(0, 5).toString()).toBe('%PDF-');
+    if (process.env.CATALOG_PDF_OUT) await writeFile(process.env.CATALOG_PDF_OUT.replace(/\.pdf$/, '-variants.pdf'), sorted.body);
+  });
+
   it('is for admins only', async () => {
     await request(app).get(`${API}/admin/products/catalog.pdf`).expect(401);
   });

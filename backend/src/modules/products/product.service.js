@@ -232,6 +232,34 @@ export function commonFilter({ q, type, category, status, stock }) {
   return filter;
 }
 
+/** Admin list / catalogue PDF orderings; `_id` keeps ties stable across pages. */
+export const ADMIN_SORT = {
+  updated: { status: 1, updatedAt: -1, _id: -1 },
+  newest: { createdAt: -1, _id: -1 },
+  oldest: { createdAt: 1, _id: 1 },
+  price_asc: { 'pricing.price': 1, _id: 1 },
+  price_desc: { 'pricing.price': -1, _id: 1 },
+  name_asc: { name: 1, _id: 1 },
+  name_desc: { name: -1, _id: 1 },
+  stock_asc: { 'inventory.stock': 1, _id: 1 },
+  stock_desc: { 'inventory.stock': -1, _id: 1 },
+};
+/** Name sorts ignore case ("drill" sits next to "Drill"). */
+export const adminSortCollation = (sort) => (sort?.startsWith('name_') ? { locale: 'en', strength: 2 } : undefined);
+
+/** Admin list and catalogue PDF filters: the panel filters plus seller, featured, price range and variants. */
+export function adminFilter({ vendor, featured, minPrice, maxPrice, variants, ...query }) {
+  const filter = commonFilter(query);
+  if (vendor) filter.vendor = vendor;
+  if (featured !== undefined) filter.isFeatured = featured;
+  if (minPrice !== undefined || maxPrice !== undefined) {
+    filter['pricing.price'] = { ...(minPrice !== undefined && { $gte: minPrice }), ...(maxPrice !== undefined && { $lte: maxPrice }) };
+  }
+  if (variants === 'with') filter['variants.0'] = { $exists: true };
+  if (variants === 'without') filter['variants.0'] = { $exists: false };
+  return filter;
+}
+
 /** Ids of every photo and video file on a product (gallery and variant photos). */
 function mediaIdsOf(product) {
   const ids = [
@@ -536,13 +564,12 @@ export const productService = {
 
   /* ─────────────────────────── Admin ─────────────────────────── */
 
-  async adminList({ page, limit, vendor, featured, ...query }) {
-    const filter = commonFilter(query);
-    if (vendor) filter.vendor = vendor;
-    if (featured !== undefined) filter.isFeatured = featured;
+  async adminList({ page, limit, sort, ...query }) {
+    const filter = adminFilter(query);
+    const collation = adminSortCollation(sort);
     const [rows, total] = await Promise.all([
-      Product.find(filter)
-        .sort({ status: 1, updatedAt: -1 })
+      Product.find(filter, null, collation && { collation })
+        .sort(ADMIN_SORT[sort] ?? ADMIN_SORT.updated)
         .skip((page - 1) * limit)
         .limit(limit)
         .populate('category', 'name slug')
